@@ -9,6 +9,7 @@ from backend.db.session import connect
 from backend.services.review_service import (
     export_approved_facts,
     list_review_facts,
+    pdf_file_url,
     update_review_status,
 )
 
@@ -58,6 +59,7 @@ def test_review_service_updates_status_and_exports_approved(tmp_path):
 
     assert facts[0]["review_status"] == "approved"
     assert facts[0]["property_name"] == "double_remanent_polarization_2Pr"
+    assert "pdf_path" in facts[0]
     assert "checked against source" in export_path.read_text(encoding="utf-8-sig")
 
 
@@ -67,3 +69,14 @@ def test_review_service_rejects_unknown_status(tmp_path):
 
     with pytest.raises(ValueError):
         update_review_status("missing", "published", db_path=db_path)
+
+
+def test_pdf_file_url_points_to_local_page(tmp_path):
+    pdf_path = tmp_path / "source.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4\n")
+
+    url = pdf_file_url(str(pdf_path), page_number=3)
+
+    assert url is not None
+    assert url.startswith("file:///")
+    assert url.endswith("#page=3")

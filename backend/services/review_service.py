@@ -4,6 +4,7 @@ import csv
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from backend.core.config import PROJECT_ROOT
 from backend.db.session import connect
@@ -35,6 +36,11 @@ def _fact_record(row: Any) -> dict[str, Any]:
         "confidence": prop.get("confidence") or preaudit.get("confidence"),
         "evidence_text": prop.get("evidence_text"),
         "reviewer_notes": row["reviewer_notes"],
+        "paper_title": row["paper_title"],
+        "doi": row["doi"],
+        "year": row["year"],
+        "pdf_file_name": row["pdf_file_name"],
+        "pdf_path": row["pdf_path"],
     }
 
 
@@ -54,11 +60,16 @@ def list_review_facts(
     with connect(db_path) as conn:
         rows = conn.execute(
             f"""
-            SELECT fact_id, review_status, paper_id, pdf_id, chunk_id, page_number,
-                   payload_json, reviewer_notes, created_at
+            SELECT rf.fact_id, rf.review_status, rf.paper_id, rf.pdf_id, rf.chunk_id,
+                   rf.page_number, rf.payload_json, rf.reviewer_notes, rf.created_at,
+                   p.title AS paper_title, p.doi, p.year,
+                   pf.file_name AS pdf_file_name, pf.file_path AS pdf_path
             FROM reviewed_facts
+            rf
+            LEFT JOIN papers p ON p.paper_id = rf.paper_id
+            LEFT JOIN pdf_files pf ON pf.pdf_id = rf.pdf_id
             {where}
-            ORDER BY created_at DESC
+            ORDER BY rf.created_at DESC
             LIMIT ?
             """,
             params,
@@ -67,6 +78,18 @@ def list_review_facts(
     if property_name and property_name != "all":
         facts = [fact for fact in facts if fact["property_name"] == property_name]
     return facts
+
+
+def pdf_file_url(pdf_path: str | None, page_number: int | None = None) -> str | None:
+    if not pdf_path:
+        return None
+    path = Path(pdf_path)
+    if not path.exists():
+        return None
+    url = path.resolve().as_uri()
+    if page_number:
+        url = f"{url}#page={quote(str(page_number))}"
+    return url
 
 
 def update_review_status(
@@ -116,6 +139,11 @@ def export_approved_facts(
         "confidence",
         "evidence_text",
         "reviewer_notes",
+        "paper_title",
+        "doi",
+        "year",
+        "pdf_file_name",
+        "pdf_path",
     ]
     with target.open("w", newline="", encoding="utf-8-sig") as fh:
         writer = csv.DictWriter(fh, fieldnames=fields)
