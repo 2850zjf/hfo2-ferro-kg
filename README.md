@@ -7,13 +7,18 @@
 
 ## 当前状态
 
-这是第一阶段的项目骨架，已经包含：
+本地工作台已经跑通第一版闭环，并保留人工复核门槛：
 
-- 标准目录结构
-- Streamlit 本地工作台首页
-- SQLite 初始化模块
-- 基础项目规则和环境变量样例
-- 最小 pytest 测试
+- 213 篇 PDF 已登记到本地 SQLite，PDF 路径均指向 `data/raw_pdfs/`
+- 2964 页 PDF 文本已解析
+- 9597 个 document chunk 已生成，其中 6793 个为高价值 chunk
+- 386 个表格结果已保留
+- 6681 条 HfO2 抽取候选已生成
+- 434 条机器预审核事实已进入审核区
+- 图谱导出包含 1217 个节点、2126 条关系
+- 轻量 RAG 索引覆盖 6793 个高价值 chunk
+
+当前校验结论：这些结果是机器预审核数据，不是最终人工 approved 数据。`validation_report.md` 显示证据和页码/chunk 追溯完整，但有 2 条 Pr 大于 100 μC/cm²，需要优先人工复核。
 
 ## 数据放置规则
 
@@ -49,6 +54,12 @@ streamlit run app/Home.py
 
 ```bash
 pytest
+```
+
+生成本地质量校验报告：
+
+```bash
+python pipelines/10_validate_results.py
 ```
 
 ## LLM 抽取
@@ -97,3 +108,11 @@ HFO2_FERROKG_USE_LLM = "true"
 8. 知识图谱构建
 9. RAG 问答
 10. 数据分析看板
+11. 本地质量校验与人工审核
+
+## 审核原则
+
+- `preapproved_machine` 只能代表机器预审核通过，不能直接用于论文结论。
+- `needs_human_review`、异常值和综述/二手数据必须人工复核。
+- 只有人工确认后的 `approved` 事实才适合导出为正式结果。
+- Pr 和 2Pr 必须分开看；系统不会自动把 2Pr 当作 Pr。

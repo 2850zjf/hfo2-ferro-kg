@@ -14,6 +14,7 @@ from backend.services.graph_builder import build_graph
 from backend.services.hfo2_extractor import run_extraction
 from backend.services.pdf_manifest import build_manifest
 from backend.services.pdf_parser import parse_pending_pdfs
+from backend.services.quality_validator import write_validation_report
 from backend.services.table_extractor import extract_tables
 from backend.services.vector_store import build_lightweight_index
 
@@ -48,6 +49,7 @@ def main() -> None:
     print(build_graph())
     print(build_lightweight_index())
     print({"report": str(write_markdown_report())})
+    print({"validation_report": str(write_validation_report())})
 
 
 if __name__ == "__main__":

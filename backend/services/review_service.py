@@ -1,0 +1,124 @@
+from __future__ import annotations
+
+import csv
+import json
+from pathlib import Path
+from typing import Any
+
+from backend.core.config import PROJECT_ROOT
+from backend.db.session import connect
+
+
+REVIEW_STATUSES = {"pending", "preapproved_machine", "needs_human_review", "approved", "rejected"}
+
+
+def _fact_record(row: Any) -> dict[str, Any]:
+    payload = json.loads(row["payload_json"])
+    prop = payload.get("property") or {}
+    material = payload.get("material") or {}
+    sample = payload.get("sample") or {}
+    preaudit = payload.get("preaudit") or {}
+    return {
+        "fact_id": row["fact_id"],
+        "review_status": row["review_status"],
+        "paper_id": row["paper_id"],
+        "pdf_id": row["pdf_id"],
+        "chunk_id": row["chunk_id"],
+        "page_number": row["page_number"],
+        "material": material.get("canonical_name") or material.get("raw_name"),
+        "material_family": material.get("material_family"),
+        "device_stack": sample.get("device_stack"),
+        "property_name": prop.get("property_name"),
+        "raw_property_name": prop.get("raw_property_name"),
+        "value": prop.get("normalized_value", prop.get("value")),
+        "unit": prop.get("normalized_unit") or prop.get("unit"),
+        "confidence": prop.get("confidence") or preaudit.get("confidence"),
+        "evidence_text": prop.get("evidence_text"),
+        "reviewer_notes": row["reviewer_notes"],
+    }
+
+
+def list_review_facts(
+    status: str | None = None,
+    property_name: str | None = None,
+    limit: int = 500,
+    db_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if status and status != "all":
+        clauses.append("review_status = ?")
+        params.append(status)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    params.append(limit)
+    with connect(db_path) as conn:
+        rows = conn.execute(
+            f"""
+            SELECT fact_id, review_status, paper_id, pdf_id, chunk_id, page_number,
+                   payload_json, reviewer_notes, created_at
+            FROM reviewed_facts
+            {where}
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            params,
+        ).fetchall()
+    facts = [_fact_record(row) for row in rows]
+    if property_name and property_name != "all":
+        facts = [fact for fact in facts if fact["property_name"] == property_name]
+    return facts
+
+
+def update_review_status(
+    fact_id: str,
+    status: str,
+    reviewer_notes: str | None = None,
+    db_path: Path | None = None,
+) -> None:
+    if status not in REVIEW_STATUSES:
+        raise ValueError(f"Unsupported review status: {status}")
+    with connect(db_path) as conn:
+        updated = conn.execute(
+            """
+            UPDATE reviewed_facts
+            SET review_status = ?,
+                reviewer_notes = COALESCE(?, reviewer_notes),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE fact_id = ?
+            """,
+            (status, reviewer_notes, fact_id),
+        ).rowcount
+        conn.commit()
+    if updated == 0:
+        raise ValueError(f"Unknown fact_id: {fact_id}")
+
+
+def export_approved_facts(
+    output_path: Path | None = None,
+    db_path: Path | None = None,
+) -> Path:
+    target = output_path or PROJECT_ROOT / "data" / "exports" / "approved_facts.csv"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    rows = list_review_facts(status="approved", limit=100000, db_path=db_path)
+    fields = [
+        "fact_id",
+        "paper_id",
+        "pdf_id",
+        "chunk_id",
+        "page_number",
+        "material",
+        "material_family",
+        "device_stack",
+        "property_name",
+        "raw_property_name",
+        "value",
+        "unit",
+        "confidence",
+        "evidence_text",
+        "reviewer_notes",
+    ]
+    with target.open("w", newline="", encoding="utf-8-sig") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows({field: row.get(field) for field in fields} for row in rows)
+    return target

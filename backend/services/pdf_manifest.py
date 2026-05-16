@@ -117,8 +117,9 @@ def save_manifest(rows: list[PDFManifestRow], csv_path: Path, db_path: Path | No
                 parse_status, is_duplicate, duplicate_of_pdf_id, paper_id, error_message
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(file_path) DO UPDATE SET
+            ON CONFLICT(pdf_id) DO UPDATE SET
                 file_name = excluded.file_name,
+                file_path = excluded.file_path,
                 sha256 = excluded.sha256,
                 file_size = excluded.file_size,
                 page_count = excluded.page_count,

@@ -53,9 +53,16 @@
 - python pipelines/05_run_extraction.py
 - python pipelines/07_build_graph.py
 - python pipelines/08_build_vector_index.py
+- python pipelines/10_validate_results.py
 
 LLM 规则：
 - 第一版启用 LLM 结构化抽取，但必须保留规则兜底。
 - 没有 OPENAI_API_KEY 时不能报错中断全流程。
 - LLM 抽取结果必须通过 Pydantic schema 校验。
 - 所有 LLM 结果必须进入候选和机器预审核状态，不直接当作人工 approved。
+
+质量校验规则：
+- `preapproved_machine` 不是人工通过，只能用于机器预审核浏览和下一步人工审核。
+- 发布论文、报告或正式图谱前必须运行 `python pipelines/10_validate_results.py`。
+- Pr > 100 μC/cm²、2Pr > 200 μC/cm²、Ec > 10 MV/cm 必须标记为人工复核。
+- 缺少 evidence_text、page_number 或 chunk_id 的事实不能进入正式结果。
