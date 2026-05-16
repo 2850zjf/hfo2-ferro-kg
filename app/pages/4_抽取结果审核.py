@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sys
+import html
+import urllib.parse
 from pathlib import Path
 
 import pandas as pd
@@ -18,6 +20,121 @@ from backend.services.review_service import (
     pdf_file_url,
     update_review_status,
 )
+
+
+def _short_cell(value: object, limit: int = 120) -> str:
+    text = "" if value is None else str(value)
+    text = " ".join(text.split())
+    if len(text) > limit:
+        text = text[: limit - 1] + "…"
+    return html.escape(text)
+
+
+def _render_clickable_fact_table(df: pd.DataFrame, active_fact_id: str | None) -> None:
+    columns = [
+        ("fact_id", "fact_id（点击切换）", 180),
+        ("review_status", "review_status", 170),
+        ("material", "material", 120),
+        ("property_name", "property_name", 260),
+        ("value", "value", 90),
+        ("unit", "unit", 90),
+        ("page_number", "page", 80),
+        ("confidence", "confidence", 100),
+        ("doi", "doi", 180),
+        ("paper_title", "paper_title", 360),
+        ("evidence_text", "evidence_text", 460),
+    ]
+    header = "".join(
+        f'<th style="min-width:{width}px">{html.escape(label)}</th>'
+        for key, label, width in columns
+    )
+    rows = []
+    for _, row in df.iterrows():
+        fact_id = str(row.get("fact_id", ""))
+        row_class = "active-row" if fact_id == active_fact_id else ""
+        cells: list[str] = []
+        for key, _, _ in columns:
+            if key == "fact_id":
+                href = f"?fact_id={urllib.parse.quote(fact_id)}"
+                cells.append(
+                    '<td class="fact-id">'
+                    f'<a href="{href}" target="_self" title="切换到 {html.escape(fact_id)}">'
+                    f"{html.escape(fact_id)}</a></td>"
+                )
+            elif key == "confidence":
+                value = row.get(key, "")
+                try:
+                    value = f"{float(value):.2f}"
+                except (TypeError, ValueError):
+                    pass
+                cells.append(f"<td>{_short_cell(value)}</td>")
+            elif key in {"paper_title", "evidence_text"}:
+                cells.append(f"<td>{_short_cell(row.get(key, ''), 160)}</td>")
+            else:
+                cells.append(f"<td>{_short_cell(row.get(key, ''))}</td>")
+        rows.append(f'<tr class="{row_class}">' + "".join(cells) + "</tr>")
+
+    st.markdown(
+        """
+        <style>
+        .review-table-wrap {
+            max-height: 430px;
+            overflow: auto;
+            border: 1px solid rgba(250, 250, 250, 0.16);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .review-table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 0.84rem;
+        }
+        .review-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #171821;
+            color: rgba(250, 250, 250, 0.74);
+            font-weight: 600;
+            text-align: left;
+        }
+        .review-table th,
+        .review-table td {
+            border-bottom: 1px solid rgba(250, 250, 250, 0.11);
+            border-right: 1px solid rgba(250, 250, 250, 0.08);
+            padding: 0.48rem 0.58rem;
+            white-space: nowrap;
+            vertical-align: top;
+        }
+        .review-table tr:hover {
+            background: rgba(255, 255, 255, 0.055);
+        }
+        .review-table .active-row {
+            background: rgba(255, 75, 75, 0.14);
+        }
+        .review-table .fact-id a {
+            color: #7eb6ff;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .review-table .fact-id a:hover {
+            text-decoration: underline;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f"""
+        <div class="review-table-wrap">
+            <table class="review-table">
+                <thead><tr>{header}</tr></thead>
+                <tbody>{''.join(rows)}</tbody>
+            </table>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 st.set_page_config(page_title="抽取结果审核", layout="wide")
@@ -80,29 +197,35 @@ else:
         "paper_title",
         "evidence_text",
     ]
-    st.write("点击下方表格中的一行，详情区会自动切换到对应论文和事实。")
-    table_event = st.dataframe(
-        df[table_cols],
-        use_container_width=True,
-        hide_index=True,
-        on_select="rerun",
-        selection_mode="single-row",
-        key="review_fact_table",
-    )
+    visible_fact_ids = df["fact_id"].tolist()
+    facts_by_id = {fact["fact_id"]: fact for fact in facts}
 
-    selected_rows = table_event.selection.rows if table_event.selection else []
-    if selected_rows:
-        st.session_state["selected_review_fact_id"] = df.iloc[selected_rows[0]]["fact_id"]
-    if st.session_state.get("selected_review_fact_id") not in set(df["fact_id"]):
-        st.session_state["selected_review_fact_id"] = df.iloc[0]["fact_id"]
+    query_fact_id = st.query_params.get("fact_id")
+    if query_fact_id in visible_fact_ids:
+        st.session_state["active_review_fact_id"] = query_fact_id
+    if st.session_state.get("active_review_fact_id") not in set(visible_fact_ids):
+        st.session_state["active_review_fact_id"] = visible_fact_ids[0]
 
-    fact_id = st.selectbox(
-        "当前审核 fact_id",
-        df["fact_id"].tolist(),
-        index=df["fact_id"].tolist().index(st.session_state["selected_review_fact_id"]),
-        key="selected_review_fact_id",
-    )
-    selected = next(fact for fact in facts if fact["fact_id"] == fact_id)
+    fact_id = st.session_state["active_review_fact_id"]
+    st.write("点击或双击表格里的 fact_id，下面的当前审核对象会切换到对应论文和事实。")
+    _render_clickable_fact_table(df[table_cols], fact_id)
+
+    jump_left, jump_right = st.columns([1.3, 2])
+    with jump_left:
+        st.text_input("当前审核 fact_id", fact_id, disabled=True)
+    with jump_right:
+        manual_fact_id = st.selectbox(
+            "手动跳转",
+            visible_fact_ids,
+            index=visible_fact_ids.index(fact_id),
+            key=f"manual_review_fact_id_{fact_id}",
+        )
+        if manual_fact_id != fact_id:
+            st.session_state["active_review_fact_id"] = manual_fact_id
+            st.query_params["fact_id"] = manual_fact_id
+            st.rerun()
+
+    selected = facts_by_id[fact_id]
 
     source_text = ""
     if selected.get("chunk_id"):
