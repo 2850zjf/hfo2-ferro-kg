@@ -32,10 +32,10 @@ def test_unusual_polarization_marked_for_check():
         material_ref="HZO",
         property_name="double_remanent_polarization_2Pr",
         raw_property_name="2Pr",
-        value=150,
+        value=250,
         unit="uC/cm2",
         confidence=0.8,
-        evidence_text="The reported 2Pr was 150 uC/cm2 in the measured capacitor.",
+        evidence_text="The reported 2Pr was 250 uC/cm2 in the measured capacitor.",
     )
 
     normalized, warnings = normalize_property(prop)

@@ -35,3 +35,38 @@ def test_rules_preaudit_requires_contextual_evidence():
     assert status == "preapproved_machine"
     assert confidence < 0.7
     assert warnings
+
+
+def test_rules_extract_2pr_with_dot_as_double_remanent():
+    row = Row(
+        {
+            "paper_id": "paper_1",
+            "pdf_id": "pdf_1",
+            "chunk_id": "chunk_1",
+            "page_number": 1,
+            "text": "The HZO capacitor showed 2.Pr values of 60 uC/cm2 after optimization.",
+        }
+    )
+
+    result = extract_chunk(row)
+
+    assert result.properties[0].property_name == "double_remanent_polarization_2Pr"
+    assert result.properties[0].value == 60
+
+
+def test_rules_do_not_attach_parenthetical_2pr_value_to_pr():
+    row = Row(
+        {
+            "paper_id": "paper_1",
+            "pdf_id": "pdf_1",
+            "chunk_id": "chunk_1",
+            "page_number": 1,
+            "text": "The paper reports record-high Pr (2Pr > 40 uC/cm2) in a thin HZO film.",
+        }
+    )
+
+    result = extract_chunk(row)
+
+    assert [prop.property_name for prop in result.properties] == [
+        "double_remanent_polarization_2Pr"
+    ]

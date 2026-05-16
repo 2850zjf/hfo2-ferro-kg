@@ -67,11 +67,11 @@ def normalize_property(prop: PropertyExtraction) -> tuple[PropertyExtraction, li
         warnings.append("Reported as 2Pr; do not treat as Pr without explicit derived flag.")
     check_value = data["normalized_value"] if data["normalized_value"] is not None else prop.value
     if check_value is not None:
-        if prop.property_name in {
-            PropertyName.remanent_polarization_Pr,
-            PropertyName.double_remanent_polarization_2Pr,
-        } and check_value > 100:
+        if prop.property_name == PropertyName.remanent_polarization_Pr and check_value > 100:
             warnings.append("needs_check: unusually high polarization value")
+            data["review_status"] = "needs_human_review"
+        if prop.property_name == PropertyName.double_remanent_polarization_2Pr and check_value > 200:
+            warnings.append("needs_check: unusually high double remanent polarization value")
             data["review_status"] = "needs_human_review"
         if prop.property_name == PropertyName.coercive_field_Ec and check_value > 10:
             warnings.append("needs_check: unusually high coercive field")

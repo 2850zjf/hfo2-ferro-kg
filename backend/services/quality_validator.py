@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,8 @@ PROPERTY_LIMITS = {
     "double_remanent_polarization_2Pr": ("μC/cm²", 200.0, "2Pr above 200 μC/cm² is unusual for HfO2 and needs review."),
     "coercive_field_Ec": ("MV/cm", 10.0, "Ec above 10 MV/cm is unusual for HfO2 and needs review."),
 }
+
+TWO_PR_RE = re.compile(r"\b2\s*\.?\s*P\s*\.?\s*r\b", re.IGNORECASE)
 
 
 def _counter_dict(counter: Counter[str]) -> dict[str, int]:
@@ -92,6 +95,17 @@ def validate_local_results(db_path: Path | None = None) -> dict[str, Any]:
                 missing_evidence.append(row["fact_id"])
             if not (row["page_number"] or row["chunk_id"] or evidence.get("page_number") or evidence.get("chunk_id")):
                 missing_trace.append(row["fact_id"])
+
+            if property_name == "remanent_polarization_Pr" and evidence_text and TWO_PR_RE.search(evidence_text):
+                anomaly_records.append(
+                    {
+                        "fact_id": row["fact_id"],
+                        "property_name": property_name,
+                        "value": prop.get("normalized_value", prop.get("value")),
+                        "unit": unit,
+                        "reason": "Evidence mentions 2Pr but the fact is classified as Pr.",
+                    }
+                )
 
             value = _safe_float(prop.get("normalized_value", prop.get("value")))
             if value is None:

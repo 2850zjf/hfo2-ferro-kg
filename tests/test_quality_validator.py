@@ -64,3 +64,45 @@ def test_validate_local_results_flags_hfo2_domain_anomaly(tmp_path):
     assert report["domain_anomalies"][0]["fact_id"] == "fact_1"
     assert report["missing_evidence_fact_ids"] == []
     assert report["quality_gate"]["publication_ready"] is False
+
+
+def test_validate_local_results_flags_pr_2pr_confusion(tmp_path):
+    db_path = tmp_path / "quality.sqlite3"
+    init_database(db_path)
+    payload = {
+        "material": {"canonical_name": "HZO", "material_family": "HZO"},
+        "sample": {},
+        "property": {
+            "property_name": "remanent_polarization_Pr",
+            "value": 40,
+            "unit": "μC/cm²",
+            "normalized_value": 40,
+            "normalized_unit": "μC/cm²",
+            "evidence_text": "The capacitor showed 2.Pr values of 40 μC/cm².",
+        },
+    }
+    with connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO reviewed_facts (
+                fact_id, paper_id, pdf_id, chunk_id, page_number, fact_type,
+                payload_json, review_status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "fact_2",
+                "paper_1",
+                "pdf_1",
+                "chunk_1",
+                2,
+                "ferroelectric_property",
+                json.dumps(payload),
+                "preapproved_machine",
+            ),
+        )
+        conn.commit()
+
+    report = validate_local_results(db_path=db_path)
+
+    assert report["domain_anomalies"][0]["reason"] == "Evidence mentions 2Pr but the fact is classified as Pr."

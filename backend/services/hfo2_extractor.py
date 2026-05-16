@@ -32,13 +32,13 @@ ONTOLOGY_VERSION = "hfo2-ferrokg-v1"
 PROPERTY_PATTERNS = [
     (
         PropertyName.double_remanent_polarization_2Pr,
-        r"\b2\s*P\s*r\b[^.;,\n]{0,80}?([-+]?\d+(?:\.\d+)?)\s*(?:μ|µ|u)?C\s*/?\s*cm(?:\^?2|²|−2|-2)",
+        r"\b2\s*\.?\s*P\s*\.?\s*r\b[^.;,\n]{0,80}?([-+]?\d+(?:\.\d+)?)\s*(?:μ|µ|u)?C\s*/?\s*cm(?:\^?2|²|−2|-2)",
         "2Pr",
         "μC/cm²",
     ),
     (
         PropertyName.remanent_polarization_Pr,
-        r"\bP\s*r\b[^.;,\n]{0,80}?([-+]?\d+(?:\.\d+)?)\s*(?:μ|µ|u)?C\s*/?\s*cm(?:\^?2|²|−2|-2)",
+        r"\bP\s*\.?\s*r\b[^.;,\n]{0,80}?([-+]?\d+(?:\.\d+)?)\s*(?:μ|µ|u)?C\s*/?\s*cm(?:\^?2|²|−2|-2)",
         "Pr",
         "μC/cm²",
     ),
@@ -179,6 +179,10 @@ def extract_properties(text: str, material_ref: str) -> tuple[list[PropertyExtra
     warnings: list[str] = []
     for prop_name, pattern, raw_name, default_unit in PROPERTY_PATTERNS:
         for match in re.finditer(pattern, text, re.I):
+            if prop_name == PropertyName.remanent_polarization_Pr:
+                prefix = text[max(0, match.start() - 6) : match.start()]
+                if re.search(r"2\s*\.?\s*$", prefix) or re.search(r"\b2\s*\.?\s*P\s*\.?\s*r\b", match.group(0), re.I):
+                    continue
             if prop_name == PropertyName.endurance_cycles:
                 value = 10 ** int(match.group(1))
             else:
