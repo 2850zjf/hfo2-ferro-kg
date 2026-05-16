@@ -62,7 +62,7 @@ def keyword_retrieve(question: str, limit: int = 8, db_path: Path | None = None)
 
 def answer_question(question: str, db_path: Path | None = None) -> str:
     hits = keyword_retrieve(question, db_path=db_path)
-    vector_hits = search_vector_index(question, limit=5)
+    vector_hits = [] if db_path is not None else search_vector_index(question, limit=5)
     if not hits and not vector_hits:
         return "当前数据库没有足够证据回答该问题。"
 

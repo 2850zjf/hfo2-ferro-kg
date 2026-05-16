@@ -116,9 +116,11 @@ def extract_materials(text: str) -> list[MaterialExtraction]:
 
 def extract_samples(text: str, material_ref: str) -> list[SampleExtraction]:
     thickness = None
-    thickness_match = re.search(r"([-+]?\d+(?:\.\d+)?)\s*nm[^.;,\n]{0,50}(film|HZO|HfO2|hafnia)", text, re.I)
+    thickness_match = re.search(r"\b(\d+(?:\.\d+)?)\s*nm[^.;,\n]{0,50}(film|HZO|HfO2|hafnia)", text, re.I)
     if thickness_match:
         thickness = float(thickness_match.group(1))
+        if thickness <= 0:
+            thickness = None
 
     deposition = None
     for candidate in ["ALD", "sputtering", "sputter", "PLD", "CSD", "sol-gel", "MOCVD"]:
@@ -288,6 +290,7 @@ def run_extraction(
         "preapproved": 0,
         "needs_human_review": 0,
         "empty": 0,
+        "errors": 0,
     }
 
     with connect(db_path) as conn:
@@ -311,24 +314,62 @@ def run_extraction(
                 source = "rules"
                 extractor_version = EXTRACTOR_VERSION
                 llm_error = None
-                if should_use_llm:
-                    outcome = extract_chunk_with_llm(row, model=llm_model)
-                    if outcome.result is not None:
-                        result = outcome.result
-                        source = "llm"
-                        extractor_version = LLM_EXTRACTOR_VERSION
-                        stats["llm_used"] += 1
-                    else:
-                        llm_error = outcome.error_message
-                        if outcome.used_llm:
-                            stats["llm_failed"] += 1
+                try:
+                    if should_use_llm:
+                        outcome = extract_chunk_with_llm(row, model=llm_model)
+                        if outcome.result is not None:
+                            result = outcome.result
+                            source = "llm"
+                            extractor_version = LLM_EXTRACTOR_VERSION
+                            stats["llm_used"] += 1
                         else:
-                            stats["llm_skipped"] += 1
+                            llm_error = outcome.error_message
+                            if outcome.used_llm:
+                                stats["llm_failed"] += 1
+                            else:
+                                stats["llm_skipped"] += 1
+                            result = extract_chunk(row)
+                            stats["rules_used"] += 1
+                    else:
                         result = extract_chunk(row)
                         stats["rules_used"] += 1
-                else:
-                    result = extract_chunk(row)
-                    stats["rules_used"] += 1
+                except Exception as exc:
+                    stats["errors"] += 1
+                    error_payload = {
+                        "paper_id": row["paper_id"],
+                        "pdf_id": row["pdf_id"],
+                        "chunk_id": row["chunk_id"],
+                        "page_number": row["page_number"],
+                        "error": str(exc),
+                        "extractor_version": extractor_version,
+                        "ontology_version": ONTOLOGY_VERSION,
+                    }
+                    candidate_id = f"cand_error_{uuid.uuid5(uuid.NAMESPACE_URL, row['chunk_id'] + str(exc)).hex[:16]}"
+                    if not dry_run:
+                        conn.execute(
+                            """
+                            INSERT INTO extraction_candidates (
+                                candidate_id, paper_id, pdf_id, chunk_id, page_number, payload_json,
+                                extractor_version, ontology_version, confidence, status, error_message
+                            )
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                candidate_id,
+                                row["paper_id"],
+                                row["pdf_id"],
+                                row["chunk_id"],
+                                row["page_number"],
+                                json.dumps(error_payload, ensure_ascii=False),
+                                extractor_version,
+                                ONTOLOGY_VERSION,
+                                0,
+                                "extraction_error",
+                                str(exc),
+                            ),
+                        )
+                    fh.write(json.dumps({"candidate_id": candidate_id, **error_payload}, ensure_ascii=False) + "\n")
+                    continue
                 if not any([result.materials, result.samples, result.phases, result.properties, result.devices]):
                     stats["empty"] += 1
                     continue

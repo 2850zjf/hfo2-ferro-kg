@@ -115,10 +115,11 @@ def make_chunks_for_page(
     paper_id: str, pdf_id: str, page_number: int, text: str, start_index: int
 ) -> list[DocumentChunk]:
     chunks: list[DocumentChunk] = []
-    for offset, chunk_text in enumerate(split_text(text), start=start_index):
+    for chunk_text in split_text(text):
         section = infer_section(chunk_text)
         if section == "references":
             continue
+        offset = start_index + len(chunks)
         hfo2 = has_any(chunk_text, HFO2_KEYWORDS)
         process = has_any(chunk_text, PROCESS_KEYWORDS)
         prop = has_any(chunk_text, PROPERTY_KEYWORDS)
