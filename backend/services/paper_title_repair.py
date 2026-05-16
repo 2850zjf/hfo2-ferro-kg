@@ -335,13 +335,30 @@ def repair_paper_titles(
                 doi=row["doi"],
                 use_doi=use_doi,
             )
-            if candidate is None:
-                continue
             old_title = row["title"]
             old_score = title_score(old_title)
+            if candidate is None:
+                repairs.append(
+                    TitleRepairRow(
+                        paper_id=row["paper_id"],
+                        pdf_id=row["pdf_id"],
+                        file_name=row["file_name"],
+                        old_title=old_title,
+                        new_title=clean_title(old_title or ""),
+                        source="current",
+                        score=round(old_score, 2),
+                        changed=False,
+                    )
+                )
+                continue
+            should_replace = (
+                old_score == 0
+                or candidate.source == "doi"
+                or candidate.score >= old_score + 8
+            )
             changed = (old_title or "") != candidate.title and (
                 candidate.source != "filename" or old_score == 0
-            ) and candidate.score >= 45
+            ) and candidate.score >= 45 and should_replace
             repairs.append(
                 TitleRepairRow(
                     paper_id=row["paper_id"],
@@ -369,7 +386,8 @@ def repair_paper_titles(
             writer.writerow(row.__dict__)
 
     stats = {
-        "papers_seen": len(repairs),
+        "papers_seen": len(rows),
+        "titles_reported": len(repairs),
         "titles_changed": sum(row.changed for row in repairs),
         "report_path": str(target),
         "used_doi_metadata": int(use_doi),
