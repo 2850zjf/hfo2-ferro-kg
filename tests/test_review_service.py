@@ -11,6 +11,7 @@ from backend.services.review_service import (
     export_approved_facts,
     get_pdf_viewer_record,
     list_review_facts,
+    open_pdf_in_default_browser,
     pdf_file_url,
     pdf_viewer_url,
     update_review_status,
@@ -127,3 +128,38 @@ def test_get_pdf_viewer_record_reports_safe_existing_pdf(tmp_path, monkeypatch):
     assert record["exists"] is True
     assert record["is_safe_path"] is True
     assert record["paper_title"] == "Ferroelectric HfO2 Test Paper"
+
+
+def test_open_pdf_in_default_browser_uses_local_file_url(tmp_path, monkeypatch):
+    db_path = tmp_path / "review.sqlite3"
+    pdf_root = tmp_path / "raw_pdfs"
+    pdf_root.mkdir()
+    pdf_path = pdf_root / "paper.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setattr(
+        "backend.services.review_service.get_settings",
+        lambda: SimpleNamespace(pdf_root=pdf_root),
+    )
+    init_database(db_path)
+    with connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO pdf_files (
+                pdf_id, file_name, file_path, sha256, file_size
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("pdf_1", pdf_path.name, str(pdf_path), "abc", pdf_path.stat().st_size),
+        )
+        conn.commit()
+
+    opened_urls: list[str] = []
+    monkeypatch.setattr(
+        "backend.services.review_service.webbrowser.open",
+        lambda url, new=0, autoraise=True: opened_urls.append(url) or True,
+    )
+
+    result = open_pdf_in_default_browser("pdf_1", page_number=5, db_path=db_path)
+
+    assert result["ok"] is True
+    assert opened_urls == [f"{pdf_path.resolve().as_uri()}#page=5"]

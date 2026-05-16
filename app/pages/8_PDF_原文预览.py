@@ -12,7 +12,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.services.review_service import get_pdf_viewer_record
+from backend.services.review_service import (
+    get_pdf_viewer_record,
+    open_pdf_in_default_browser,
+    open_pdf_with_default_app,
+)
 
 
 def _query_value(name: str) -> str | None:
@@ -108,13 +112,29 @@ with top_right:
         _self_link_button("返回审核页", f"/抽取结果审核?fact_id={fact_id}")
 
 pdf_bytes = pdf_path.read_bytes()
-st.download_button(
-    "下载 / 用本机 PDF 阅读器打开",
-    pdf_bytes,
-    file_name=pdf_path.name,
-    mime="application/pdf",
-    use_container_width=True,
-)
+open_col1, open_col2, open_col3 = st.columns(3)
+with open_col1:
+    if st.button("用默认浏览器打开 PDF", use_container_width=True):
+        result = open_pdf_in_default_browser(pdf_id, page_number)
+        if result["ok"]:
+            st.success("已请求本机默认浏览器打开 PDF。")
+        else:
+            st.error(result["message"])
+with open_col2:
+    if st.button("用系统默认程序打开 PDF", use_container_width=True):
+        result = open_pdf_with_default_app(pdf_id)
+        if result["ok"]:
+            st.success("已请求系统默认程序打开 PDF。")
+        else:
+            st.error(result["message"])
+with open_col3:
+    st.download_button(
+        "下载 PDF",
+        pdf_bytes,
+        file_name=pdf_path.name,
+        mime="application/pdf",
+        use_container_width=True,
+    )
 
 try:
     with fitz.open(pdf_path) as doc:

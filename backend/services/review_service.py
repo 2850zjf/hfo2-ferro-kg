@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import csv
 import json
+import os
+import subprocess
+import sys
+import webbrowser
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlencode
@@ -92,6 +96,14 @@ def pdf_file_url(pdf_path: str | None, page_number: int | None = None) -> str | 
     return url
 
 
+def _is_safe_pdf_path(pdf_path: Path) -> bool:
+    pdf_root = get_settings().pdf_root.resolve()
+    try:
+        return pdf_path.resolve().is_relative_to(pdf_root)
+    except AttributeError:  # pragma: no cover - Python < 3.9 compatibility
+        return str(pdf_path.resolve()).startswith(str(pdf_root))
+
+
 def pdf_viewer_url(
     pdf_id: str | None,
     page_number: int | None = None,
@@ -108,7 +120,6 @@ def pdf_viewer_url(
 
 
 def get_pdf_viewer_record(pdf_id: str, db_path: Path | None = None) -> dict[str, Any] | None:
-    settings = get_settings()
     with connect(db_path) as conn:
         row = conn.execute(
             """
@@ -124,11 +135,6 @@ def get_pdf_viewer_record(pdf_id: str, db_path: Path | None = None) -> dict[str,
         return None
 
     pdf_path = Path(row["file_path"]).resolve()
-    pdf_root = settings.pdf_root.resolve()
-    try:
-        is_safe_path = pdf_path.is_relative_to(pdf_root)
-    except AttributeError:  # pragma: no cover - Python < 3.9 compatibility
-        is_safe_path = str(pdf_path).startswith(str(pdf_root))
     return {
         "pdf_id": row["pdf_id"],
         "file_name": row["file_name"],
@@ -139,7 +145,69 @@ def get_pdf_viewer_record(pdf_id: str, db_path: Path | None = None) -> dict[str,
         "doi": row["doi"],
         "year": row["year"],
         "exists": pdf_path.exists(),
-        "is_safe_path": is_safe_path,
+        "is_safe_path": _is_safe_pdf_path(pdf_path),
+    }
+
+
+def _validated_pdf_record(pdf_id: str, db_path: Path | None = None) -> tuple[dict[str, Any] | None, str | None]:
+    record = get_pdf_viewer_record(pdf_id, db_path=db_path)
+    if record is None:
+        return None, f"没有在数据库中找到 PDF：{pdf_id}"
+    if not record["exists"]:
+        return None, "数据库里有这篇 PDF 的记录，但本地文件不存在。"
+    if not record["is_safe_path"]:
+        return None, "这个 PDF 不在 data/raw_pdfs 安全目录下，已阻止打开。"
+    return record, None
+
+
+def open_pdf_in_default_browser(
+    pdf_id: str | None,
+    page_number: int | None = None,
+    db_path: Path | None = None,
+) -> dict[str, Any]:
+    if not pdf_id:
+        return {"ok": False, "message": "缺少 pdf_id。"}
+    record, error = _validated_pdf_record(pdf_id, db_path=db_path)
+    if error or record is None:
+        return {"ok": False, "message": error}
+    url = pdf_file_url(record["file_path"], page_number)
+    if not url:
+        return {"ok": False, "message": "无法生成本地 PDF 链接。"}
+    try:
+        opened = webbrowser.open(url, new=2, autoraise=True)
+    except Exception as exc:
+        return {"ok": False, "message": f"默认浏览器打开失败：{exc}"}
+    return {
+        "ok": bool(opened),
+        "message": "已请求本机默认浏览器打开 PDF。",
+        "url": url,
+        "file_path": record["file_path"],
+    }
+
+
+def open_pdf_with_default_app(
+    pdf_id: str | None,
+    db_path: Path | None = None,
+) -> dict[str, Any]:
+    if not pdf_id:
+        return {"ok": False, "message": "缺少 pdf_id。"}
+    record, error = _validated_pdf_record(pdf_id, db_path=db_path)
+    if error or record is None:
+        return {"ok": False, "message": error}
+    pdf_path = Path(record["file_path"])
+    try:
+        if sys.platform.startswith("win"):
+            os.startfile(pdf_path)  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(pdf_path)])
+        else:
+            subprocess.Popen(["xdg-open", str(pdf_path)])
+    except Exception as exc:
+        return {"ok": False, "message": f"系统默认程序打开失败：{exc}"}
+    return {
+        "ok": True,
+        "message": "已请求系统默认程序打开 PDF。",
+        "file_path": record["file_path"],
     }
 
 

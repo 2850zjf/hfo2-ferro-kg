@@ -17,6 +17,8 @@ from backend.services.review_service import (
     REVIEW_STATUSES,
     export_approved_facts,
     list_review_facts,
+    open_pdf_in_default_browser,
+    open_pdf_with_default_app,
     pdf_viewer_url,
     update_review_status,
 )
@@ -368,13 +370,39 @@ else:
 
         st.subheader("原文 PDF")
         pdf_path = selected.get("pdf_path")
+        local_open_left, local_open_right = st.columns(2)
+        with local_open_left:
+            if st.button(
+                "用默认浏览器打开 PDF",
+                key=f"open_browser_pdf_{fact_id}",
+                use_container_width=True,
+            ):
+                result = open_pdf_in_default_browser(
+                    selected.get("pdf_id"),
+                    selected.get("page_number"),
+                )
+                if result["ok"]:
+                    st.success("已请求本机默认浏览器打开 PDF。")
+                else:
+                    st.error(result["message"])
+        with local_open_right:
+            if st.button(
+                "用系统默认程序打开 PDF",
+                key=f"open_default_pdf_{fact_id}",
+                use_container_width=True,
+            ):
+                result = open_pdf_with_default_app(selected.get("pdf_id"))
+                if result["ok"]:
+                    st.success("已请求系统默认程序打开 PDF。")
+                else:
+                    st.error(result["message"])
         pdf_url = pdf_viewer_url(
             selected.get("pdf_id"),
             selected.get("page_number"),
             fact_id=fact_id,
         )
         if pdf_url:
-            _self_link_button("打开原文 PDF", pdf_url)
+            _self_link_button("网页内预览定位页", pdf_url)
         else:
             st.button("PDF 文件未找到", disabled=True, use_container_width=True)
         if pdf_path and Path(pdf_path).exists():
