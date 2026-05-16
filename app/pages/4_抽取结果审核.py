@@ -36,10 +36,20 @@ def _render_clickable_fact_table(df: pd.DataFrame, active_fact_id: str | None) -
     columns = [
         ("fact_id", "fact_id（点击切换）", 180),
         ("review_status", "review_status", 170),
+        ("context_quality", "关联完整度", 110),
         ("material", "material", 120),
+        ("material_system", "材料体系", 120),
         ("property_name", "property_name", 260),
         ("value", "value", 90),
         ("unit", "unit", 90),
+        ("film_thickness_nm", "厚度 nm", 90),
+        ("annealing_temperature_c", "退火 C", 90),
+        ("electrode_stack", "电极 stack", 220),
+        ("deposition_method", "沉积", 110),
+        ("device_type", "器件", 140),
+        ("phase_structure", "相结构", 160),
+        ("wake_up_state", "wake-up", 160),
+        ("endurance_state", "endurance", 170),
         ("page_number", "page", 80),
         ("confidence", "confidence", 100),
         ("doi", "doi", 180),
@@ -70,7 +80,7 @@ def _render_clickable_fact_table(df: pd.DataFrame, active_fact_id: str | None) -
                 except (TypeError, ValueError):
                     pass
                 cells.append(f"<td>{_short_cell(value)}</td>")
-            elif key in {"paper_title", "evidence_text"}:
+            elif key in {"paper_title", "evidence_text", "electrode_stack"}:
                 cells.append(f"<td>{_short_cell(row.get(key, ''), 160)}</td>")
             else:
                 cells.append(f"<td>{_short_cell(row.get(key, ''))}</td>")
@@ -240,7 +250,14 @@ if not df.empty and search_text.strip():
         "paper_title",
         "doi",
         "material",
+        "material_system",
         "property_name",
+        "electrode_stack",
+        "deposition_method",
+        "device_type",
+        "phase_structure",
+        "wake_up_state",
+        "endurance_state",
         "evidence_text",
         "pdf_file_name",
     ]
@@ -256,10 +273,20 @@ else:
     table_cols = [
         "fact_id",
         "review_status",
+        "context_quality",
         "material",
+        "material_system",
         "property_name",
         "value",
         "unit",
+        "film_thickness_nm",
+        "annealing_temperature_c",
+        "electrode_stack",
+        "deposition_method",
+        "device_type",
+        "phase_structure",
+        "wake_up_state",
+        "endurance_state",
         "page_number",
         "confidence",
         "doi",
@@ -337,6 +364,52 @@ else:
         if selected.get("device_stack"):
             st.write(f"器件/堆栈：`{selected.get('device_stack')}`")
         st.write(f"证据句：{selected.get('evidence_text')}")
+
+        st.subheader("本体关联上下文")
+        quality = selected.get("context_quality") or "unknown"
+        score = selected.get("context_score")
+        ready = "是" if selected.get("comparison_ready") else "否"
+        st.write(f"关联完整度：`{quality}`  分数：`{score}`  可直接比较：`{ready}`")
+        context_rows = [
+            ("材料体系", selected.get("material_system")),
+            ("Pr 或 2Pr", selected.get("polarization_kind") or selected.get("property_name")),
+            ("薄膜厚度", selected.get("film_thickness_nm")),
+            ("退火温度 / 时间 / 气氛", " / ".join(
+                str(value)
+                for value in [
+                    selected.get("annealing_temperature_c"),
+                    selected.get("annealing_time_s"),
+                    selected.get("annealing_atmosphere"),
+                ]
+                if value not in (None, "")
+            )),
+            ("电极 stack", selected.get("electrode_stack")),
+            ("沉积方法", selected.get("deposition_method")),
+            ("器件类型", selected.get("device_type")),
+            ("相结构", selected.get("phase_structure")),
+            ("wake-up / endurance 状态", " / ".join(
+                value
+                for value in [
+                    selected.get("wake_up_state"),
+                    selected.get("endurance_state"),
+                ]
+                if value not in (None, "")
+            )),
+            ("证据句和页码", f"p.{selected.get('page_number')}: {selected.get('evidence_text')}"),
+        ]
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {"字段": label, "值": value if value not in (None, "") else "缺失"}
+                    for label, value in context_rows
+                ]
+            ),
+            hide_index=True,
+            use_container_width=True,
+        )
+        missing_context = selected.get("missing_context_labels") or []
+        if missing_context:
+            st.warning("缺少上下文：" + "；".join(str(item) for item in missing_context))
 
         with st.form("review_form"):
             new_status = st.selectbox(

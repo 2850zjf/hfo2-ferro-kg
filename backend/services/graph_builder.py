@@ -6,6 +6,7 @@ from pathlib import Path
 
 from backend.core.config import PROJECT_ROOT
 from backend.db.session import connect
+from backend.services.ontology_context import build_ontology_context
 from backend.services.pipeline_log import record_pipeline_run
 
 
@@ -39,6 +40,17 @@ def build_graph(output_dir: Path | None = None, db_path: Path | None = None) -> 
             prop = payload["property"]
             material = payload.get("material") or {"canonical_name": prop.get("material_ref", "HfO2"), "material_family": "unknown_hafnia"}
             sample = payload.get("sample") or {}
+            phases = payload.get("phases", [])
+            devices = payload.get("devices", [])
+            ontology_context = payload.get("ontology_context") or build_ontology_context(
+                material,
+                sample,
+                prop,
+                phases,
+                devices,
+            )
+            process_context = ontology_context["process_context"]
+            device_context = ontology_context["device_context"]
             paper_id = _node_id("Paper", row["paper_id"])
             material_id = _node_id("HafniaMaterial", material["canonical_name"])
             sample_label = sample.get("device_stack") or f"{material['canonical_name']} sample"
@@ -75,6 +87,8 @@ def build_graph(output_dir: Path | None = None, db_path: Path | None = None) -> 
                 "value": str(prop.get("normalized_value") or prop.get("value") or ""),
                 "unit": prop.get("normalized_unit") or prop.get("unit") or "",
                 "review_status": row["review_status"],
+                "context_quality": str(ontology_context.get("context_quality", "")),
+                "context_score": str(ontology_context.get("context_score", "")),
             }
             nodes[evidence_id] = {
                 "id": evidence_id,
@@ -101,7 +115,36 @@ def build_graph(output_dir: Path | None = None, db_path: Path | None = None) -> 
                 elec_id = _node_id("Electrode", sample["bottom_electrode"])
                 nodes[elec_id] = {"id": elec_id, "label": sample["bottom_electrode"], "type": "Electrode"}
                 edges.append({"source": sample_id, "target": elec_id, "type": "HAS_BOTTOM_ELECTRODE"})
-            for phase in payload.get("phases", []):
+            if sample.get("substrate"):
+                substrate_id = _node_id("Substrate", sample["substrate"])
+                nodes[substrate_id] = {
+                    "id": substrate_id,
+                    "label": sample["substrate"],
+                    "type": "Substrate",
+                }
+                edges.append({"source": sample_id, "target": substrate_id, "type": "ON_SUBSTRATE"})
+            process_summary = process_context.get("summary")
+            if process_summary:
+                process_id = _node_id("FabricationProcess", f"{row['fact_id']}_{process_summary}")
+                nodes[process_id] = {
+                    "id": process_id,
+                    "label": process_summary,
+                    "type": "FabricationProcess",
+                    "deposition_method": str(process_context.get("deposition_method") or ""),
+                    "annealing_temperature_c": str(process_context.get("annealing_temperature_c") or ""),
+                    "annealing_time_s": str(process_context.get("annealing_time_s") or ""),
+                    "annealing_atmosphere": str(process_context.get("annealing_atmosphere") or ""),
+                }
+                edges.append({"source": sample_id, "target": process_id, "type": "FABRICATED_BY"})
+            for device_type in device_context.get("device_types", []):
+                device_id = _node_id("Device", device_type)
+                nodes[device_id] = {"id": device_id, "label": device_type, "type": "Device"}
+                edges.append({"source": sample_id, "target": device_id, "type": "USED_IN"})
+            for dopant in material.get("dopant_elements") or []:
+                dopant_id = _node_id("Dopant", dopant)
+                nodes[dopant_id] = {"id": dopant_id, "label": dopant, "type": "Dopant"}
+                edges.append({"source": material_id, "target": dopant_id, "type": "HAS_DOPANT"})
+            for phase in phases:
                 phase_id = _node_id("PhaseStructure", phase["phase_name"])
                 nodes[phase_id] = {
                     "id": phase_id,

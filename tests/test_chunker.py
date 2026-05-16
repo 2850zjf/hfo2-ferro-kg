@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.services.chunker import make_chunks_for_page
+from backend.services.chunker import make_chunks_for_page, normalize_page_text, split_text
 
 
 def test_make_chunks_marks_high_value_hfo2_content():
@@ -16,3 +16,18 @@ def test_make_chunks_marks_high_value_hfo2_content():
     assert any(chunk.contains_process_keyword for chunk in chunks)
     assert any(chunk.contains_property_keyword for chunk in chunks)
     assert any(chunk.is_high_value for chunk in chunks)
+
+
+def test_split_text_keeps_overlap_between_chunks():
+    text = " ".join(f"Sentence {index} about HfO2." for index in range(160))
+
+    chunks = split_text(text, target_min=300, target_max=520, overlap_chars=80)
+
+    assert len(chunks) > 1
+    assert chunks[0][-40:].strip() in chunks[1]
+
+
+def test_normalize_page_text_repairs_line_hyphenation():
+    text = "ferro-\nelectric HfO2 thin film\n\n\nwith 2Pr"
+
+    assert normalize_page_text(text) == "ferroelectric HfO2 thin film\n\nwith 2Pr"

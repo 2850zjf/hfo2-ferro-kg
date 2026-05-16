@@ -22,6 +22,7 @@ HFO2_KEYWORDS = [
 ]
 PROPERTY_KEYWORDS = [
     "2pr",
+    "2.pr",
     " pr ",
     "remanent",
     "polarization",
@@ -33,11 +34,19 @@ PROPERTY_KEYWORDS = [
     "fatigue",
     "leakage",
     "memory window",
+    "switching",
+    "breakdown",
+    "dielectric constant",
+    "pund",
 ]
 PROCESS_KEYWORDS = [
     "ald",
+    "atomic layer deposition",
     "sputter",
+    "sputtering",
     "pld",
+    "mocvd",
+    "sol-gel",
     "anneal",
     "annealing",
     "rta",
@@ -45,8 +54,14 @@ PROCESS_KEYWORDS = [
     "pda",
     "tin",
     "electrode",
+    "substrate",
+    "thickness",
+    "nm",
     "orthorhombic",
     "pca21",
+    "tetragonal",
+    "monoclinic",
+    "xrd",
 ]
 
 
@@ -93,7 +108,20 @@ def has_any(text: str, keywords: list[str]) -> bool:
     return any(keyword in padded for keyword in keywords)
 
 
-def split_text(text: str, target_min: int = 800, target_max: int = 1500) -> list[str]:
+def normalize_page_text(text: str) -> str:
+    text = re.sub(r"(?<=\w)-\s*\n\s*(?=\w)", "", text)
+    text = re.sub(r"[ \t]+\n", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def split_text(
+    text: str,
+    target_min: int = 900,
+    target_max: int = 1800,
+    overlap_chars: int = 260,
+) -> list[str]:
+    text = normalize_page_text(text)
     paragraphs = [p.strip() for p in re.split(r"\n\s*\n|(?<=\.)\s+(?=[A-Z])", text) if p.strip()]
     chunks: list[str] = []
     current = ""
@@ -105,7 +133,8 @@ def split_text(text: str, target_min: int = 800, target_max: int = 1500) -> list
             current = f"{current}\n{para}"
         else:
             chunks.append(current)
-            current = para
+            overlap = current[-overlap_chars:].strip() if overlap_chars else ""
+            current = f"{overlap}\n{para}" if overlap else para
     if current:
         chunks.append(current)
     return chunks

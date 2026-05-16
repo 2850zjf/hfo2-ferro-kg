@@ -63,6 +63,10 @@ def test_review_service_updates_status_and_exports_approved(tmp_path):
 
     assert facts[0]["review_status"] == "approved"
     assert facts[0]["property_name"] == "double_remanent_polarization_2Pr"
+    assert facts[0]["material_system"] == "HZO"
+    assert facts[0]["electrode_stack"] == "TiN/HZO/TiN"
+    assert facts[0]["context_quality"] in {"weak", "partial", "strong"}
+    assert "ontology_context" in facts[0]
     assert "pdf_path" in facts[0]
     assert "checked against source" in export_path.read_text(encoding="utf-8-sig")
 

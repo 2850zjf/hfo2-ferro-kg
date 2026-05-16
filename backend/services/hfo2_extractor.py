@@ -22,6 +22,7 @@ from backend.schemas.hfo2_extraction_schema import (
 )
 from backend.services.fact_normalizer import normalize_property
 from backend.services.llm_extractor import extract_chunk_with_llm
+from backend.services.ontology_context import build_ontology_context
 from backend.services.pipeline_log import record_pipeline_run
 
 
@@ -422,6 +423,13 @@ def run_extraction(
                             "devices": [device.model_dump(mode="json") for device in result.devices],
                             "preaudit": payload["preaudit"],
                         }
+                        fact_payload["ontology_context"] = build_ontology_context(
+                            fact_payload["material"],
+                            fact_payload["sample"],
+                            fact_payload["property"],
+                            fact_payload["phases"],
+                            fact_payload["devices"],
+                        )
                         fact_id = f"fact_{uuid.uuid5(uuid.NAMESPACE_URL, candidate_id + str(index)).hex[:16]}"
                         if not dry_run:
                             conn.execute(

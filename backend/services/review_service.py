@@ -12,6 +12,7 @@ from urllib.parse import quote, urlencode
 
 from backend.core.config import PROJECT_ROOT, get_settings
 from backend.db.session import connect
+from backend.services.ontology_context import build_ontology_context
 
 
 REVIEW_STATUSES = {"pending", "preapproved_machine", "needs_human_review", "approved", "rejected"}
@@ -23,6 +24,21 @@ def _fact_record(row: Any) -> dict[str, Any]:
     material = payload.get("material") or {}
     sample = payload.get("sample") or {}
     preaudit = payload.get("preaudit") or {}
+    phases = payload.get("phases") or []
+    devices = payload.get("devices") or []
+    ontology_context = payload.get("ontology_context") or build_ontology_context(
+        material,
+        sample,
+        prop,
+        phases,
+        devices,
+    )
+    requested = ontology_context.get("requested_review_fields", {})
+    device_context = ontology_context.get("device_context", {})
+    process_context = ontology_context.get("process_context", {})
+    sample_context = ontology_context.get("sample_context", {})
+    structure_context = ontology_context.get("structure_context", {})
+    measurement_state = ontology_context.get("measurement_state_context", {})
     return {
         "fact_id": row["fact_id"],
         "review_status": row["review_status"],
@@ -33,6 +49,23 @@ def _fact_record(row: Any) -> dict[str, Any]:
         "material": material.get("canonical_name") or material.get("raw_name"),
         "material_family": material.get("material_family"),
         "device_stack": sample.get("device_stack"),
+        "material_system": requested.get("材料体系") or material.get("material_family"),
+        "polarization_kind": requested.get("Pr 或 2Pr"),
+        "film_thickness_nm": sample_context.get("film_thickness_nm"),
+        "annealing_temperature_c": process_context.get("annealing_temperature_c"),
+        "annealing_time_s": process_context.get("annealing_time_s"),
+        "annealing_atmosphere": process_context.get("annealing_atmosphere"),
+        "electrode_stack": requested.get("电极 stack") or device_context.get("electrode_stack"),
+        "deposition_method": process_context.get("deposition_method"),
+        "device_type": requested.get("器件类型"),
+        "phase_structure": requested.get("相结构"),
+        "wake_up_state": measurement_state.get("wake_up_state"),
+        "endurance_state": measurement_state.get("endurance_state"),
+        "context_score": ontology_context.get("context_score"),
+        "context_quality": ontology_context.get("context_quality"),
+        "comparison_ready": ontology_context.get("comparison_ready"),
+        "missing_context_labels": ontology_context.get("missing_context_labels", []),
+        "ontology_context": ontology_context,
         "property_name": prop.get("property_name"),
         "raw_property_name": prop.get("raw_property_name"),
         "value": prop.get("normalized_value", prop.get("value")),
@@ -250,7 +283,22 @@ def export_approved_facts(
         "page_number",
         "material",
         "material_family",
+        "material_system",
         "device_stack",
+        "film_thickness_nm",
+        "annealing_temperature_c",
+        "annealing_time_s",
+        "annealing_atmosphere",
+        "electrode_stack",
+        "deposition_method",
+        "device_type",
+        "phase_structure",
+        "wake_up_state",
+        "endurance_state",
+        "context_quality",
+        "context_score",
+        "comparison_ready",
+        "missing_context_labels",
         "property_name",
         "raw_property_name",
         "value",
