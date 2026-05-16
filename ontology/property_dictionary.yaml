@@ -1,0 +1,9 @@
+properties:
+  Pr: remanent_polarization_Pr
+  2Pr: double_remanent_polarization_2Pr
+  Ec: coercive_field_Ec
+  Ps: saturation_polarization_Ps
+  memory window: memory_window
+  endurance: endurance_cycles
+  retention: retention_time
+  leakage: leakage_current_density

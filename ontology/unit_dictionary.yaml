@@ -1,0 +1,13 @@
+units:
+  polarization:
+    canonical: μC/cm²
+    aliases: [uC/cm2, μC/cm2, μC cm−2, μC cm-2]
+  field:
+    canonical: MV/cm
+    aliases: [MV cm−1, MV cm-1, kV/cm]
+  thickness:
+    canonical: nm
+    aliases: [nanometer, nanometre]
+  temperature:
+    canonical: °C
+    aliases: [C, Celsius, degC]

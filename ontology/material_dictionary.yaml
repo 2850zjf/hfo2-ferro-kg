@@ -1,0 +1,12 @@
+materials:
+  hafnia: HfO2
+  hafnium oxide: HfO2
+  HfO2: HfO2
+  HZO: Hf1-xZrxO2
+  Hf0.5Zr0.5O2: HZO
+  La-doped HfO2: La:HfO2
+  Si-doped HfO2: Si:HfO2
+  Al-doped HfO2: Al:HfO2
+  Y-doped HfO2: Y:HfO2
+  Gd-doped HfO2: Gd:HfO2
+  Sr-doped HfO2: Sr:HfO2

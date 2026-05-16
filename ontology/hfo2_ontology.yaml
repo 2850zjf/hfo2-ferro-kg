@@ -1,0 +1,26 @@
+version: hfo2-ferrokg-v1
+entities:
+  Paper: "A scientific article."
+  HafniaMaterial: "HfO2-based ferroelectric material."
+  ThinFilmSample: "A specific sample or device stack reported in a paper."
+  Dopant: "Element or component used to stabilize ferroelectric hafnia."
+  PhaseStructure: "Crystal phase or space group of hafnia."
+  FabricationProcess: "Deposition and annealing process."
+  Electrode: "Top or bottom electrode."
+  Substrate: "Substrate used for film growth."
+  Device: "FeCAP, FeFET, FTJ, or related device."
+  FerroelectricProperty: "Measured property value."
+  Evidence: "Text/table evidence supporting a fact."
+relations:
+  REPORTS: {from: Paper, to: HafniaMaterial}
+  HAS_SAMPLE: {from: HafniaMaterial, to: ThinFilmSample}
+  HAS_DOPANT: {from: HafniaMaterial, to: Dopant}
+  HAS_PHASE: {from: ThinFilmSample, to: PhaseStructure}
+  FABRICATED_BY: {from: ThinFilmSample, to: FabricationProcess}
+  HAS_TOP_ELECTRODE: {from: ThinFilmSample, to: Electrode}
+  HAS_BOTTOM_ELECTRODE: {from: ThinFilmSample, to: Electrode}
+  ON_SUBSTRATE: {from: ThinFilmSample, to: Substrate}
+  USED_IN: {from: ThinFilmSample, to: Device}
+  HAS_PROPERTY: {from: ThinFilmSample, to: FerroelectricProperty}
+  SUPPORTED_BY: {from: FerroelectricProperty, to: Evidence}
+  FROM_PAPER: {from: Evidence, to: Paper}
