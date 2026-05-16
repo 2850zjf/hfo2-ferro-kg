@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -8,8 +9,10 @@ from backend.db.init_db import init_database
 from backend.db.session import connect
 from backend.services.review_service import (
     export_approved_facts,
+    get_pdf_viewer_record,
     list_review_facts,
     pdf_file_url,
+    pdf_viewer_url,
     update_review_status,
 )
 
@@ -80,3 +83,47 @@ def test_pdf_file_url_points_to_local_page(tmp_path):
     assert url is not None
     assert url.startswith("file:///")
     assert url.endswith("#page=3")
+
+
+def test_pdf_viewer_url_uses_pdf_id_not_local_path():
+    url = pdf_viewer_url("pdf_1", page_number=3, fact_id="fact_1")
+
+    assert url == "/PDF_原文预览?pdf_id=pdf_1&page=3&fact_id=fact_1"
+
+
+def test_get_pdf_viewer_record_reports_safe_existing_pdf(tmp_path, monkeypatch):
+    db_path = tmp_path / "review.sqlite3"
+    pdf_root = tmp_path / "raw_pdfs"
+    pdf_root.mkdir()
+    pdf_path = pdf_root / "paper.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setattr(
+        "backend.services.review_service.get_settings",
+        lambda: SimpleNamespace(pdf_root=pdf_root),
+    )
+    init_database(db_path)
+    with connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO papers (paper_id, title, year)
+            VALUES (?, ?, ?)
+            """,
+            ("paper_1", "Ferroelectric HfO2 Test Paper", 2026),
+        )
+        conn.execute(
+            """
+            INSERT INTO pdf_files (
+                pdf_id, file_name, file_path, sha256, file_size, paper_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            ("pdf_1", pdf_path.name, str(pdf_path), "abc", pdf_path.stat().st_size, "paper_1"),
+        )
+        conn.commit()
+
+    record = get_pdf_viewer_record("pdf_1", db_path=db_path)
+
+    assert record is not None
+    assert record["exists"] is True
+    assert record["is_safe_path"] is True
+    assert record["paper_title"] == "Ferroelectric HfO2 Test Paper"

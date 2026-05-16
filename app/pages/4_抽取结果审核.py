@@ -17,7 +17,7 @@ from backend.services.review_service import (
     REVIEW_STATUSES,
     export_approved_facts,
     list_review_facts,
-    pdf_file_url,
+    pdf_viewer_url,
     update_review_status,
 )
 
@@ -132,6 +132,73 @@ def _render_clickable_fact_table(df: pd.DataFrame, active_fact_id: str | None) -
                 <tbody>{''.join(rows)}</tbody>
             </table>
         </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_source_chunk(source: str, evidence: str) -> None:
+    escaped_source = html.escape(source)
+    if evidence and evidence in source:
+        escaped_evidence = html.escape(evidence)
+        escaped_source = escaped_source.replace(
+            escaped_evidence,
+            f'<mark class="evidence-highlight">{escaped_evidence}</mark>',
+            1,
+        )
+    st.markdown(
+        """
+        <style>
+        .source-chunk-box {
+            max-height: 520px;
+            overflow: auto;
+            white-space: pre-wrap;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            padding: 1rem;
+            line-height: 1.55;
+        }
+        .source-chunk-box .evidence-highlight {
+            background: rgba(255, 210, 77, 0.28);
+            color: inherit;
+            padding: 0 0.12rem;
+            border-radius: 3px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<div class="source-chunk-box">{escaped_source}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _self_link_button(label: str, href: str) -> None:
+    st.markdown(
+        f"""
+        <a class="self-link-button" href="{html.escape(href)}" target="_self">
+            {html.escape(label)}
+        </a>
+        <style>
+        .self-link-button {{
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+            padding: 0.55rem 0.75rem;
+            border: 1px solid rgba(250, 250, 250, 0.22);
+            border-radius: 0.45rem;
+            color: rgb(250, 250, 250) !important;
+            text-decoration: none !important;
+            font-weight: 600;
+        }}
+        .self-link-button:hover {{
+            border-color: rgba(255, 75, 75, 0.75);
+            background: rgba(255, 75, 75, 0.08);
+        }}
+        </style>
         """,
         unsafe_allow_html=True,
     )
@@ -258,11 +325,7 @@ else:
         st.subheader("原文 chunk")
         source = source_text or selected.get("evidence_text") or ""
         evidence = selected.get("evidence_text") or ""
-        if evidence and evidence in source:
-            highlighted = source.replace(evidence, f"**{evidence}**", 1)
-            st.markdown(highlighted)
-        else:
-            st.text_area("原文", source, height=380)
+        _render_source_chunk(source, evidence)
     with detail_right:
         st.subheader("候选事实")
         st.write(f"材料：`{selected.get('material')}`")
@@ -305,9 +368,13 @@ else:
 
         st.subheader("原文 PDF")
         pdf_path = selected.get("pdf_path")
-        pdf_url = pdf_file_url(pdf_path, selected.get("page_number"))
+        pdf_url = pdf_viewer_url(
+            selected.get("pdf_id"),
+            selected.get("page_number"),
+            fact_id=fact_id,
+        )
         if pdf_url:
-            st.link_button("打开原文 PDF", pdf_url, use_container_width=True)
+            _self_link_button("打开原文 PDF", pdf_url)
         else:
             st.button("PDF 文件未找到", disabled=True, use_container_width=True)
         if pdf_path and Path(pdf_path).exists():

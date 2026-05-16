@@ -4,9 +4,9 @@ import csv
 import json
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
-from backend.core.config import PROJECT_ROOT
+from backend.core.config import PROJECT_ROOT, get_settings
 from backend.db.session import connect
 
 
@@ -90,6 +90,57 @@ def pdf_file_url(pdf_path: str | None, page_number: int | None = None) -> str | 
     if page_number:
         url = f"{url}#page={quote(str(page_number))}"
     return url
+
+
+def pdf_viewer_url(
+    pdf_id: str | None,
+    page_number: int | None = None,
+    fact_id: str | None = None,
+) -> str | None:
+    if not pdf_id:
+        return None
+    params: dict[str, str] = {"pdf_id": pdf_id}
+    if page_number:
+        params["page"] = str(page_number)
+    if fact_id:
+        params["fact_id"] = fact_id
+    return f"/PDF_原文预览?{urlencode(params)}"
+
+
+def get_pdf_viewer_record(pdf_id: str, db_path: Path | None = None) -> dict[str, Any] | None:
+    settings = get_settings()
+    with connect(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT pf.pdf_id, pf.file_name, pf.file_path, pf.page_count,
+                   p.paper_id, p.title, p.doi, p.year
+            FROM pdf_files pf
+            LEFT JOIN papers p ON p.paper_id = pf.paper_id
+            WHERE pf.pdf_id = ?
+            """,
+            (pdf_id,),
+        ).fetchone()
+    if row is None:
+        return None
+
+    pdf_path = Path(row["file_path"]).resolve()
+    pdf_root = settings.pdf_root.resolve()
+    try:
+        is_safe_path = pdf_path.is_relative_to(pdf_root)
+    except AttributeError:  # pragma: no cover - Python < 3.9 compatibility
+        is_safe_path = str(pdf_path).startswith(str(pdf_root))
+    return {
+        "pdf_id": row["pdf_id"],
+        "file_name": row["file_name"],
+        "file_path": str(pdf_path),
+        "page_count": row["page_count"],
+        "paper_id": row["paper_id"],
+        "paper_title": row["title"],
+        "doi": row["doi"],
+        "year": row["year"],
+        "exists": pdf_path.exists(),
+        "is_safe_path": is_safe_path,
+    }
 
 
 def update_review_status(
