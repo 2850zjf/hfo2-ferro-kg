@@ -58,6 +58,18 @@ def test_parse_pdf_quality_and_paper_type(tmp_path):
     assert metadata["is_review"] is True
 
 
+def test_parse_pdf_prefers_filename_year_over_reference_year(tmp_path):
+    pdf_path = tmp_path / "2026_hzo_reference_mentions_2011.pdf"
+    make_pdf(
+        pdf_path,
+        "HZO Ferroelectric Capacitors\nA classic 2011 report is cited, but this paper is current.",
+    )
+
+    _, metadata = parse_pdf("pdf_1", "paper_1", pdf_path)
+
+    assert metadata["year"] == 2026
+
+
 def test_classify_paper_type():
     assert classify_paper_type("A theoretical perspective on hafnia", "")[0] == "theoretical"
     assert classify_paper_type("Phase-field simulation of HZO", "")[0] == "computational"

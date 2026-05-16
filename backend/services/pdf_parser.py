@@ -112,7 +112,8 @@ def parse_pdf(pdf_id: str, paper_id: str, pdf_path: Path) -> tuple[list[ParsedPa
     metadata_text = "\n".join(page.text for page in pages[:2])
     filename_title = title_from_filename(pdf_path)
     metadata = extract_initial_metadata(metadata_text, filename_title)
-    metadata["year"] = metadata["year"] or year_from_filename(pdf_path)
+    filename_year = year_from_filename(pdf_path)
+    metadata["year"] = filename_year or metadata["year"]
     paper_type, is_review = classify_paper_type(str(metadata["title"]), pdf_path.name)
     metadata["paper_type"] = paper_type
     metadata["is_review"] = is_review
