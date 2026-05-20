@@ -36,7 +36,11 @@ def table_id_for(pdf_id: str, page_number: int, table_index: int) -> str:
     return f"{pdf_id}_table_p{page_number:04d}_{table_index:03d}"
 
 
-def extract_tables(limit_pdfs: int | None = None, db_path: Path | None = None) -> dict[str, int]:
+def extract_tables(
+    limit_pdfs: int | None = None,
+    db_path: Path | None = None,
+    incremental: bool = False,
+) -> dict[str, int]:
     output_dir = PROJECT_ROOT / "data" / "tables"
     output_dir.mkdir(parents=True, exist_ok=True)
     stats = {"pdfs": 0, "tables": 0, "table_rows": 0, "failed": 0}
@@ -47,8 +51,10 @@ def extract_tables(limit_pdfs: int | None = None, db_path: Path | None = None) -
             SELECT pdf_id, paper_id, file_path
             FROM pdf_files
             WHERE parse_status IN ('parsed', 'manifested')
+              AND (? = 0 OR COALESCE(table_parse_status, 'pending') != 'parsed')
             ORDER BY file_name
-            """
+            """,
+            (int(incremental),),
         ).fetchall()
         if limit_pdfs is not None:
             rows = rows[:limit_pdfs]
@@ -133,6 +139,15 @@ def extract_tables(limit_pdfs: int | None = None, db_path: Path | None = None) -
                     VALUES (?, ?, ?)
                     """,
                     (f"table_error_{uuid.uuid4().hex[:16]}", row["pdf_id"], str(exc)),
+                )
+                conn.execute(
+                    "UPDATE pdf_files SET table_parse_status = ?, error_message = ? WHERE pdf_id = ?",
+                    ("table_error", str(exc), row["pdf_id"]),
+                )
+            else:
+                conn.execute(
+                    "UPDATE pdf_files SET table_parse_status = ? WHERE pdf_id = ?",
+                    ("parsed", row["pdf_id"]),
                 )
         conn.commit()
 

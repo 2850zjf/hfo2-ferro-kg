@@ -29,6 +29,7 @@ def main() -> None:
     parser.add_argument("--skip-tables", action="store_true")
     parser.add_argument("--model", default=None)
     parser.add_argument("--force-parse", action="store_true")
+    parser.add_argument("--incremental", action="store_true")
     args = parser.parse_args()
 
     print(f"Project: {PROJECT_ROOT}")
@@ -39,13 +40,14 @@ def main() -> None:
     print({"manifest_rows": len(rows), "duplicates": sum(row.is_duplicate for row in rows)})
     print(parse_pending_pdfs(limit=args.limit_pdfs, force=args.force_parse))
     if not args.skip_tables:
-        print(extract_tables(limit_pdfs=args.limit_pdfs))
-    print(build_chunks(limit_pdfs=args.limit_pdfs))
+        print(extract_tables(limit_pdfs=args.limit_pdfs, incremental=args.incremental))
+    print(build_chunks(limit_pdfs=args.limit_pdfs, reset_existing=not args.incremental))
     print(
         run_extraction(
             limit_chunks=args.limit_chunks,
             use_llm=not args.no_llm,
             llm_model=args.model,
+            reset_existing=not args.incremental,
         )
     )
     print(build_graph())

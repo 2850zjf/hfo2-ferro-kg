@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS pdf_files (
     parse_status TEXT DEFAULT 'pending',
     parse_quality_score REAL,
     ocr_needed INTEGER DEFAULT 0,
+    table_parse_status TEXT DEFAULT 'pending',
     is_duplicate INTEGER DEFAULT 0,
     duplicate_of_pdf_id TEXT,
     paper_id TEXT,
@@ -159,6 +160,35 @@ CREATE TABLE IF NOT EXISTS ontology_versions (
     checksum TEXT NOT NULL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS literature_candidates (
+    candidate_id TEXT PRIMARY KEY,
+    doi TEXT,
+    title TEXT NOT NULL,
+    authors TEXT,
+    journal TEXT,
+    publisher TEXT,
+    year INTEGER,
+    abstract TEXT,
+    source TEXT NOT NULL,
+    source_url TEXT,
+    oa_status TEXT,
+    oa_url TEXT,
+    pdf_url TEXT,
+    download_status TEXT DEFAULT 'not_downloaded',
+    downloaded_pdf_path TEXT,
+    downloaded_pdf_sha256 TEXT,
+    downloaded_pdf_pages INTEGER,
+    downloaded_pdf_size INTEGER,
+    download_quality_score REAL,
+    download_error TEXT,
+    query TEXT,
+    match_score REAL DEFAULT 0,
+    status TEXT DEFAULT 'discovered',
+    notes TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
@@ -168,11 +198,21 @@ MIGRATIONS = {
         "low_text_page_count": "ALTER TABLE pdf_files ADD COLUMN low_text_page_count INTEGER DEFAULT 0",
         "is_duplicate": "ALTER TABLE pdf_files ADD COLUMN is_duplicate INTEGER DEFAULT 0",
         "duplicate_of_pdf_id": "ALTER TABLE pdf_files ADD COLUMN duplicate_of_pdf_id TEXT",
+        "table_parse_status": "ALTER TABLE pdf_files ADD COLUMN table_parse_status TEXT DEFAULT 'pending'",
     },
     "document_chunks": {
         "contains_hfo2_keyword": "ALTER TABLE document_chunks ADD COLUMN contains_hfo2_keyword INTEGER DEFAULT 0",
         "contains_process_keyword": "ALTER TABLE document_chunks ADD COLUMN contains_process_keyword INTEGER DEFAULT 0",
         "is_high_value": "ALTER TABLE document_chunks ADD COLUMN is_high_value INTEGER DEFAULT 0",
+    },
+    "literature_candidates": {
+        "download_status": "ALTER TABLE literature_candidates ADD COLUMN download_status TEXT DEFAULT 'not_downloaded'",
+        "downloaded_pdf_path": "ALTER TABLE literature_candidates ADD COLUMN downloaded_pdf_path TEXT",
+        "downloaded_pdf_sha256": "ALTER TABLE literature_candidates ADD COLUMN downloaded_pdf_sha256 TEXT",
+        "downloaded_pdf_pages": "ALTER TABLE literature_candidates ADD COLUMN downloaded_pdf_pages INTEGER",
+        "downloaded_pdf_size": "ALTER TABLE literature_candidates ADD COLUMN downloaded_pdf_size INTEGER",
+        "download_quality_score": "ALTER TABLE literature_candidates ADD COLUMN download_quality_score REAL",
+        "download_error": "ALTER TABLE literature_candidates ADD COLUMN download_error TEXT",
     },
 }
 
@@ -207,9 +247,12 @@ def _rebuild_pdf_files_table(conn: sqlite3.Connection) -> None:
             file_size INTEGER NOT NULL,
             page_count INTEGER,
             text_page_count INTEGER DEFAULT 0,
+            blank_page_count INTEGER DEFAULT 0,
+            low_text_page_count INTEGER DEFAULT 0,
             parse_status TEXT DEFAULT 'pending',
             parse_quality_score REAL,
             ocr_needed INTEGER DEFAULT 0,
+            table_parse_status TEXT DEFAULT 'pending',
             is_duplicate INTEGER DEFAULT 0,
             duplicate_of_pdf_id TEXT,
             paper_id TEXT,
@@ -236,6 +279,7 @@ def _rebuild_pdf_files_table(conn: sqlite3.Connection) -> None:
         "parse_status",
         "parse_quality_score",
         "ocr_needed",
+        "table_parse_status",
         "is_duplicate",
         "duplicate_of_pdf_id",
         "paper_id",
@@ -254,6 +298,8 @@ def _rebuild_pdf_files_table(conn: sqlite3.Connection) -> None:
             "low_text_page_count",
         }:
             select_parts.append(f"0 AS {column}")
+        elif column == "table_parse_status":
+            select_parts.append("'pending' AS table_parse_status")
         else:
             select_parts.append(f"NULL AS {column}")
     conn.execute(

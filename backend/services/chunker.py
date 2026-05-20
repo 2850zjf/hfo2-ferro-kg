@@ -207,20 +207,37 @@ def make_table_chunk(
     )
 
 
-def build_chunks(limit_pdfs: int | None = None, db_path: Path | None = None) -> dict[str, int]:
+def build_chunks(
+    limit_pdfs: int | None = None,
+    db_path: Path | None = None,
+    reset_existing: bool = True,
+) -> dict[str, int]:
     output_path = PROJECT_ROOT / "data" / "chunks" / "document_chunks.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    stats = {"pdfs": 0, "chunks": 0, "table_chunks": 0, "high_value_chunks": 0}
+    stats = {"pdfs": 0, "chunks": 0, "table_chunks": 0, "high_value_chunks": 0, "skipped_existing": 0}
 
     with connect(db_path) as conn:
         pdf_rows = conn.execute(
-            "SELECT DISTINCT pdf_id FROM parsed_pages ORDER BY pdf_id"
+            """
+            SELECT DISTINCT pp.pdf_id
+            FROM parsed_pages pp
+            WHERE (? = 1 OR NOT EXISTS (
+                SELECT 1 FROM document_chunks dc WHERE dc.pdf_id = pp.pdf_id
+            ))
+            ORDER BY pp.pdf_id
+            """,
+            (int(reset_existing),),
         ).fetchall()
         if limit_pdfs is not None:
             pdf_rows = pdf_rows[:limit_pdfs]
 
-        conn.execute("DELETE FROM document_chunks")
-        with output_path.open("w", encoding="utf-8") as fh:
+        if reset_existing:
+            conn.execute("DELETE FROM document_chunks")
+        else:
+            existing_count = conn.execute("SELECT COUNT(DISTINCT pdf_id) FROM document_chunks").fetchone()[0]
+            stats["skipped_existing"] = int(existing_count)
+        file_mode = "w" if reset_existing else "a"
+        with output_path.open(file_mode, encoding="utf-8") as fh:
             for pdf_row in pdf_rows:
                 stats["pdfs"] += 1
                 pages = conn.execute(

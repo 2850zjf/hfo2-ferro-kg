@@ -9,16 +9,20 @@ data/tables/
 data/extraction_candidates/
 data/reviewed_facts/
 data/vector_index/
+data/literature_candidates/
 data/ontology/
 data/manifest/*.csv
 data/graph/*.csv
 data/exports/
 *.sqlite
 *.sqlite3
+*.sqlite3-journal
 *.db
 *.log
 *.pdf
 *.PDF
+outputs/
+reports/artifact-build-manifest.json
 
 __pycache__/
 *.py[cod]

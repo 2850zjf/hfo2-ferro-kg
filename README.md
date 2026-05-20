@@ -62,6 +62,16 @@ pytest
 python pipelines/10_validate_results.py
 ```
 
+持续补充开放文献并只处理新增 PDF：
+
+```bash
+python pipelines/14_ingest_new_open_access.py --download-limit 10
+```
+
+这个增量流程会发现公开数据库中的 HfO2/HZO 论文候选，只下载开放获取状态明确的 PDF，
+再按“清单 -> 解析 -> 表格 -> chunk -> 抽取 -> 图谱 -> 索引 -> 报告”的顺序处理新增数据。
+项目定位和方法论见 `docs/research_positioning.md`。
+
 ## LLM 抽取
 
 第一版已经接入 LLM 结构化抽取。配置 `.env`：
@@ -109,6 +119,7 @@ HFO2_FERROKG_USE_LLM = "true"
 9. RAG 问答
 10. 数据分析看板
 11. 本地质量校验与人工审核
+12. 开放文献发现、下载和增量接入
 
 ## 审核原则
 

@@ -1,0 +1,100 @@
+version: hfo2-ferrokg-method-v2
+name: Ontology-first continuous HfO2 ferroelectric knowledge graph construction
+purpose:
+  - Build a reproducible evidence graph from local and open-access HfO2 ferroelectric literature.
+  - Preserve material-process-phase-property context instead of storing isolated values.
+  - Support continuous corpus expansion with ontology and extractor version tracking.
+
+research_problem:
+  data_fragmentation:
+    description: Key HfO2 facts are scattered across text, tables, captions, and review citations.
+    system_response: Store page/chunk/table evidence for every extracted fact.
+  condition_mismatch:
+    description: Reported polarization or endurance values are meaningful only with matching thickness, electrodes, annealing, phase, and device type.
+    system_response: Use ThinFilmSample as the central context node between material, process, phase, device, and property.
+  metric_ambiguity:
+    description: Pr, 2Pr, Ec, wake-up, fatigue, and endurance are often reported with inconsistent notation and units.
+    system_response: Keep raw value/unit plus normalized value/unit and explicit property enum.
+  llm_uncertainty:
+    description: LLMs help with complex relation extraction but can hallucinate or over-infer.
+    system_response: Use schema-constrained output, evidence-required validation, rule fallback, and machine pre-audit.
+
+method_stack:
+  ontology_engineering:
+    status: implemented
+    techniques:
+      - competency_questions
+      - controlled_vocabularies
+      - strict_property_enums
+      - ontology_versioning
+      - evidence_contract
+  document_processing:
+    status: implemented
+    techniques:
+      - file_hash_manifest
+      - DOI_and_title_bootstrap
+      - page_text_extraction
+      - table_extraction
+      - section_and_keyword_chunking
+      - incremental_processing
+  extraction:
+    status: implemented_with_llm_ready
+    techniques:
+      - deterministic_regex_rules
+      - ontology_prompt_context
+      - pydantic_validation
+      - structured_output_ready
+      - machine_preaudit
+      - abnormal_value_flagging
+  fusion:
+    status: planned_next
+    techniques:
+      - DOI_level_deduplication
+      - entity_canonicalization
+      - unit_normalization
+      - contradiction_detection
+      - primary_vs_review_fact_labeling
+  graph_rag:
+    status: partial
+    techniques:
+      - keyword_retrieval
+      - lightweight_tfidf_index
+      - graph_path_query
+      - evidence_bound_answering
+      - community_summary_planned
+  evaluation:
+    status: partial
+    techniques:
+      - validation_report
+      - missing_evidence_gate
+      - traceability_gate
+      - anomaly_detection
+      - gold_set_precision_recall_planned
+
+continuous_ingestion:
+  implemented_steps:
+    - discover_literature
+    - download_verified_open_access_pdfs
+    - rebuild_manifest
+    - parse_pending_pdfs
+    - incremental_table_extraction
+    - incremental_chunking
+    - incremental_extraction
+    - rebuild_graph_and_index
+  guardrails:
+    - Do not download paywalled PDFs.
+    - Do not move or rename user-provided PDFs.
+    - Do not treat machine preapproval as human approval.
+    - Keep ontology_version and extractor_version on every candidate.
+
+next_best_upgrades:
+  - name: DOI-level fusion and source classification
+    impact: Prevent duplicate paper versions and separate primary data from review data.
+  - name: Table cache and column-type memory
+    impact: Reuse validated table mappings and reduce LLM cost.
+  - name: GraphRAG community summaries
+    impact: Answer global trend questions over the whole corpus without forcing pure vector search.
+  - name: Active-learning review loop
+    impact: Turn user corrections into prompt examples, schema refinements, and model evals.
+  - name: Gold-set evaluation suite
+    impact: Report precision, recall, and F1 for entities and relations in a publishable way.

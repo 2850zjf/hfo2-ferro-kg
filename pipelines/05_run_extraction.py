@@ -15,6 +15,7 @@ def main() -> None:
     parser.add_argument("--no-llm", action="store_true", help="Use only deterministic rule extraction.")
     parser.add_argument("--model", default=None, help="Override HFO2_FERROKG_LLM_MODEL.")
     parser.add_argument("--dry-run", action="store_true", help="Run extraction without writing candidates/facts.")
+    parser.add_argument("--incremental", action="store_true", help="Only extract chunks without candidates for the current ontology.")
     args = parser.parse_args()
     print(
         run_extraction(
@@ -22,6 +23,7 @@ def main() -> None:
             use_llm=not args.no_llm,
             llm_model=args.model,
             dry_run=args.dry_run,
+            reset_existing=not args.incremental,
         )
     )
 

@@ -281,6 +281,7 @@ def run_extraction(
     use_llm: bool | None = None,
     llm_model: str | None = None,
     dry_run: bool = False,
+    reset_existing: bool = True,
 ) -> dict[str, int]:
     output_path = PROJECT_ROOT / "data" / "extraction_candidates" / "hfo2_candidates.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -300,6 +301,7 @@ def run_extraction(
         "needs_human_review": 0,
         "empty": 0,
         "errors": 0,
+        "skipped_existing": 0,
     }
 
     with connect(db_path) as conn:
@@ -308,16 +310,30 @@ def run_extraction(
             SELECT chunk_id, paper_id, pdf_id, page_number, text
             FROM document_chunks
             WHERE is_high_value = 1
+              AND (? = 1 OR NOT EXISTS (
+                  SELECT 1
+                  FROM extraction_candidates ec
+                  WHERE ec.chunk_id = document_chunks.chunk_id
+                    AND ec.ontology_version = ?
+              ))
             ORDER BY pdf_id, chunk_index
-            """
+            """,
+            (int(reset_existing), ontology_version),
         ).fetchall()
         if limit_chunks is not None:
             rows = rows[:limit_chunks]
 
         if not dry_run:
-            conn.execute("DELETE FROM extraction_candidates")
-            conn.execute("DELETE FROM reviewed_facts")
-        with output_path.open("w", encoding="utf-8") as fh:
+            if reset_existing:
+                conn.execute("DELETE FROM extraction_candidates")
+                conn.execute("DELETE FROM reviewed_facts")
+            else:
+                stats["skipped_existing"] = conn.execute(
+                    "SELECT COUNT(DISTINCT chunk_id) FROM extraction_candidates WHERE ontology_version = ?",
+                    (ontology_version,),
+                ).fetchone()[0]
+        file_mode = "w" if reset_existing else "a"
+        with output_path.open(file_mode, encoding="utf-8") as fh:
             for row in rows:
                 stats["chunks"] += 1
                 source = "rules"
