@@ -147,6 +147,18 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     message TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS ontology_versions (
+    ontology_version TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    bundle_path TEXT NOT NULL,
+    report_path TEXT NOT NULL,
+    entity_count INTEGER NOT NULL,
+    relation_count INTEGER NOT NULL,
+    property_count INTEGER NOT NULL,
+    checksum TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 

@@ -16,6 +16,7 @@ def test_init_database_creates_core_tables(tmp_path):
     assert "parsed_pages" in tables
     assert "document_chunks" in tables
     assert "extraction_candidates" in tables
+    assert "ontology_versions" in tables
     assert "pipeline_runs" in tables
     assert "reviewed_facts" in tables
 

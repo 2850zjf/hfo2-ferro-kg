@@ -23,6 +23,7 @@ from backend.schemas.hfo2_extraction_schema import (
 from backend.services.fact_normalizer import normalize_property
 from backend.services.llm_extractor import extract_chunk_with_llm
 from backend.services.ontology_context import build_ontology_context
+from backend.services.ontology_builder import build_ontology
 from backend.services.pipeline_log import record_pipeline_run
 
 
@@ -285,7 +286,10 @@ def run_extraction(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     settings = get_settings()
     should_use_llm = settings.use_llm if use_llm is None else use_llm
+    ontology_build = build_ontology(db_path=db_path, record_run=not dry_run)
+    ontology_version = ontology_build["version"]
     stats = {
+        "ontology_version": ontology_version,
         "chunks": 0,
         "candidates": 0,
         "llm_used": 0,
@@ -347,7 +351,7 @@ def run_extraction(
                         "page_number": row["page_number"],
                         "error": str(exc),
                         "extractor_version": extractor_version,
-                        "ontology_version": ONTOLOGY_VERSION,
+                        "ontology_version": ontology_version,
                     }
                     candidate_id = f"cand_error_{uuid.uuid5(uuid.NAMESPACE_URL, row['chunk_id'] + str(exc)).hex[:16]}"
                     if not dry_run:
@@ -367,7 +371,7 @@ def run_extraction(
                                 row["page_number"],
                                 json.dumps(error_payload, ensure_ascii=False),
                                 extractor_version,
-                                ONTOLOGY_VERSION,
+                                ontology_version,
                                 0,
                                 "extraction_error",
                                 str(exc),
@@ -388,7 +392,7 @@ def run_extraction(
                     "warnings": warnings,
                     "extractor_version": extractor_version,
                     "extraction_source": source,
-                    "ontology_version": ONTOLOGY_VERSION,
+                    "ontology_version": ontology_version,
                 }
                 candidate_id = f"cand_{uuid.uuid5(uuid.NAMESPACE_URL, row['chunk_id'] + json.dumps(payload, sort_keys=True, ensure_ascii=False)).hex[:16]}"
                 if not dry_run:
@@ -408,7 +412,7 @@ def run_extraction(
                             result.page_number,
                             json.dumps(payload, ensure_ascii=False),
                             extractor_version,
-                            ONTOLOGY_VERSION,
+                            ontology_version,
                             confidence,
                             status,
                         ),

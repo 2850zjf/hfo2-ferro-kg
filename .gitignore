@@ -9,6 +9,7 @@ data/tables/
 data/extraction_candidates/
 data/reviewed_facts/
 data/vector_index/
+data/ontology/
 data/manifest/*.csv
 data/graph/*.csv
 data/exports/

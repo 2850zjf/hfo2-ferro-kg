@@ -6,6 +6,7 @@ from typing import Any
 
 from backend.core.config import PROJECT_ROOT, get_openai_api_key, get_settings
 from backend.schemas.hfo2_extraction_schema import HfO2ExtractionResult
+from backend.services.ontology_builder import load_ontology_prompt_context
 
 
 @dataclass(frozen=True)
@@ -39,9 +40,10 @@ def llm_status() -> dict[str, Any]:
 
 
 def load_prompt() -> str:
-    return (PROJECT_ROOT / "prompts" / "hfo2_extraction_prompt.md").read_text(
+    base_prompt = (PROJECT_ROOT / "prompts" / "hfo2_extraction_prompt.md").read_text(
         encoding="utf-8"
     )
+    return f"{base_prompt}\n\n{load_ontology_prompt_context()}"
 
 
 def build_user_input(row) -> str:

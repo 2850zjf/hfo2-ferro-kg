@@ -1,26 +1,308 @@
 version: hfo2-ferrokg-v1
-entities:
-  Paper: "A scientific article."
-  HafniaMaterial: "HfO2-based ferroelectric material."
-  ThinFilmSample: "A specific sample or device stack reported in a paper."
-  Dopant: "Element or component used to stabilize ferroelectric hafnia."
-  PhaseStructure: "Crystal phase or space group of hafnia."
-  FabricationProcess: "Deposition and annealing process."
-  Electrode: "Top or bottom electrode."
-  Substrate: "Substrate used for film growth."
-  Device: "FeCAP, FeFET, FTJ, or related device."
-  FerroelectricProperty: "Measured property value."
-  Evidence: "Text/table evidence supporting a fact."
-relations:
+name: HfO2-FerroKG Data Ontology
+domain: HfO2-based ferroelectric materials
+scope:
+  included:
+    - HfO2, HZO, and doped hafnia ferroelectric materials
+    - thin-film samples, capacitors, FeFETs, FTJs, and related device stacks
+    - material-process-phase-property-evidence facts from local PDF literature
+  excluded:
+    - BaTiO3, PZT, BiFeO3, and non-hafnia ferroelectrics unless used only as context
+    - unsupported claims without page-level evidence
+source_policy:
+  raw_pdfs: local_only
+  paid_pdfs_in_git: forbidden
+  api_keys_in_code: forbidden
+  required_trace_fields:
+    - paper_id
+    - pdf_id
+    - page_number
+    - chunk_id
+    - evidence_text
+    - ontology_version
+    - extractor_version
+
+node_classes:
+  Paper:
+    description: A scientific article in the local HfO2 corpus.
+    primary_key: paper_id
+    fields:
+      paper_id: {type: string, required: true}
+      doi: {type: string, required: false}
+      title: {type: string, required: true}
+      authors: {type: string, required: false}
+      journal: {type: string, required: false}
+      year: {type: integer, required: false}
+      paper_type:
+        type: enum
+        values: [experimental, review, computational, theoretical, dataset, unknown]
+        required: true
+      is_review: {type: boolean, required: true}
+
+  PDFFile:
+    description: A local PDF file and its parse-quality state.
+    primary_key: pdf_id
+    fields:
+      pdf_id: {type: string, required: true}
+      file_name: {type: string, required: true}
+      file_path: {type: string, required: true}
+      sha256: {type: string, required: true}
+      page_count: {type: integer, required: false}
+      parse_status: {type: string, required: true}
+      parse_quality_score: {type: number, required: false}
+      ocr_needed: {type: boolean, required: true}
+
+  HafniaMaterial:
+    description: HfO2-based ferroelectric material or composition family.
+    primary_key: material_id
+    fields:
+      canonical_name: {type: string, required: true}
+      raw_name: {type: string, required: true}
+      formula: {type: string, required: false}
+      material_family:
+        type: enum
+        values: [HfO2, HZO, Si:HfO2, Al:HfO2, La:HfO2, Y:HfO2, Gd:HfO2, Sr:HfO2, mixed_doped_HfO2, unknown_hafnia]
+        required: true
+      base_material: {type: string, required: true}
+      dopant_elements: {type: "list[string]", required: false}
+      dopant_concentration: {type: string, required: false}
+      zr_fraction: {type: number, required: false, min: 0, max: 1}
+      evidence_text: {type: string, required: true}
+
+  ThinFilmSample:
+    description: A concrete sample or device stack reported in one paper.
+    primary_key: sample_id
+    fields:
+      material_ref: {type: string, required: true}
+      sample_name: {type: string, required: false}
+      film_thickness_nm: {type: number, required: false, min: 0}
+      deposition_method: {type: string, required: false}
+      substrate: {type: string, required: false}
+      top_electrode: {type: string, required: false}
+      bottom_electrode: {type: string, required: false}
+      device_stack: {type: string, required: false}
+      annealing_temperature_c: {type: number, required: false}
+      annealing_time_s: {type: number, required: false}
+      annealing_atmosphere: {type: string, required: false}
+      sample_form:
+        type: enum
+        values: [thin_film, capacitor, FeFET, FTJ, nanolaminate, superlattice, bulk, unknown]
+        required: false
+      evidence_text: {type: string, required: true}
+
+  Dopant:
+    description: Dopant or alloying element that modifies hafnia phase stability.
+    primary_key: dopant_id
+    fields:
+      element: {type: string, required: true}
+      concentration: {type: string, required: false}
+      evidence_text: {type: string, required: true}
+
+  FabricationProcess:
+    description: Deposition and thermal processing conditions.
+    primary_key: process_id
+    fields:
+      deposition_method: {type: string, required: false}
+      annealing_method: {type: string, required: false}
+      annealing_temperature_c: {type: number, required: false}
+      annealing_time_s: {type: number, required: false}
+      annealing_atmosphere: {type: string, required: false}
+      evidence_text: {type: string, required: true}
+
+  PhaseStructure:
+    description: Crystal phase, space group, and characterization method.
+    primary_key: phase_id
+    fields:
+      phase_name:
+        type: enum
+        values: [monoclinic, orthorhombic, tetragonal, cubic, rhombohedral, amorphous, mixed, unknown]
+        required: true
+      space_group: {type: string, required: false}
+      phase_fraction: {type: string, required: false}
+      crystal_orientation: {type: string, required: false}
+      characterization_method: {type: string, required: false}
+      evidence_text: {type: string, required: true}
+
+  Electrode:
+    description: Top or bottom electrode in a hafnia stack.
+    primary_key: electrode_id
+    fields:
+      material: {type: string, required: true}
+      role:
+        type: enum
+        values: [top, bottom, gate, unknown]
+        required: true
+      evidence_text: {type: string, required: true}
+
+  Substrate:
+    description: Substrate used for film growth or device integration.
+    primary_key: substrate_id
+    fields:
+      material: {type: string, required: true}
+      evidence_text: {type: string, required: true}
+
+  Device:
+    description: FeCAP, FeFET, FTJ, FeRAM, or related device.
+    primary_key: device_id
+    fields:
+      device_type:
+        type: enum
+        values: [capacitor, FeCAP, FeFET, FTJ, FeRAM, memristor, ReFET, unknown]
+        required: true
+      device_stack: {type: string, required: false}
+      evidence_text: {type: string, required: true}
+
+  FerroelectricProperty:
+    description: Measured or derived electrical/material property.
+    primary_key: property_id
+    fields:
+      property_name:
+        type: enum
+        values:
+          - remanent_polarization_Pr
+          - double_remanent_polarization_2Pr
+          - coercive_field_Ec
+          - saturation_polarization_Ps
+          - dielectric_constant
+          - leakage_current_density
+          - endurance_cycles
+          - retention_time
+          - memory_window
+          - wake_up
+          - fatigue
+          - breakdown_field
+          - band_gap
+        required: true
+      raw_property_name: {type: string, required: true}
+      value: {type: number, required: false}
+      unit: {type: string, required: false}
+      normalized_value: {type: number, required: false}
+      normalized_unit: {type: string, required: false}
+      measurement_temperature: {type: string, required: false}
+      measurement_frequency: {type: string, required: false}
+      electric_field: {type: string, required: false}
+      cycle_number: {type: number, required: false}
+      is_reported_value: {type: boolean, required: true}
+      is_derived_value: {type: boolean, required: true}
+      derivation_rule: {type: string, required: false}
+      confidence: {type: number, required: true, min: 0, max: 1}
+      evidence_text: {type: string, required: true}
+
+  Evidence:
+    description: Text, table, figure caption, metadata, or manual evidence supporting a fact.
+    primary_key: evidence_id
+    fields:
+      paper_id: {type: string, required: true}
+      pdf_id: {type: string, required: true}
+      chunk_id: {type: string, required: false}
+      page_number: {type: integer, required: false}
+      evidence_text: {type: string, required: true}
+      source_type:
+        type: enum
+        values: [text, table, figure_caption, abstract, metadata, manual]
+        required: true
+      extraction_method:
+        type: enum
+        values: [rules, llm, hybrid, manual]
+        required: true
+      confidence: {type: number, required: true, min: 0, max: 1}
+
+relation_classes:
+  HAS_PDF: {from: Paper, to: PDFFile}
   REPORTS: {from: Paper, to: HafniaMaterial}
   HAS_SAMPLE: {from: HafniaMaterial, to: ThinFilmSample}
   HAS_DOPANT: {from: HafniaMaterial, to: Dopant}
-  HAS_PHASE: {from: ThinFilmSample, to: PhaseStructure}
   FABRICATED_BY: {from: ThinFilmSample, to: FabricationProcess}
   HAS_TOP_ELECTRODE: {from: ThinFilmSample, to: Electrode}
   HAS_BOTTOM_ELECTRODE: {from: ThinFilmSample, to: Electrode}
   ON_SUBSTRATE: {from: ThinFilmSample, to: Substrate}
+  HAS_PHASE: {from: ThinFilmSample, to: PhaseStructure}
   USED_IN: {from: ThinFilmSample, to: Device}
   HAS_PROPERTY: {from: ThinFilmSample, to: FerroelectricProperty}
   SUPPORTED_BY: {from: FerroelectricProperty, to: Evidence}
   FROM_PAPER: {from: Evidence, to: Paper}
+  COMPARED_WITH: {from: FerroelectricProperty, to: FerroelectricProperty}
+
+controlled_vocabularies:
+  deposition_methods: [ALD, sputtering, PLD, CSD, sol-gel, MOCVD, unknown]
+  annealing_methods: [RTA, PMA, PDA, furnace, microwave, laser, unknown]
+  annealing_atmospheres: [N2, O2, Ar, forming_gas, vacuum, air, unknown]
+  common_electrodes: [TiN, W, Pt, Ru, RuO2, ITO, TaN, Ir, IrO2, Al, Au]
+  characterization_methods: [XRD, GIXRD, TEM, STEM, SAED, PFM, XPS, Raman, electrical]
+
+property_normalization:
+  remanent_polarization_Pr:
+    canonical_unit: "\u03bcC/cm\u00b2"
+    aliases: [Pr, P_r, remanent polarization]
+    abnormal_if_gt: 100
+    notes: Do not merge with 2Pr.
+  double_remanent_polarization_2Pr:
+    canonical_unit: "\u03bcC/cm\u00b2"
+    aliases: [2Pr, 2P_r, double remanent polarization]
+    abnormal_if_gt: 200
+    derivable:
+      target: remanent_polarization_Pr
+      rule: Pr = 2Pr / 2
+      requires_explicit_derivation_flag: true
+  coercive_field_Ec:
+    canonical_unit: MV/cm
+    aliases: [Ec, E_c, coercive field]
+    abnormal_if_gt: 10
+  leakage_current_density:
+    canonical_unit: A/cm\u00b2
+    aliases: [leakage, leakage current density]
+  endurance_cycles:
+    canonical_unit: cycles
+    aliases: [endurance, cycling endurance]
+  retention_time:
+    canonical_unit: s
+    aliases: [retention]
+  memory_window:
+    canonical_unit: V
+    aliases: [memory window]
+
+extraction_contract:
+  chunk_selection:
+    send_to_llm_if_any:
+      - contains_hfo2_keyword
+      - contains_property_keyword
+      - contains_process_keyword
+      - contains_table
+    avoid_sections: [references]
+  required_for_property_candidate:
+    - property_name
+    - raw_property_name
+    - value_or_state
+    - unit_when_numeric
+    - material_ref
+    - evidence_text
+    - paper_id
+    - pdf_id
+    - page_number_or_chunk_id
+    - confidence
+  strict_rules:
+    - Never convert 2Pr into Pr unless a derived fact is explicitly created.
+    - Never enter unsupported facts into reviewed_facts without evidence_text.
+    - Treat values from review articles as secondary until manually verified.
+    - Keep raw value, raw unit, normalized value, normalized unit, and evidence.
+    - Mark figure-estimated values and ambiguous sample-property links as needs_human_review.
+
+review_statuses:
+  pending: Candidate created but not yet preaudited.
+  preapproved_machine: Machine preaudit passed; still needs later human confirmation for publication.
+  needs_human_review: Evidence, unit, sample linkage, or value range needs human review.
+  approved: Human-approved final fact.
+  rejected: Human-rejected fact.
+
+workflow_order:
+  - 00_build_ontology
+  - 01_build_manifest
+  - 02_parse_pdfs
+  - 03_extract_tables
+  - 04_chunk_documents
+  - 05_run_extraction
+  - 06_normalize_facts
+  - 07_build_graph
+  - 08_build_vector_index
+  - 09_export_reports
+  - 10_validate_results

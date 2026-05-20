@@ -12,6 +12,7 @@ from backend.services.analytics import write_markdown_report
 from backend.services.chunker import build_chunks
 from backend.services.graph_builder import build_graph
 from backend.services.hfo2_extractor import run_extraction
+from backend.services.ontology_builder import build_ontology
 from backend.services.pdf_manifest import build_manifest
 from backend.services.pdf_parser import parse_pending_pdfs
 from backend.services.quality_validator import write_validation_report
@@ -33,6 +34,7 @@ def main() -> None:
     print(f"Project: {PROJECT_ROOT}")
     print(f"PDF root: {args.pdf_root}")
     init_database()
+    print(build_ontology())
     rows = build_manifest(args.pdf_root)
     print({"manifest_rows": len(rows), "duplicates": sum(row.is_duplicate for row in rows)})
     print(parse_pending_pdfs(limit=args.limit_pdfs, force=args.force_parse))
