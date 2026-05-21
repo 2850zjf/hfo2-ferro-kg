@@ -126,7 +126,7 @@ def download_open_access_pdfs(
             FROM literature_candidates
             WHERE pdf_url IS NOT NULL
               AND match_score >= ?
-              AND COALESCE(download_status, 'not_downloaded') NOT IN ('downloaded', 'duplicate')
+              AND COALESCE(download_status, 'not_downloaded') = 'not_downloaded'
             ORDER BY match_score DESC, year DESC, title
             """,
             (min_score,),
