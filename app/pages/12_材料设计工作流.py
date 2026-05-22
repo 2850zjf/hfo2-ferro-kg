@@ -13,7 +13,9 @@ if str(PROJECT_ROOT) not in sys.path:
 from backend.core.config import PROJECT_ROOT
 from backend.services.design_dataset import build_design_dataset
 from backend.services.design_model import load_design_model_metrics, train_design_models
+from backend.services.llm_quota_guard import read_llm_pause
 from backend.services.progress_monitor import monitor_snapshot
+from backend.services.workflow_runner import start_protected_full_pipeline
 
 
 st.set_page_config(page_title="材料设计工作流", layout="wide")
@@ -40,6 +42,20 @@ if snapshot.get("active"):
     st.link_button("打开稳定实时监控", "http://127.0.0.1:8502/", use_container_width=False)
 else:
     st.success("当前没有检测到后台全量任务。可以构建设计数据集或训练 baseline 模型。")
+
+pause = read_llm_pause()
+if pause:
+    st.error("LLM 抽取已自动暂停，原因是额度、余额、限流或 API key 问题。已完成数据已经保留。")
+    with st.expander("暂停详情", expanded=True):
+        st.write(pause.get("reason", ""))
+        st.write(pause.get("resume_hint", "配置新的 API key 或额度恢复后，重新运行同一条 pipeline。"))
+    if st.button("我已换新 token / 额度已恢复，继续全量抽取", type="primary"):
+        result = start_protected_full_pipeline(clear_pause=True)
+        if result.get("started"):
+            st.success(f"已继续运行，进程 PID: {result['pid']}")
+            st.link_button("打开实时监控", result["monitor_url"])
+        else:
+            st.warning(f"没有启动新任务：{result.get('reason')}")
 
 st.divider()
 

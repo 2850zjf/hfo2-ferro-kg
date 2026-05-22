@@ -3,13 +3,14 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Any
 
 from backend.core.config import PROJECT_ROOT, get_llm_api_key, get_settings
 from backend.db.session import connect
 from backend.services.llm_extractor import json_loads_object, normalize_base_url
+from backend.services.llm_quota_guard import clear_llm_pause, is_llm_budget_error, write_llm_pause
 from backend.services.pipeline_log import record_pipeline_run
 
 
@@ -192,7 +193,9 @@ def run_open_benchmark_extraction(
         "empty": 0,
         "errors": 0,
         "skipped_existing": 0,
+        "paused": 0,
     }
+    clear_llm_pause()
 
     with connect(db_path) as conn:
         conn.execute(
@@ -247,112 +250,159 @@ def run_open_benchmark_extraction(
             payload, error = extract_open_benchmark_chunk(row_dict, model=selected_model)
             return row_dict, source_type, extraction_id, payload, error
 
+        def submit_next(pool: ThreadPoolExecutor, index: int):
+            if index >= len(rows):
+                return None
+            return pool.submit(run_one, dict(rows[index]))
+
         with output_path.open(file_mode, encoding="utf-8") as fh, ThreadPoolExecutor(max_workers=max(1, max_workers)) as pool:
-            futures = [pool.submit(run_one, dict(row)) for row in rows]
-            for future in as_completed(futures):
-                row, source_type, extraction_id, payload, error = future.result()
-                stats["chunks_seen"] += 1
-                if payload is None:
-                    stats["errors"] += 1
-                    error_payload = {
-                        "paper_id": row["paper_id"],
-                        "pdf_id": row["pdf_id"],
-                        "chunk_id": row["chunk_id"],
-                        "page_number": row["page_number"],
-                        "source_type": source_type,
-                        "benchmark_version": BENCHMARK_VERSION,
-                        "error": error,
-                    }
-                    conn.execute(
-                        """
-                        INSERT INTO benchmark_extractions (
-                            extraction_id, paper_id, pdf_id, chunk_id, page_number,
-                            source_type, payload_json, model_name, confidence, status,
-                            error_message
+            next_index = 0
+            futures = set()
+            initial = min(max(1, max_workers), len(rows))
+            for _ in range(initial):
+                future = submit_next(pool, next_index)
+                next_index += 1
+                if future is not None:
+                    futures.add(future)
+
+            while futures:
+                done, futures = wait(futures, return_when=FIRST_COMPLETED)
+                for future in done:
+                    row, source_type, extraction_id, payload, error = future.result()
+                    stats["chunks_seen"] += 1
+                    if payload is None and is_llm_budget_error(error):
+                        stats["errors"] += 1
+                        stats["paused"] = 1
+                        pause_path = write_llm_pause(
+                            error or "LLM quota/authentication/rate-limit error",
+                            {
+                                "pipeline": "19_open_benchmark_extraction",
+                                "paper_id": row["paper_id"],
+                                "pdf_id": row["pdf_id"],
+                                "chunk_id": row["chunk_id"],
+                                "page_number": row["page_number"],
+                                "source_type": source_type,
+                                "processed_chunks_in_this_run": stats["chunks_seen"],
+                            },
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(chunk_id, source_type) DO UPDATE SET
-                            payload_json = excluded.payload_json,
-                            model_name = excluded.model_name,
-                            status = excluded.status,
-                            error_message = excluded.error_message
-                        """,
-                        (
-                            extraction_id,
-                            row["paper_id"],
-                            row["pdf_id"],
-                            row["chunk_id"],
-                            row["page_number"],
-                            source_type,
-                            json.dumps(error_payload, ensure_ascii=False),
-                            selected_model,
-                            0.0,
-                            "error",
-                            error,
-                        ),
-                    )
-                    fh.write(json.dumps({"extraction_id": extraction_id, **error_payload}, ensure_ascii=False) + "\n")
-                else:
-                    non_empty = any(
-                        payload.get(key)
-                        for key in [
-                            "material_systems",
-                            "sample_processes",
-                            "properties",
-                            "mechanisms",
-                            "theoretical_insights",
-                            "design_rules",
-                            "optimization_targets",
-                            "benchmark_records",
-                            "figure_or_table_observations",
-                            "ontology_candidates",
-                        ]
-                    )
-                    stats["chunks_attempted"] += 1
-                    stats["written"] += int(non_empty)
-                    stats["empty"] += int(not non_empty)
-                    status = "ok" if non_empty else "empty_result"
-                    conn.execute(
-                        """
-                        INSERT INTO benchmark_extractions (
-                            extraction_id, paper_id, pdf_id, chunk_id, page_number,
-                            source_type, payload_json, model_name, confidence, status
+                        stats["pause_file"] = str(pause_path)
+                        conn.commit()
+                        for pending in futures:
+                            pending.cancel()
+                        futures.clear()
+                        break
+                    if payload is None:
+                        stats["errors"] += 1
+                        error_payload = {
+                            "paper_id": row["paper_id"],
+                            "pdf_id": row["pdf_id"],
+                            "chunk_id": row["chunk_id"],
+                            "page_number": row["page_number"],
+                            "source_type": source_type,
+                            "benchmark_version": BENCHMARK_VERSION,
+                            "error": error,
+                        }
+                        conn.execute(
+                            """
+                            INSERT INTO benchmark_extractions (
+                                extraction_id, paper_id, pdf_id, chunk_id, page_number,
+                                source_type, payload_json, model_name, confidence, status,
+                                error_message
+                            )
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(chunk_id, source_type) DO UPDATE SET
+                                payload_json = excluded.payload_json,
+                                model_name = excluded.model_name,
+                                status = excluded.status,
+                                error_message = excluded.error_message
+                            """,
+                            (
+                                extraction_id,
+                                row["paper_id"],
+                                row["pdf_id"],
+                                row["chunk_id"],
+                                row["page_number"],
+                                source_type,
+                                json.dumps(error_payload, ensure_ascii=False),
+                                selected_model,
+                                0.0,
+                                "error",
+                                error,
+                            ),
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(chunk_id, source_type) DO UPDATE SET
-                            payload_json = excluded.payload_json,
-                            model_name = excluded.model_name,
-                            confidence = excluded.confidence,
-                            status = excluded.status,
-                            error_message = NULL
-                        """,
-                        (
-                            extraction_id,
-                            row["paper_id"],
-                            row["pdf_id"],
-                            row["chunk_id"],
-                            row["page_number"],
-                            source_type,
-                            json.dumps(payload, ensure_ascii=False),
-                            selected_model,
-                            0.7 if non_empty else 0.0,
-                            status,
-                        ),
-                    )
-                    fh.write(json.dumps({"extraction_id": extraction_id, **payload}, ensure_ascii=False) + "\n")
-                fh.flush()
-                if commit_every > 0 and stats["chunks_seen"] % commit_every == 0:
-                    conn.commit()
-                if progress_every and stats["chunks_seen"] % progress_every == 0:
-                    print(
-                        "benchmark processed={chunks_seen} written={written} empty={empty} errors={errors}".format(
-                            **stats
-                        ),
-                        flush=True,
-                    )
+                        fh.write(json.dumps({"extraction_id": extraction_id, **error_payload}, ensure_ascii=False) + "\n")
+                    else:
+                        non_empty = any(
+                            payload.get(key)
+                            for key in [
+                                "material_systems",
+                                "sample_processes",
+                                "properties",
+                                "mechanisms",
+                                "theoretical_insights",
+                                "design_rules",
+                                "optimization_targets",
+                                "benchmark_records",
+                                "figure_or_table_observations",
+                                "ontology_candidates",
+                            ]
+                        )
+                        stats["chunks_attempted"] += 1
+                        stats["written"] += int(non_empty)
+                        stats["empty"] += int(not non_empty)
+                        status = "ok" if non_empty else "empty_result"
+                        conn.execute(
+                            """
+                            INSERT INTO benchmark_extractions (
+                                extraction_id, paper_id, pdf_id, chunk_id, page_number,
+                                source_type, payload_json, model_name, confidence, status
+                            )
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(chunk_id, source_type) DO UPDATE SET
+                                payload_json = excluded.payload_json,
+                                model_name = excluded.model_name,
+                                confidence = excluded.confidence,
+                                status = excluded.status,
+                                error_message = NULL
+                            """,
+                            (
+                                extraction_id,
+                                row["paper_id"],
+                                row["pdf_id"],
+                                row["chunk_id"],
+                                row["page_number"],
+                                source_type,
+                                json.dumps(payload, ensure_ascii=False),
+                                selected_model,
+                                0.7 if non_empty else 0.0,
+                                status,
+                            ),
+                        )
+                        fh.write(json.dumps({"extraction_id": extraction_id, **payload}, ensure_ascii=False) + "\n")
+                    fh.flush()
+                    if commit_every > 0 and stats["chunks_seen"] % commit_every == 0:
+                        conn.commit()
+                    if progress_every and stats["chunks_seen"] % progress_every == 0:
+                        print(
+                            "benchmark processed={chunks_seen} written={written} "
+                            "empty={empty} errors={errors} paused={paused}".format(**stats),
+                            flush=True,
+                        )
+                    if not stats.get("paused"):
+                        future = submit_next(pool, next_index)
+                        next_index += 1
+                        if future is not None:
+                            futures.add(future)
+                if stats.get("paused"):
+                    break
             conn.commit()
 
-    record_pipeline_run("19_open_benchmark_extraction", "ok", stats, db_path=db_path)
+    record_pipeline_run(
+        "19_open_benchmark_extraction",
+        "paused" if stats.get("paused") else "ok",
+        stats,
+        db_path=db_path,
+    )
     return stats
 
 

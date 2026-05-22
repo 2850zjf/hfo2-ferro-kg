@@ -14,6 +14,7 @@ data/ontology/
 data/benchmark/
 data/figures/
 data/design/
+data/runtime/
 models/
 data/manifest/*.csv
 data/graph/*.csv

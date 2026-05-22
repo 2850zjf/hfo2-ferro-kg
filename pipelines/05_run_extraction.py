@@ -22,18 +22,19 @@ def main() -> None:
     parser.add_argument("--max-workers", type=int, default=1, help="Concurrent LLM calls for extraction.")
     args = parser.parse_args()
     runner = run_parallel_extraction if args.max_workers and args.max_workers > 1 else run_extraction
-    print(
-        runner(
-            limit_chunks=args.limit_chunks,
-            use_llm=not args.no_llm,
-            llm_model=args.model,
-            dry_run=args.dry_run,
-            reset_existing=not args.incremental,
-            commit_every=args.commit_every,
-            progress_every=args.progress_every,
-            **({"max_workers": args.max_workers} if runner is run_parallel_extraction else {}),
-        )
+    result = runner(
+        limit_chunks=args.limit_chunks,
+        use_llm=not args.no_llm,
+        llm_model=args.model,
+        dry_run=args.dry_run,
+        reset_existing=not args.incremental,
+        commit_every=args.commit_every,
+        progress_every=args.progress_every,
+        **({"max_workers": args.max_workers} if runner is run_parallel_extraction else {}),
     )
+    print(result)
+    if result.get("paused"):
+        raise SystemExit(75)
 
 
 if __name__ == "__main__":

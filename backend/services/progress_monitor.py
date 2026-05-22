@@ -9,6 +9,7 @@ from typing import Any
 
 from backend.core.config import PROJECT_ROOT
 from backend.db.session import connect
+from backend.services.llm_quota_guard import read_llm_pause
 from backend.services.pipeline_log import recent_pipeline_runs
 
 
@@ -318,4 +319,5 @@ def monitor_snapshot() -> dict[str, Any]:
         "active": bool(processes),
         "runtime": latest_pipeline_runtime(),
         "tokens": token_usage(),
+        "llm_pause": read_llm_pause(),
     }

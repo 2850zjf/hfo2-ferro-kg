@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +16,7 @@ from backend.services.hfo2_extractor import (
     preaudit_status,
 )
 from backend.services.llm_extractor import extract_chunk_with_llm
+from backend.services.llm_quota_guard import clear_llm_pause, is_llm_budget_error, write_llm_pause
 from backend.services.ontology_builder import build_ontology
 from backend.services.ontology_context import build_ontology_context
 from backend.services.pipeline_log import record_pipeline_run
@@ -119,6 +120,19 @@ def _process_row(
                 llm_stats = {"llm_used": 1, "llm_failed": 0, "llm_skipped": 0, "rules_used": 0}
             else:
                 llm_error = outcome.error_message
+                if outcome.used_llm and is_llm_budget_error(llm_error):
+                    return {
+                        "kind": "llm_budget_pause",
+                        "paper_id": row["paper_id"],
+                        "pdf_id": row["pdf_id"],
+                        "chunk_id": row["chunk_id"],
+                        "page_number": row["page_number"],
+                        "error_message": llm_error,
+                        "stats": {
+                            "llm_failed": 1,
+                            "paused": 1,
+                        },
+                    }
                 result = extract_chunk(row)
                 llm_stats = {
                     "llm_used": 0,
@@ -245,7 +259,10 @@ def run_parallel_extraction(
         "errors": 0,
         "skipped_existing": 0,
         "max_workers": max_workers,
+        "paused": 0,
     }
+    if should_use_llm and not dry_run:
+        clear_llm_pause()
 
     with connect(db_path) as conn:
         rows = conn.execute(
@@ -278,87 +295,130 @@ def run_parallel_extraction(
                 ).fetchone()[0]
 
         file_mode = "w" if reset_existing else "a"
+        def submit_next(pool: ThreadPoolExecutor, index: int):
+            if index >= len(row_dicts):
+                return None
+            return pool.submit(_process_row, row_dicts[index], should_use_llm, llm_model, ontology_version)
+
         with output_path.open(file_mode, encoding="utf-8") as fh, ThreadPoolExecutor(max_workers=max(1, max_workers)) as pool:
-            futures = [
-                pool.submit(_process_row, row, should_use_llm, llm_model, ontology_version)
-                for row in row_dicts
-            ]
-            for future in as_completed(futures):
-                item = future.result()
-                stats["chunks"] += 1
-                for key, value in item["stats"].items():
-                    stats[key] = int(stats.get(key, 0)) + int(value)
-                if not dry_run:
-                    conn.execute(
-                        """
-                        INSERT INTO extraction_candidates (
-                            candidate_id, paper_id, pdf_id, chunk_id, page_number, payload_json,
-                            extractor_version, ontology_version, confidence, status, error_message
+            next_index = 0
+            futures = set()
+            initial = min(max(1, max_workers), len(row_dicts))
+            for _ in range(initial):
+                future = submit_next(pool, next_index)
+                next_index += 1
+                if future is not None:
+                    futures.add(future)
+
+            while futures:
+                done, futures = wait(futures, return_when=FIRST_COMPLETED)
+                for future in done:
+                    item = future.result()
+                    stats["chunks"] += 1
+                    for key, value in item["stats"].items():
+                        stats[key] = int(stats.get(key, 0)) + int(value)
+                    if item.get("kind") == "llm_budget_pause":
+                        pause_path = write_llm_pause(
+                            item.get("error_message") or "LLM quota/authentication/rate-limit error",
+                            {
+                                "pipeline": "05_run_extraction",
+                                "paper_id": item.get("paper_id"),
+                                "pdf_id": item.get("pdf_id"),
+                                "chunk_id": item.get("chunk_id"),
+                                "page_number": item.get("page_number"),
+                                "processed_chunks_in_this_run": stats["chunks"],
+                            },
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(candidate_id) DO UPDATE SET
-                            payload_json = excluded.payload_json,
-                            extractor_version = excluded.extractor_version,
-                            ontology_version = excluded.ontology_version,
-                            confidence = excluded.confidence,
-                            status = excluded.status,
-                            error_message = excluded.error_message
-                        """,
-                        (
-                            item["candidate_id"],
-                            item["paper_id"],
-                            item["pdf_id"],
-                            item["chunk_id"],
-                            item["page_number"],
-                            item["payload_json"],
-                            item["extractor_version"],
-                            item["ontology_version"],
-                            item["confidence"],
-                            item["status"],
-                            item["error_message"],
-                        ),
-                    )
-                    for fact in item["facts"]:
+                        stats["pause_file"] = str(pause_path)
+                        if not dry_run:
+                            conn.commit()
+                        for pending in futures:
+                            pending.cancel()
+                        futures.clear()
+                        break
+                    if not dry_run:
                         conn.execute(
                             """
-                            INSERT INTO reviewed_facts (
-                                fact_id, candidate_id, paper_id, pdf_id, chunk_id, page_number,
-                                fact_type, payload_json, review_status, reviewer_notes
+                            INSERT INTO extraction_candidates (
+                                candidate_id, paper_id, pdf_id, chunk_id, page_number, payload_json,
+                                extractor_version, ontology_version, confidence, status, error_message
                             )
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            ON CONFLICT(fact_id) DO UPDATE SET
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(candidate_id) DO UPDATE SET
                                 payload_json = excluded.payload_json,
-                                review_status = excluded.review_status,
-                                reviewer_notes = excluded.reviewer_notes,
-                                updated_at = CURRENT_TIMESTAMP
+                                extractor_version = excluded.extractor_version,
+                                ontology_version = excluded.ontology_version,
+                                confidence = excluded.confidence,
+                                status = excluded.status,
+                                error_message = excluded.error_message
                             """,
                             (
-                                fact["fact_id"],
-                                fact["candidate_id"],
-                                fact["paper_id"],
-                                fact["pdf_id"],
-                                fact["chunk_id"],
-                                fact["page_number"],
-                                "ferroelectric_property",
-                                fact["payload_json"],
-                                fact["review_status"],
-                                "Machine pre-audit only. Requires later human review before publication claims.",
+                                item["candidate_id"],
+                                item["paper_id"],
+                                item["pdf_id"],
+                                item["chunk_id"],
+                                item["page_number"],
+                                item["payload_json"],
+                                item["extractor_version"],
+                                item["ontology_version"],
+                                item["confidence"],
+                                item["status"],
+                                item["error_message"],
                             ),
                         )
-                fh.write(json.dumps(item["output_payload"], ensure_ascii=False) + "\n")
-                fh.flush()
-                if not dry_run and commit_every > 0 and stats["chunks"] % commit_every == 0:
-                    conn.commit()
-                if progress_every and stats["chunks"] % progress_every == 0:
-                    print(
-                        "processed={chunks} candidates={candidates} llm_used={llm_used} "
-                        "llm_failed={llm_failed} empty={empty} "
-                        "empty_recorded={empty_recorded} errors={errors}".format(**stats),
-                        flush=True,
-                    )
+                        for fact in item["facts"]:
+                            conn.execute(
+                                """
+                                INSERT INTO reviewed_facts (
+                                    fact_id, candidate_id, paper_id, pdf_id, chunk_id, page_number,
+                                    fact_type, payload_json, review_status, reviewer_notes
+                                )
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                ON CONFLICT(fact_id) DO UPDATE SET
+                                    payload_json = excluded.payload_json,
+                                    review_status = excluded.review_status,
+                                    reviewer_notes = excluded.reviewer_notes,
+                                    updated_at = CURRENT_TIMESTAMP
+                                """,
+                                (
+                                    fact["fact_id"],
+                                    fact["candidate_id"],
+                                    fact["paper_id"],
+                                    fact["pdf_id"],
+                                    fact["chunk_id"],
+                                    fact["page_number"],
+                                    "ferroelectric_property",
+                                    fact["payload_json"],
+                                    fact["review_status"],
+                                    "Machine pre-audit only. Requires later human review before publication claims.",
+                                ),
+                            )
+                    fh.write(json.dumps(item["output_payload"], ensure_ascii=False) + "\n")
+                    fh.flush()
+                    if not dry_run and commit_every > 0 and stats["chunks"] % commit_every == 0:
+                        conn.commit()
+                    if progress_every and stats["chunks"] % progress_every == 0:
+                        print(
+                            "processed={chunks} candidates={candidates} llm_used={llm_used} "
+                            "llm_failed={llm_failed} empty={empty} "
+                            "empty_recorded={empty_recorded} errors={errors} paused={paused}".format(**stats),
+                            flush=True,
+                        )
+                    if not stats.get("paused"):
+                        future = submit_next(pool, next_index)
+                        next_index += 1
+                        if future is not None:
+                            futures.add(future)
+                if stats.get("paused"):
+                    break
             if not dry_run:
                 conn.commit()
 
     if not dry_run:
-        record_pipeline_run("05_run_extraction_parallel", "ok", stats, db_path=db_path)
+        record_pipeline_run(
+            "05_run_extraction_parallel",
+            "paused" if stats.get("paused") else "ok",
+            stats,
+            db_path=db_path,
+        )
     return stats

@@ -54,6 +54,7 @@ def main() -> None:
     parser.add_argument("--table-timeout", type=int, default=90)
     parser.add_argument("--benchmark-reset", action="store_true")
     parser.add_argument("--skip-structured", action="store_true")
+    parser.add_argument("--reset-structured", action="store_true")
     parser.add_argument("--skip-design-models", action="store_true")
     parser.add_argument("--design-min-rows", type=int, default=12)
     args = parser.parse_args()
@@ -85,21 +86,24 @@ def main() -> None:
             ("rebuild_chunks", [sys.executable, "pipelines/04_chunk_documents.py"]),
         ]
         if not args.skip_structured:
+            structured_command = [
+                sys.executable,
+                "pipelines/05_run_extraction.py",
+                "--model",
+                os.getenv("HFO2_FERROKG_LLM_MODEL", "qwen3.7-max"),
+                "--commit-every",
+                "20",
+                "--progress-every",
+                "10",
+                "--max-workers",
+                str(args.structured_workers),
+            ]
+            if not args.reset_structured:
+                structured_command.append("--incremental")
             steps.append(
                 (
                     "structured_hfo2_extraction",
-                    [
-                        sys.executable,
-                        "pipelines/05_run_extraction.py",
-                        "--model",
-                        os.getenv("HFO2_FERROKG_LLM_MODEL", "qwen3.7-max"),
-                        "--commit-every",
-                        "20",
-                        "--progress-every",
-                        "10",
-                        "--max-workers",
-                        str(args.structured_workers),
-                    ],
+                    structured_command,
                 )
             )
         benchmark_command = [

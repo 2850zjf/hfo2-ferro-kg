@@ -22,6 +22,7 @@ from backend.schemas.hfo2_extraction_schema import (
 )
 from backend.services.fact_normalizer import normalize_property
 from backend.services.llm_extractor import extract_chunk_with_llm
+from backend.services.llm_quota_guard import clear_llm_pause, is_llm_budget_error, write_llm_pause
 from backend.services.ontology_context import build_ontology_context
 from backend.services.ontology_builder import build_ontology
 from backend.services.pipeline_log import record_pipeline_run
@@ -341,7 +342,10 @@ def run_extraction(
         "empty_recorded": 0,
         "errors": 0,
         "skipped_existing": 0,
+        "paused": 0,
     }
+    if should_use_llm and not dry_run:
+        clear_llm_pause()
 
     with connect(db_path) as conn:
         rows = conn.execute(
@@ -388,6 +392,24 @@ def run_extraction(
                             stats["llm_used"] += 1
                         else:
                             llm_error = outcome.error_message
+                            if outcome.used_llm and is_llm_budget_error(llm_error):
+                                stats["llm_failed"] += 1
+                                stats["paused"] = 1
+                                pause_path = write_llm_pause(
+                                    llm_error or "LLM quota/authentication/rate-limit error",
+                                    {
+                                        "pipeline": "05_run_extraction",
+                                        "paper_id": row["paper_id"],
+                                        "pdf_id": row["pdf_id"],
+                                        "chunk_id": row["chunk_id"],
+                                        "page_number": row["page_number"],
+                                        "processed_chunks_in_this_run": stats["chunks"],
+                                    },
+                                )
+                                stats["pause_file"] = str(pause_path)
+                                if not dry_run:
+                                    conn.commit()
+                                break
                             if outcome.used_llm:
                                 stats["llm_failed"] += 1
                             else:
@@ -590,5 +612,5 @@ def run_extraction(
                 conn.commit()
 
     if not dry_run:
-        record_pipeline_run("05_run_extraction", "ok", stats, db_path=db_path)
+        record_pipeline_run("05_run_extraction", "paused" if stats.get("paused") else "ok", stats, db_path=db_path)
     return stats

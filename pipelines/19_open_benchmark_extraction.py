@@ -33,8 +33,10 @@ def main() -> None:
         progress_every=args.progress_every,
         max_workers=args.max_workers,
     )
-    exports = export_benchmark_csv()
+    exports = {} if stats.get("paused") else export_benchmark_csv()
     print(json.dumps({"stats": stats, "exports": exports}, ensure_ascii=True, indent=2))
+    if stats.get("paused"):
+        raise SystemExit(75)
 
 
 if __name__ == "__main__":

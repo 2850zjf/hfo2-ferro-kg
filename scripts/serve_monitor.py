@@ -23,6 +23,18 @@ def render_html(refresh: int) -> bytes:
     runtime = snapshot["runtime"]
     tokens = snapshot["tokens"]
     logs = snapshot["logs"]
+    pause = snapshot.get("llm_pause")
+    pause_html = ""
+    if pause:
+        pause_html = (
+            '<div id="pause-banner" class="pause"><strong>LLM 已自动暂停保护。</strong><br>'
+            + html.escape(str(pause.get("reason", "")))
+            + "<br>"
+            + html.escape(str(pause.get("resume_hint", "额度恢复后重新运行同一条 pipeline，会从未完成的位置继续。")))
+            + "</div>"
+        )
+    else:
+        pause_html = '<div id="pause-banner"></div>'
     latest_tail = logs[0]["tail"] if logs else ""
     latest_progress = logs[0]["progress"] if logs else {}
     body = f"""<!doctype html>
@@ -48,11 +60,13 @@ def render_html(refresh: int) -> bytes:
     th {{ color: #a5adbb; font-weight: 600; }}
     .ok {{ color: #5bd489; }}
     .warn {{ color: #ffd166; }}
+    .pause {{ margin-top: 14px; padding: 14px 16px; border-radius: 8px; background: #3b1d24; border: 1px solid #ff6b7a; color: #ffd8dd; }}
     @media (max-width: 900px) {{ .wide {{ grid-template-columns: 1fr; }} }}
   </style>
 </head>
 <body>
 <main>
+  {pause_html}
   <h1>HfO2-FerroKG 实时监控</h1>
   <div class="muted">无闪烁更新 · 每 {refresh} 秒刷新数据 · <span id="active-state"></span></div>
 
@@ -132,6 +146,10 @@ async function refresh() {{
     const tk = data.tokens || {{}};
     const logs = data.logs || [];
     const latest = logs.length ? logs[0] : {{}};
+    const pause = data.llm_pause || null;
+    document.getElementById("pause-banner").outerHTML = pause
+      ? `<div id="pause-banner" class="pause"><strong>LLM 已自动暂停保护。</strong><br>${{pause.reason || ""}}<br>${{pause.resume_hint || "额度恢复后重新运行同一条 pipeline，会从未完成的位置继续。"}}</div>`
+      : '<div id="pause-banner"></div>';
     document.getElementById("active-state").textContent = data.active ? "后台任务运行中" : "当前无后台任务";
     setMetric("当前步骤", rt.active_step || "");
     setMetric("已运行", rt.elapsed || "0s");
@@ -206,4 +224,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
