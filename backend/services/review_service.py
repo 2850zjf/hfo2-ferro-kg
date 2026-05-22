@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import re
 import subprocess
 import sys
 import webbrowser
@@ -16,6 +17,103 @@ from backend.services.ontology_context import build_ontology_context
 
 
 REVIEW_STATUSES = {"pending", "preapproved_machine", "needs_human_review", "approved", "rejected"}
+
+
+def assisted_review_suggestion(fact: dict[str, Any]) -> dict[str, Any]:
+    risk_flags: list[str] = []
+    checklist: list[str] = []
+    evidence = str(fact.get("evidence_text") or "")
+    property_name = str(fact.get("property_name") or "")
+    material = str(fact.get("material") or "")
+    material_family = str(fact.get("material_family") or "")
+    unit = str(fact.get("unit") or "")
+    status = str(fact.get("review_status") or "")
+    context_quality = str(fact.get("context_quality") or "unknown")
+    comparison_ready = bool(fact.get("comparison_ready"))
+    missing_context = [str(item) for item in fact.get("missing_context_labels") or []]
+
+    def _float(value: Any) -> float | None:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    value = _float(fact.get("value"))
+    if not material or material.lower() == "none":
+        risk_flags.append("材料名称缺失，不能直接批准。")
+    if material_family and material_family not in {
+        "HfO2",
+        "HZO",
+        "Si:HfO2",
+        "Al:HfO2",
+        "La:HfO2",
+        "Y:HfO2",
+        "Gd:HfO2",
+        "Sr:HfO2",
+        "mixed_doped_HfO2",
+        "unknown_hafnia",
+    }:
+        risk_flags.append("材料体系不在 HfO2 本体范围内，建议拒绝或复核。")
+    if not evidence or len(evidence.strip()) < 30:
+        risk_flags.append("证据句太短或缺失。")
+    if missing_context:
+        risk_flags.append("缺少关联上下文：" + "、".join(missing_context[:6]))
+
+    if property_name == "remanent_polarization_Pr" and re.search(
+        r"\b2\s*\.?\s*P\s*\.?\s*r\b|2Pr|double remanent",
+        evidence,
+        re.I,
+    ):
+        risk_flags.append("证据句像是在报告 2Pr，不应直接当作 Pr。")
+    if property_name == "double_remanent_polarization_2Pr" and not re.search(
+        r"\b2\s*\.?\s*P\s*\.?\s*r\b|2Pr|double remanent",
+        evidence,
+        re.I,
+    ):
+        risk_flags.append("证据句没有明确 2Pr 标记。")
+    if property_name == "remanent_polarization_Pr" and value is not None and value > 100:
+        risk_flags.append("Pr > 100 μC/cm²，数值异常。")
+    if property_name == "double_remanent_polarization_2Pr" and value is not None and value > 200:
+        risk_flags.append("2Pr > 200 μC/cm²，数值异常。")
+    if property_name == "coercive_field_Ec" and value is not None and "MV/cm" in unit and value > 10:
+        risk_flags.append("Ec > 10 MV/cm，数值异常。")
+    if re.search(
+        r"\[[\d,\-\s]+\]|previous(?:ly)? reported|literature|recent reports?|reported by",
+        evidence,
+        re.I,
+    ):
+        risk_flags.append("证据句可能是文献引用或综述转述，需确认是否为本文原始实验值。")
+
+    checklist.extend(
+        [
+            "核对材料体系是否属于 HfO2 / HZO / doped HfO2。",
+            "核对 Pr 与 2Pr 是否被严格区分。",
+            "核对数值、单位、页码是否与证据句一致。",
+            "核对厚度、退火、电极、沉积方法、器件类型是否来自同一样品。",
+        ]
+    )
+
+    if any("不在 HfO2" in flag for flag in risk_flags):
+        suggested_status = "rejected"
+    elif not risk_flags and comparison_ready and context_quality == "strong":
+        suggested_status = "approved" if status == "preapproved_machine" else status or "approved"
+    elif not risk_flags and status == "preapproved_machine":
+        suggested_status = "preapproved_machine"
+    else:
+        suggested_status = "needs_human_review"
+
+    note = "AI辅助审核建议：" + suggested_status
+    if risk_flags:
+        note += "；风险：" + "；".join(risk_flags[:4])
+    else:
+        note += "；未发现明显规则风险，仍建议对照 PDF 原文确认。"
+
+    return {
+        "suggested_status": suggested_status,
+        "risk_flags": risk_flags,
+        "checklist": checklist,
+        "note": note,
+    }
 
 
 def _fact_record(row: Any) -> dict[str, Any]:
@@ -39,7 +137,7 @@ def _fact_record(row: Any) -> dict[str, Any]:
     sample_context = ontology_context.get("sample_context", {})
     structure_context = ontology_context.get("structure_context", {})
     measurement_state = ontology_context.get("measurement_state_context", {})
-    return {
+    record = {
         "fact_id": row["fact_id"],
         "review_status": row["review_status"],
         "paper_id": row["paper_id"],
@@ -79,6 +177,11 @@ def _fact_record(row: Any) -> dict[str, Any]:
         "pdf_file_name": row["pdf_file_name"],
         "pdf_path": row["pdf_path"],
     }
+    record["assistant_review"] = assisted_review_suggestion(record)
+    record["ai_suggested_status"] = record["assistant_review"]["suggested_status"]
+    record["ai_risk_flags"] = record["assistant_review"]["risk_flags"]
+    record["ai_review_note"] = record["assistant_review"]["note"]
+    return record
 
 
 def list_review_facts(
@@ -305,6 +408,9 @@ def export_approved_facts(
         "unit",
         "confidence",
         "evidence_text",
+        "ai_suggested_status",
+        "ai_risk_flags",
+        "ai_review_note",
         "reviewer_notes",
         "paper_title",
         "doi",

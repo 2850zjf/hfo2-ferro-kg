@@ -8,6 +8,7 @@ import pytest
 from backend.db.init_db import init_database
 from backend.db.session import connect
 from backend.services.review_service import (
+    assisted_review_suggestion,
     export_approved_facts,
     get_pdf_viewer_record,
     list_review_facts,
@@ -67,6 +68,13 @@ def test_review_service_updates_status_and_exports_approved(tmp_path):
     assert facts[0]["electrode_stack"] == "TiN/HZO/TiN"
     assert facts[0]["context_quality"] in {"weak", "partial", "strong"}
     assert "ontology_context" in facts[0]
+    assert "assistant_review" in facts[0]
+    assert facts[0]["ai_suggested_status"] in {
+        "approved",
+        "preapproved_machine",
+        "needs_human_review",
+        "rejected",
+    }
     assert "pdf_path" in facts[0]
     assert "checked against source" in export_path.read_text(encoding="utf-8-sig")
 
@@ -77,6 +85,26 @@ def test_review_service_rejects_unknown_status(tmp_path):
 
     with pytest.raises(ValueError):
         update_review_status("missing", "published", db_path=db_path)
+
+
+def test_assisted_review_suggestion_flags_pr_2pr_conflict():
+    suggestion = assisted_review_suggestion(
+        {
+            "review_status": "preapproved_machine",
+            "material": "Hf0.5Zr0.5O2",
+            "material_family": "HZO",
+            "property_name": "remanent_polarization_Pr",
+            "value": 40,
+            "unit": "μC/cm²",
+            "evidence_text": "The optimized capacitor showed a 2Pr value of 40 μC/cm2.",
+            "missing_context_labels": [],
+            "comparison_ready": True,
+            "context_quality": "strong",
+        }
+    )
+
+    assert suggestion["suggested_status"] == "needs_human_review"
+    assert any("2Pr" in flag for flag in suggestion["risk_flags"])
 
 
 def test_pdf_file_url_points_to_local_page(tmp_path):

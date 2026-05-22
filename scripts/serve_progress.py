@@ -16,6 +16,7 @@ PROGRESS_RE = re.compile(
     r"llm_used=(?P<llm_used>\d+)\s+"
     r"llm_failed=(?P<llm_failed>\d+)\s+"
     r"empty=(?P<empty>\d+)\s+"
+    r"(?:empty_recorded=(?P<empty_recorded>\d+)\s+)?"
     r"errors=(?P<errors>\d+)"
 )
 START_RE = re.compile(r"started\s+(?P<stamp>\d{4}-\d{2}-\d{2}T[^\s]+)")
@@ -49,10 +50,13 @@ def parse_log(path: Path, total: int) -> dict[str, object]:
         "llm_used": 0,
         "llm_failed": 0,
         "empty": 0,
+        "empty_recorded": 0,
         "errors": 0,
     }
     if latest:
-        values.update({key: int(value) for key, value in latest.groupdict().items()})
+        values.update(
+            {key: int(value) for key, value in latest.groupdict(default="0").items()}
+        )
 
     started_at = None
     for line in lines[:10]:
@@ -139,6 +143,7 @@ def render_html(data: dict[str, object], refresh: int) -> bytes:
     <div class="card"><div class="label">已处理 chunk</div><div class="value" id="processed">{data.get("processed", 0)} / {data.get("total", 0)}</div></div>
     <div class="card"><div class="label">新增候选</div><div class="value" id="candidates">{data.get("candidates", 0)}</div></div>
     <div class="card"><div class="label">空结果</div><div class="value" id="empty">{data.get("empty", 0)}</div></div>
+    <div class="card"><div class="label">空结果已登记</div><div class="value" id="empty-recorded">{data.get("empty_recorded", 0)}</div></div>
     <div class="card"><div class="label">模型失败</div><div class="value" id="llm-failed">{data.get("llm_failed", 0)}</div></div>
     <div class="card"><div class="label">程序错误</div><div class="value" id="errors">{data.get("errors", 0)}</div></div>
     <div class="card"><div class="label">已用时间</div><div class="value" id="elapsed">{data.get("elapsed", "0s")}</div></div>
@@ -161,6 +166,7 @@ function updateProgress(data) {{
   setText("processed", `${{data.processed || 0}} / ${{data.total || 0}}`);
   setText("candidates", data.candidates || 0);
   setText("empty", data.empty || 0);
+  setText("empty-recorded", data.empty_recorded || 0);
   setText("llm-failed", data.llm_failed || 0);
   setText("errors", data.errors || 0);
   setText("elapsed", data.elapsed || "0s");

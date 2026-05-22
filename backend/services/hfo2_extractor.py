@@ -275,6 +275,42 @@ def preaudit_status(result: HfO2ExtractionResult, source: str) -> tuple[str, flo
     return "needs_human_review", 0.5, warnings + ["Missing unit or evidence."]
 
 
+def empty_result_payload(
+    row,
+    source: str,
+    extractor_version: str,
+    ontology_version: str,
+    llm_error: str | None = None,
+) -> dict:
+    warnings = [
+        "Chunk was checked, but no ontology-aligned HfO2 fact was extracted.",
+        "This marker prevents repeated LLM calls for the same empty chunk.",
+    ]
+    if llm_error:
+        warnings.append(f"LLM fallback used before empty result: {llm_error[:240]}")
+    return {
+        "paper_id": row["paper_id"],
+        "pdf_id": row["pdf_id"],
+        "chunk_id": row["chunk_id"],
+        "page_number": row["page_number"],
+        "materials": [],
+        "samples": [],
+        "phases": [],
+        "properties": [],
+        "devices": [],
+        "evidences": [],
+        "warnings": warnings,
+        "preaudit": {
+            "status": "empty_result",
+            "confidence": 0.0,
+            "warnings": warnings,
+            "extractor_version": extractor_version,
+            "extraction_source": source,
+            "ontology_version": ontology_version,
+        },
+    }
+
+
 def run_extraction(
     limit_chunks: int | None = None,
     db_path: Path | None = None,
@@ -302,6 +338,7 @@ def run_extraction(
         "preapproved": 0,
         "needs_human_review": 0,
         "empty": 0,
+        "empty_recorded": 0,
         "errors": 0,
         "skipped_existing": 0,
     }
@@ -402,16 +439,59 @@ def run_extraction(
                     if progress_every and stats["chunks"] % progress_every == 0:
                         print(
                             "processed={chunks} candidates={candidates} llm_used={llm_used} "
-                            "llm_failed={llm_failed} empty={empty} errors={errors}".format(**stats),
+                            "llm_failed={llm_failed} empty={empty} "
+                            "empty_recorded={empty_recorded} errors={errors}".format(**stats),
                             flush=True,
                         )
                     continue
                 if not any([result.materials, result.samples, result.phases, result.properties, result.devices]):
                     stats["empty"] += 1
+                    payload = empty_result_payload(
+                        row,
+                        source,
+                        extractor_version,
+                        ontology_version,
+                        llm_error=llm_error,
+                    )
+                    candidate_id = f"cand_empty_{uuid.uuid5(uuid.NAMESPACE_URL, row['chunk_id'] + ontology_version).hex[:16]}"
+                    if not dry_run:
+                        conn.execute(
+                            """
+                            INSERT INTO extraction_candidates (
+                                candidate_id, paper_id, pdf_id, chunk_id, page_number, payload_json,
+                                extractor_version, ontology_version, confidence, status
+                            )
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(candidate_id) DO UPDATE SET
+                                payload_json = excluded.payload_json,
+                                extractor_version = excluded.extractor_version,
+                                ontology_version = excluded.ontology_version,
+                                confidence = excluded.confidence,
+                                status = excluded.status
+                            """,
+                            (
+                                candidate_id,
+                                row["paper_id"],
+                                row["pdf_id"],
+                                row["chunk_id"],
+                                row["page_number"],
+                                json.dumps(payload, ensure_ascii=False),
+                                extractor_version,
+                                ontology_version,
+                                0.0,
+                                "empty_result",
+                            ),
+                        )
+                        stats["empty_recorded"] += 1
+                        if commit_every > 0 and stats["chunks"] % commit_every == 0:
+                            conn.commit()
+                    fh.write(json.dumps({"candidate_id": candidate_id, **payload}, ensure_ascii=False) + "\n")
+                    fh.flush()
                     if progress_every and stats["chunks"] % progress_every == 0:
                         print(
                             "processed={chunks} candidates={candidates} llm_used={llm_used} "
-                            "llm_failed={llm_failed} empty={empty} errors={errors}".format(**stats),
+                            "llm_failed={llm_failed} empty={empty} "
+                            "empty_recorded={empty_recorded} errors={errors}".format(**stats),
                             flush=True,
                         )
                     continue
@@ -502,7 +582,8 @@ def run_extraction(
                 if progress_every and stats["chunks"] % progress_every == 0:
                     print(
                         "processed={chunks} candidates={candidates} llm_used={llm_used} "
-                        "llm_failed={llm_failed} empty={empty} errors={errors}".format(**stats),
+                        "llm_failed={llm_failed} empty={empty} "
+                        "empty_recorded={empty_recorded} errors={errors}".format(**stats),
                         flush=True,
                     )
             if not dry_run:

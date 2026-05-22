@@ -165,3 +165,63 @@ def test_run_extraction_dry_run_does_not_write(tmp_path):
         candidate_count = conn.execute("SELECT COUNT(*) FROM extraction_candidates").fetchone()[0]
     assert stats["candidates"] == 1
     assert candidate_count == 0
+
+
+def test_run_extraction_records_empty_results_for_incremental_resume(tmp_path):
+    from backend.db.init_db import init_database
+    from backend.db.session import connect
+    from backend.services.hfo2_extractor import run_extraction
+
+    db_path = tmp_path / "test.sqlite3"
+    init_database(db_path)
+    with connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO document_chunks (
+                chunk_id, paper_id, pdf_id, page_number, section, chunk_index, text,
+                char_count, token_count, contains_hfo2_keyword, contains_property_keyword,
+                is_high_value
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "chunk_empty",
+                "paper_1",
+                "pdf_1",
+                2,
+                "introduction",
+                0,
+                "This paragraph discusses reliability trends but reports no sample or measured value.",
+                75,
+                11,
+                1,
+                1,
+                1,
+            ),
+        )
+        conn.commit()
+
+    stats = run_extraction(db_path=db_path, use_llm=False)
+
+    with connect(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT status, confidence, payload_json
+            FROM extraction_candidates
+            WHERE chunk_id = ?
+            """,
+            ("chunk_empty",),
+        ).fetchone()
+        reviewed_count = conn.execute("SELECT COUNT(*) FROM reviewed_facts").fetchone()[0]
+
+    assert stats["empty"] == 1
+    assert stats["empty_recorded"] == 1
+    assert row["status"] == "empty_result"
+    assert row["confidence"] == 0
+    assert "prevents repeated LLM calls" in row["payload_json"]
+    assert reviewed_count == 0
+
+    second_stats = run_extraction(db_path=db_path, use_llm=False, reset_existing=False)
+
+    assert second_stats["chunks"] == 0
+    assert second_stats["skipped_existing"] == 1

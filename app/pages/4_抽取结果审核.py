@@ -36,6 +36,8 @@ def _render_clickable_fact_table(df: pd.DataFrame, active_fact_id: str | None) -
     columns = [
         ("fact_id", "fact_id（点击切换）", 180),
         ("review_status", "review_status", 170),
+        ("ai_suggested_status", "AI建议", 150),
+        ("ai_risk_flags", "AI风险", 260),
         ("context_quality", "关联完整度", 110),
         ("material", "material", 120),
         ("material_system", "材料体系", 120),
@@ -80,7 +82,7 @@ def _render_clickable_fact_table(df: pd.DataFrame, active_fact_id: str | None) -
                 except (TypeError, ValueError):
                     pass
                 cells.append(f"<td>{_short_cell(value)}</td>")
-            elif key in {"paper_title", "evidence_text", "electrode_stack"}:
+            elif key in {"paper_title", "evidence_text", "electrode_stack", "ai_risk_flags"}:
                 cells.append(f"<td>{_short_cell(row.get(key, ''), 160)}</td>")
             else:
                 cells.append(f"<td>{_short_cell(row.get(key, ''))}</td>")
@@ -258,6 +260,8 @@ if not df.empty and search_text.strip():
         "phase_structure",
         "wake_up_state",
         "endurance_state",
+        "ai_suggested_status",
+        "ai_review_note",
         "evidence_text",
         "pdf_file_name",
     ]
@@ -273,6 +277,8 @@ else:
     table_cols = [
         "fact_id",
         "review_status",
+        "ai_suggested_status",
+        "ai_risk_flags",
         "context_quality",
         "material",
         "material_system",
@@ -293,6 +299,9 @@ else:
         "paper_title",
         "evidence_text",
     ]
+    for col in table_cols:
+        if col not in df.columns:
+            df[col] = ""
     visible_fact_ids = df["fact_id"].tolist()
     facts_by_id = {fact["fact_id"]: fact for fact in facts}
 
@@ -410,6 +419,31 @@ else:
         missing_context = selected.get("missing_context_labels") or []
         if missing_context:
             st.warning("缺少上下文：" + "；".join(str(item) for item in missing_context))
+
+        assistant_review = selected.get("assistant_review") or {}
+        st.subheader("AI 辅助审核")
+        st.write(f"建议状态：`{assistant_review.get('suggested_status', 'needs_human_review')}`")
+        risk_flags = assistant_review.get("risk_flags") or []
+        if risk_flags:
+            st.warning("；".join(str(flag) for flag in risk_flags))
+        else:
+            st.success("未发现明显规则风险，但仍建议对照 PDF 原文确认。")
+        checklist = assistant_review.get("checklist") or []
+        if checklist:
+            with st.expander("AI 复核清单", expanded=False):
+                for item in checklist:
+                    st.write(f"- {item}")
+        if st.button("采用 AI 建议写入备注", key=f"apply_ai_note_{fact_id}", use_container_width=True):
+            ai_note = assistant_review.get("note") or ""
+            existing = selected.get("reviewer_notes") or ""
+            merged_notes = existing if ai_note in existing else (existing + "\n" + ai_note).strip()
+            update_review_status(
+                fact_id,
+                assistant_review.get("suggested_status") or selected["review_status"],
+                merged_notes,
+            )
+            st.success("已采用 AI 建议，状态和备注已更新。")
+            st.rerun()
 
         with st.form("review_form"):
             new_status = st.selectbox(
