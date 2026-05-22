@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from backend.services.llm_extractor import build_user_input, estimate_chunk_cost_units, llm_status
+from backend.services.llm_extractor import (
+    build_user_input,
+    coerce_llm_result_payload,
+    estimate_chunk_cost_units,
+    llm_status,
+    normalize_base_url,
+)
 
 
 def test_build_user_input_contains_source_identifiers():
@@ -23,8 +29,16 @@ def test_llm_status_has_expected_keys():
     status = llm_status()
 
     assert "model" in status
+    assert "provider" in status
     assert "api_key_configured" in status
     assert "openai_sdk_available" in status
+
+
+def test_dashscope_api_v1_is_normalized_to_compatible_endpoint():
+    base_url, note = normalize_base_url("dashscope", "https://dashscope.aliyuncs.com/api/v1")
+
+    assert base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    assert note
 
 
 def test_estimate_chunk_cost_units_is_deterministic():
@@ -32,6 +46,43 @@ def test_estimate_chunk_cost_units_is_deterministic():
 
     assert estimate["chars"] > 0
     assert estimate["rough_tokens"] > 0
+
+
+def test_coerce_qwen_style_payload_to_hfo2_schema():
+    row = {
+        "paper_id": "paper_1",
+        "pdf_id": "pdf_1",
+        "chunk_id": "chunk_1",
+        "page_number": 3,
+        "text": "The 10 nm HZO capacitor showed a 2Pr value of 40 uC/cm2 after wake-up.",
+    }
+    payload = {
+        "materials": [
+            {
+                "material_name": "HZO",
+                "thickness_nm": 10,
+                "device_stack": "TiN/HZO/TiN",
+                "device_type": "capacitor",
+            }
+        ],
+        "facts": [
+            {
+                "property": "2Pr",
+                "value": "40",
+                "unit": "uC/cm2",
+                "confidence": 0.8,
+            }
+        ],
+    }
+
+    coerced = coerce_llm_result_payload(payload, row)
+
+    assert coerced["materials"][0]["canonical_name"] == "HZO"
+    assert coerced["materials"][0]["material_family"] == "HZO"
+    assert coerced["samples"][0]["film_thickness_nm"] == 10
+    assert coerced["properties"][0]["property_name"] == "double_remanent_polarization_2Pr"
+    assert coerced["properties"][0]["unit"] == "uC/cm2"
+    assert coerced["evidences"]
 
 
 def test_run_extraction_can_disable_llm(tmp_path):

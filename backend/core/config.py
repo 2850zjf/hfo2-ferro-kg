@@ -23,7 +23,21 @@ class Settings:
     )
     pdf_root: Path = PROJECT_ROOT / os.getenv("HFO2_FERROKG_PDF_ROOT", "data/raw_pdfs")
     log_level: str = os.getenv("HFO2_FERROKG_LOG_LEVEL", "INFO")
+    llm_provider: str = os.getenv("HFO2_FERROKG_LLM_PROVIDER", "openai").lower()
     llm_model: str = os.getenv("HFO2_FERROKG_LLM_MODEL", "gpt-4.1-mini")
+    llm_base_url: str | None = os.getenv("HFO2_FERROKG_LLM_BASE_URL") or os.getenv(
+        "DASHSCOPE_API_BASE_URL"
+    )
+    llm_timeout_seconds: float = float(os.getenv("HFO2_FERROKG_LLM_TIMEOUT_SECONDS", "60"))
+    llm_max_tokens: int = int(os.getenv("HFO2_FERROKG_LLM_MAX_TOKENS", "4000"))
+    llm_enable_thinking: bool = os.getenv(
+        "HFO2_FERROKG_LLM_ENABLE_THINKING", "false"
+    ).lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     use_llm: bool = os.getenv("HFO2_FERROKG_USE_LLM", "true").lower() in {
         "1",
         "true",
@@ -38,6 +52,13 @@ def get_settings() -> Settings:
 
 def get_openai_api_key() -> str | None:
     return os.getenv("OPENAI_API_KEY") or None
+
+
+def get_llm_api_key() -> str | None:
+    settings = get_settings()
+    if settings.llm_provider == "dashscope":
+        return os.getenv("DASHSCOPE_API_KEY") or os.getenv("OPENAI_API_KEY") or None
+    return get_openai_api_key()
 
 
 def discover_pdf_root() -> Path:
