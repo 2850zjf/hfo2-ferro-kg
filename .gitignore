@@ -11,6 +11,10 @@ data/reviewed_facts/
 data/vector_index/
 data/literature_candidates/
 data/ontology/
+data/benchmark/
+data/figures/
+data/design/
+models/
 data/manifest/*.csv
 data/graph/*.csv
 data/exports/

@@ -127,3 +127,14 @@ HFO2_FERROKG_USE_LLM = "true"
 - `needs_human_review`、异常值和综述/二手数据必须人工复核。
 - 只有人工确认后的 `approved` 事实才适合导出为正式结果。
 - Pr 和 2Pr 必须分开看；系统不会自动把 2Pr 当作 Pr。
+
+## 材料设计工作流
+
+新增“材料设计工作流”页面，用来把当前结果继续推进到可训练 benchmark：
+
+```bash
+python pipelines/21_build_design_dataset.py
+python pipelines/22_train_design_models.py
+```
+
+完整方法见 `docs/material_design_workflow.md`。第一版会把审核/预审核事实和开放 benchmark 抽取结果整理为 `data/design/hfo2_design_dataset.csv`，再为 Pr、2Pr、Ec 等目标训练 baseline 模型，输出到 `models/design_models/`。

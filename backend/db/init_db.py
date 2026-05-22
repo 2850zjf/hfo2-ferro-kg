@@ -194,6 +194,40 @@ CREATE TABLE IF NOT EXISTS literature_candidates (
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS benchmark_extractions (
+    extraction_id TEXT PRIMARY KEY,
+    paper_id TEXT NOT NULL,
+    pdf_id TEXT NOT NULL,
+    chunk_id TEXT,
+    page_number INTEGER,
+    source_type TEXT DEFAULT 'text',
+    payload_json TEXT NOT NULL,
+    model_name TEXT,
+    confidence REAL,
+    status TEXT DEFAULT 'pending',
+    error_message TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(chunk_id, source_type)
+);
+
+CREATE TABLE IF NOT EXISTS pdf_visual_assets (
+    asset_id TEXT PRIMARY KEY,
+    paper_id TEXT,
+    pdf_id TEXT NOT NULL,
+    page_number INTEGER NOT NULL,
+    asset_type TEXT NOT NULL,
+    asset_index INTEGER NOT NULL,
+    file_path TEXT,
+    caption_text TEXT,
+    bbox_json TEXT,
+    width INTEGER,
+    height INTEGER,
+    extraction_status TEXT DEFAULT 'ok',
+    error_message TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(pdf_id, page_number, asset_type, asset_index)
+);
 """
 
 
@@ -233,6 +267,22 @@ MIGRATIONS = {
         "downloaded_pdf_size": "ALTER TABLE literature_candidates ADD COLUMN downloaded_pdf_size INTEGER",
         "download_quality_score": "ALTER TABLE literature_candidates ADD COLUMN download_quality_score REAL",
         "download_error": "ALTER TABLE literature_candidates ADD COLUMN download_error TEXT",
+    },
+    "benchmark_extractions": {
+        "source_type": "ALTER TABLE benchmark_extractions ADD COLUMN source_type TEXT DEFAULT 'text'",
+        "model_name": "ALTER TABLE benchmark_extractions ADD COLUMN model_name TEXT",
+        "confidence": "ALTER TABLE benchmark_extractions ADD COLUMN confidence REAL",
+        "status": "ALTER TABLE benchmark_extractions ADD COLUMN status TEXT DEFAULT 'pending'",
+        "error_message": "ALTER TABLE benchmark_extractions ADD COLUMN error_message TEXT",
+    },
+    "pdf_visual_assets": {
+        "file_path": "ALTER TABLE pdf_visual_assets ADD COLUMN file_path TEXT",
+        "caption_text": "ALTER TABLE pdf_visual_assets ADD COLUMN caption_text TEXT",
+        "bbox_json": "ALTER TABLE pdf_visual_assets ADD COLUMN bbox_json TEXT",
+        "width": "ALTER TABLE pdf_visual_assets ADD COLUMN width INTEGER",
+        "height": "ALTER TABLE pdf_visual_assets ADD COLUMN height INTEGER",
+        "extraction_status": "ALTER TABLE pdf_visual_assets ADD COLUMN extraction_status TEXT DEFAULT 'ok'",
+        "error_message": "ALTER TABLE pdf_visual_assets ADD COLUMN error_message TEXT",
     },
 }
 

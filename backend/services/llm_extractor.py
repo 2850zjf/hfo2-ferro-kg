@@ -17,6 +17,7 @@ class LLMExtractionOutcome:
     result: HfO2ExtractionResult | None
     used_llm: bool
     error_message: str | None = None
+    usage: dict[str, int | None] | None = None
 
 
 def llm_is_configured() -> bool:
@@ -148,10 +149,19 @@ def extract_chunk_with_llm(row, model: str | None = None, timeout: float | None 
             evidence["pdf_id"] = row["pdf_id"]
             evidence["chunk_id"] = row["chunk_id"]
             evidence["page_number"] = row["page_number"]
+        usage = getattr(response, "usage", None)
+        usage_payload = None
+        if usage is not None:
+            usage_payload = {
+                "prompt_tokens": getattr(usage, "input_tokens", None),
+                "completion_tokens": getattr(usage, "output_tokens", None),
+                "total_tokens": getattr(usage, "total_tokens", None),
+            }
         return LLMExtractionOutcome(
             result=HfO2ExtractionResult(**data),
             used_llm=True,
             error_message=None,
+            usage=usage_payload,
         )
     except Exception as exc:
         return LLMExtractionOutcome(result=None, used_llm=True, error_message=str(exc))
@@ -214,7 +224,15 @@ def _extract_chunk_with_chat_completions(
             else:
                 raise
         content = response.choices[0].message.content or ""
-        return LLMExtractionOutcome(result=parse_response(content), used_llm=True)
+        usage = getattr(response, "usage", None)
+        usage_payload = None
+        if usage is not None:
+            usage_payload = {
+                "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                "completion_tokens": getattr(usage, "completion_tokens", None),
+                "total_tokens": getattr(usage, "total_tokens", None),
+            }
+        return LLMExtractionOutcome(result=parse_response(content), used_llm=True, usage=usage_payload)
     except Exception as exc:
         return LLMExtractionOutcome(result=None, used_llm=True, error_message=str(exc))
 
