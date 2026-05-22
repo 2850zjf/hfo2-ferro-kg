@@ -10,7 +10,7 @@ from backend.services.ontology_context import build_ontology_context
 from backend.services.pipeline_log import record_pipeline_run
 
 
-GRAPH_STATUSES = {"preapproved_machine", "approved"}
+GRAPH_STATUSES = {"approved", "preapproved_machine", "needs_human_review"}
 
 
 def _node_id(kind: str, value: str) -> str:
@@ -25,14 +25,15 @@ def build_graph(output_dir: Path | None = None, db_path: Path | None = None) -> 
     edges: list[dict[str, str]] = []
 
     with connect(db_path) as conn:
+        placeholders = ",".join("?" for _ in GRAPH_STATUSES)
         rows = conn.execute(
-            """
+            f"""
             SELECT rf.*, p.title, p.doi, p.year
             FROM reviewed_facts rf
             LEFT JOIN papers p ON p.paper_id = rf.paper_id
-            WHERE rf.review_status IN (?, ?)
+            WHERE rf.review_status IN ({placeholders})
             """,
-            tuple(GRAPH_STATUSES),
+            tuple(sorted(GRAPH_STATUSES)),
         ).fetchall()
 
         for row in rows:
