@@ -22,6 +22,7 @@ data/exports/
 *.pdf
 *.PDF
 outputs/
+logs/
 reports/artifact-build-manifest.json
 
 __pycache__/
