@@ -119,3 +119,5 @@ def test_build_design_dataset_combines_reviewed_and_benchmark_rows(tmp_path):
         "coercive_field_Ec",
     }
     assert "evidence_text" in df.columns
+    assert "model_target_value" in df.columns
+    assert df["model_include"].astype(int).sum() == 2

@@ -73,10 +73,16 @@ def _load_or_build_dataset(dataset_path: Path | None = None) -> tuple[pd.DataFra
 
 
 def _prepare_target_frame(df: pd.DataFrame, target_property: str) -> pd.DataFrame:
-    if df.empty or "target_property" not in df or "target_value" not in df:
+    if df.empty or "target_property" not in df:
         return pd.DataFrame()
     subset = df[df["target_property"].astype(str) == target_property].copy()
-    subset["target_value"] = pd.to_numeric(subset["target_value"], errors="coerce")
+    if "model_include" in subset:
+        include = pd.to_numeric(subset["model_include"], errors="coerce").fillna(0).astype(int)
+        subset = subset[include == 1].copy()
+    value_column = "model_target_value" if "model_target_value" in subset else "target_value"
+    if value_column not in subset:
+        return pd.DataFrame()
+    subset["target_value"] = pd.to_numeric(subset[value_column], errors="coerce")
     for column in NUMERIC_FEATURES:
         if column not in subset:
             subset[column] = None

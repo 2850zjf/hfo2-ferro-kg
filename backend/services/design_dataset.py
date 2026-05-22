@@ -39,6 +39,124 @@ PROPERTY_ALIASES = {
     "leakage current density": "leakage_current_density",
 }
 
+SECONDS_PER_YEAR = 365 * 24 * 3600
+
+
+def _unit_text(unit: Any) -> str:
+    return (
+        str(unit or "")
+        .strip()
+        .lower()
+        .replace("µ", "μ")
+        .replace("−", "-")
+        .replace("‒", "-")
+        .replace("–", "-")
+        .replace("⁻", "-")
+        .replace("²", "2")
+        .replace("·", " ")
+    )
+
+
+def _normalize_model_target(property_name: str, value: Any, unit: Any) -> dict[str, Any]:
+    numeric = _safe_float(value)
+    unit_text = _unit_text(unit)
+    if numeric is None:
+        return {
+            "model_target_value": "",
+            "model_target_unit": "",
+            "model_include": 0,
+            "model_exclusion_reason": "missing_numeric_value",
+        }
+
+    normalized = numeric
+    normalized_unit = str(unit or "")
+    reason = ""
+
+    if property_name in {"remanent_polarization_Pr", "double_remanent_polarization_2Pr"}:
+        normalized_unit = "μC/cm²"
+        if "c/m2" in unit_text or "c m-2" in unit_text:
+            normalized = numeric * 100
+        elif "mc/cm" in unit_text or "mc cm" in unit_text:
+            normalized = numeric * 1000
+        elif "%" in unit_text or "μm" in unit_text:
+            reason = "invalid_polarization_unit"
+        upper = 100 if property_name == "remanent_polarization_Pr" else 200
+        if normalized <= 0 or normalized > upper:
+            reason = reason or "polarization_out_of_range"
+
+    elif property_name == "coercive_field_Ec":
+        normalized_unit = "MV/cm"
+        if "kv/cm" in unit_text or "kv cm" in unit_text:
+            normalized = numeric / 1000
+        elif "v/m" in unit_text:
+            normalized = numeric / 100_000_000
+        elif "mv/cm" in unit_text or "mv cm" in unit_text:
+            normalized = numeric
+        else:
+            reason = "invalid_ec_unit"
+        if normalized <= 0 or normalized > 10:
+            reason = reason or "ec_out_of_range"
+
+    elif property_name == "endurance_cycles":
+        normalized_unit = "cycles"
+        if any(token in unit_text for token in ["cycle", "cycles", "pulse", "pulses"]):
+            normalized = numeric
+        else:
+            reason = "invalid_endurance_unit"
+        if normalized <= 0 or normalized > 1e15:
+            reason = reason or "endurance_out_of_range"
+
+    elif property_name == "retention_time":
+        normalized_unit = "s"
+        if unit_text in {"s", "sec", "secs", "second", "seconds"}:
+            normalized = numeric
+        elif unit_text in {"min", "mins", "minute", "minutes"}:
+            normalized = numeric * 60
+        elif unit_text in {"h", "hr", "hrs", "hour", "hours"}:
+            normalized = numeric * 3600
+        elif unit_text in {"day", "days"}:
+            normalized = numeric * 86400
+        elif unit_text in {"y", "yr", "year", "years"}:
+            normalized = numeric * SECONDS_PER_YEAR
+        else:
+            reason = "invalid_retention_unit"
+        if normalized <= 0 or normalized > 100 * SECONDS_PER_YEAR:
+            reason = reason or "retention_out_of_range"
+
+    elif property_name == "memory_window":
+        normalized_unit = "V"
+        if unit_text == "v":
+            normalized = numeric
+        elif unit_text == "mv":
+            normalized = numeric / 1000
+        else:
+            reason = "invalid_memory_window_unit"
+        if normalized <= 0 or normalized > 20:
+            reason = reason or "memory_window_out_of_range"
+
+    elif property_name == "leakage_current_density":
+        normalized_unit = "A/cm²"
+        if "ma/cm" in unit_text or "ma cm" in unit_text:
+            normalized = numeric * 1e-3
+        elif "μa/cm" in unit_text or "ua/cm" in unit_text or "μa cm" in unit_text or "ua cm" in unit_text:
+            normalized = numeric * 1e-6
+        elif "na/cm" in unit_text or "na cm" in unit_text:
+            normalized = numeric * 1e-9
+        elif "a/cm" in unit_text or "a cm" in unit_text or "log(a/cm" in unit_text:
+            normalized = numeric
+        else:
+            reason = "invalid_leakage_unit"
+        if normalized <= 0 or normalized > 1e3:
+            reason = reason or "leakage_out_of_range"
+
+    include = 0 if reason else 1
+    return {
+        "model_target_value": normalized if include else "",
+        "model_target_unit": normalized_unit if include else "",
+        "model_include": include,
+        "model_exclusion_reason": reason,
+    }
+
 
 def _first_present(*values: Any) -> Any:
     for value in values:
@@ -101,8 +219,7 @@ def _accepted_reviewed_fact_rows(db_path: Path | None = None) -> list[dict[str, 
         value = _safe_float(_first_present(prop.get("normalized_value"), prop.get("value")))
         if value is None:
             continue
-        rows_out.append(
-            {
+        row_out = {
                 "record_id": row["fact_id"],
                 "source": "reviewed_facts",
                 "paper_id": row["paper_id"],
@@ -153,7 +270,8 @@ def _accepted_reviewed_fact_rows(db_path: Path | None = None) -> list[dict[str, 
                     }
                 ),
             }
-        )
+        row_out.update(_normalize_model_target(target_name, value, row_out["target_unit"]))
+        rows_out.append(row_out)
     return rows_out
 
 
@@ -190,8 +308,7 @@ def _benchmark_rows(db_path: Path | None = None) -> list[dict[str, Any]]:
                     unit = ""
                 if value is None:
                     continue
-                rows_out.append(
-                    {
+                row_out = {
                         "record_id": f"{row['extraction_id']}_{index}_{target_name}",
                         "source": "benchmark_extractions",
                         "paper_id": row["paper_id"],
@@ -230,7 +347,8 @@ def _benchmark_rows(db_path: Path | None = None) -> list[dict[str, Any]]:
                         "evidence_text": record.get("evidence_text") or "",
                         "quality_flags": _json(record.get("quality_flags")),
                     }
-                )
+                row_out.update(_normalize_model_target(canonical_target, value, row_out["target_unit"]))
+                rows_out.append(row_out)
     return rows_out
 
 
@@ -276,6 +394,10 @@ def build_design_dataset(
         "target_property",
         "target_value",
         "target_unit",
+        "model_target_value",
+        "model_target_unit",
+        "model_include",
+        "model_exclusion_reason",
         "condition",
         "evidence_text",
         "quality_flags",
@@ -289,6 +411,8 @@ def build_design_dataset(
         "rows": len(rows),
         "reviewed_fact_rows": sum(1 for row in rows if row["source"] == "reviewed_facts"),
         "benchmark_rows": sum(1 for row in rows if row["source"] == "benchmark_extractions"),
+        "model_rows": sum(1 for row in rows if int(row.get("model_include") or 0) == 1),
+        "excluded_model_rows": sum(1 for row in rows if int(row.get("model_include") or 0) == 0),
         "output_path": str(target),
     }
     record_pipeline_run("21_build_design_dataset", "ok", stats, db_path=db_path)
