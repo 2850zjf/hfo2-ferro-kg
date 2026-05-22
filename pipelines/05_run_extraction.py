@@ -16,6 +16,8 @@ def main() -> None:
     parser.add_argument("--model", default=None, help="Override HFO2_FERROKG_LLM_MODEL.")
     parser.add_argument("--dry-run", action="store_true", help="Run extraction without writing candidates/facts.")
     parser.add_argument("--incremental", action="store_true", help="Only extract chunks without candidates for the current ontology.")
+    parser.add_argument("--commit-every", type=int, default=25, help="Commit database writes every N processed chunks.")
+    parser.add_argument("--progress-every", type=int, default=20, help="Print progress every N processed chunks.")
     args = parser.parse_args()
     print(
         run_extraction(
@@ -24,6 +26,8 @@ def main() -> None:
             llm_model=args.model,
             dry_run=args.dry_run,
             reset_existing=not args.incremental,
+            commit_every=args.commit_every,
+            progress_every=args.progress_every,
         )
     )
 

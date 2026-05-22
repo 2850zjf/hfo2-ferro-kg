@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 import sqlite3
+import sys
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.core.config import get_settings
 
@@ -192,6 +197,21 @@ CREATE TABLE IF NOT EXISTS literature_candidates (
 """
 
 
+INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_document_chunks_high_value_ontology_scan
+ON document_chunks(is_high_value, pdf_id, chunk_index);
+
+CREATE INDEX IF NOT EXISTS idx_extraction_candidates_chunk_ontology
+ON extraction_candidates(chunk_id, ontology_version);
+
+CREATE INDEX IF NOT EXISTS idx_extraction_candidates_ontology_status
+ON extraction_candidates(ontology_version, status);
+
+CREATE INDEX IF NOT EXISTS idx_reviewed_facts_status_property
+ON reviewed_facts(review_status, fact_type);
+"""
+
+
 MIGRATIONS = {
     "pdf_files": {
         "blank_page_count": "ALTER TABLE pdf_files ADD COLUMN blank_page_count INTEGER DEFAULT 0",
@@ -331,6 +351,7 @@ def init_database(db_path: str | Path | None = None) -> Path:
     with sqlite3.connect(target) as conn:
         conn.executescript(SCHEMA_SQL)
         _apply_lightweight_migrations(conn)
+        conn.executescript(INDEX_SQL)
         conn.commit()
 
     return target

@@ -282,6 +282,8 @@ def run_extraction(
     llm_model: str | None = None,
     dry_run: bool = False,
     reset_existing: bool = True,
+    commit_every: int = 25,
+    progress_every: int | None = None,
 ) -> dict[str, int]:
     output_path = PROJECT_ROOT / "data" / "extraction_candidates" / "hfo2_candidates.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -394,9 +396,24 @@ def run_extraction(
                             ),
                         )
                     fh.write(json.dumps({"candidate_id": candidate_id, **error_payload}, ensure_ascii=False) + "\n")
+                    fh.flush()
+                    if not dry_run and commit_every > 0 and stats["chunks"] % commit_every == 0:
+                        conn.commit()
+                    if progress_every and stats["chunks"] % progress_every == 0:
+                        print(
+                            "processed={chunks} candidates={candidates} llm_used={llm_used} "
+                            "llm_failed={llm_failed} empty={empty} errors={errors}".format(**stats),
+                            flush=True,
+                        )
                     continue
                 if not any([result.materials, result.samples, result.phases, result.properties, result.devices]):
                     stats["empty"] += 1
+                    if progress_every and stats["chunks"] % progress_every == 0:
+                        print(
+                            "processed={chunks} candidates={candidates} llm_used={llm_used} "
+                            "llm_failed={llm_failed} empty={empty} errors={errors}".format(**stats),
+                            flush=True,
+                        )
                     continue
                 status, confidence, warnings = preaudit_status(result, source)
                 if llm_error:
@@ -474,11 +491,20 @@ def run_extraction(
                                 ),
                             )
                 fh.write(json.dumps({"candidate_id": candidate_id, **payload}, ensure_ascii=False) + "\n")
+                fh.flush()
                 stats["candidates"] += 1
                 if status == "preapproved_machine":
                     stats["preapproved"] += 1
                 else:
                     stats["needs_human_review"] += 1
+                if not dry_run and commit_every > 0 and stats["chunks"] % commit_every == 0:
+                    conn.commit()
+                if progress_every and stats["chunks"] % progress_every == 0:
+                    print(
+                        "processed={chunks} candidates={candidates} llm_used={llm_used} "
+                        "llm_failed={llm_failed} empty={empty} errors={errors}".format(**stats),
+                        flush=True,
+                    )
             if not dry_run:
                 conn.commit()
 
