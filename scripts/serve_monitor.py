@@ -14,7 +14,20 @@ from backend.services.progress_monitor import monitor_snapshot
 
 
 def _metric(label: str, value: object) -> str:
-    return f"""<div class="card"><div class="label">{html.escape(label)}</div><div class="value" data-metric="{html.escape(label)}">{html.escape(str(value))}</div></div>"""
+    return (
+        '<div class="card">'
+        f'<div class="label">{html.escape(label)}</div>'
+        f'<div class="value" data-metric="{html.escape(label)}">{html.escape(str(value))}</div>'
+        "</div>"
+    )
+
+
+def _pause_html(pause: object) -> str:
+    if not isinstance(pause, dict):
+        return '<div id="pause-banner"></div>'
+    reason = html.escape(str(pause.get("reason", "")))
+    hint = html.escape(str(pause.get("resume_hint", "额度恢复后重新运行同一条 pipeline，会从未完成的位置继续。")))
+    return f'<div id="pause-banner" class="pause"><strong>LLM 已自动暂停保护。</strong><br>{reason}<br>{hint}</div>'
 
 
 def render_html(refresh: int) -> bytes:
@@ -23,20 +36,11 @@ def render_html(refresh: int) -> bytes:
     runtime = snapshot["runtime"]
     tokens = snapshot["tokens"]
     logs = snapshot["logs"]
-    pause = snapshot.get("llm_pause")
-    pause_html = ""
-    if pause:
-        pause_html = (
-            '<div id="pause-banner" class="pause"><strong>LLM 已自动暂停保护。</strong><br>'
-            + html.escape(str(pause.get("reason", "")))
-            + "<br>"
-            + html.escape(str(pause.get("resume_hint", "额度恢复后重新运行同一条 pipeline，会从未完成的位置继续。")))
-            + "</div>"
-        )
-    else:
-        pause_html = '<div id="pause-banner"></div>'
     latest_tail = logs[0]["tail"] if logs else ""
     latest_progress = logs[0]["progress"] if logs else {}
+    currency = tokens.get("currency", "CNY")
+    input_price_display = tokens.get("input_price_per_token_display", "0.0000005")
+    output_price_display = tokens.get("output_price_per_token_display", "0.000002")
     body = f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -44,50 +48,76 @@ def render_html(refresh: int) -> bytes:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HfO2-FerroKG 实时监控</title>
   <style>
-    body {{ margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f1117; color: #f6f7fb; }}
-    main {{ max-width: 1380px; margin: 0 auto; padding: 26px 24px 42px; }}
-    h1 {{ margin: 0; font-size: 34px; }}
-    h2 {{ margin-top: 24px; font-size: 20px; }}
-    .muted {{ color: #a5adbb; margin-top: 8px; }}
-    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 16px; }}
-    .card {{ background: #181c24; border: 1px solid #303746; border-radius: 8px; padding: 14px 16px; }}
-    .label {{ color: #a5adbb; font-size: 13px; }}
-    .value {{ font-size: 25px; font-weight: 760; margin-top: 4px; word-break: break-word; }}
-    .wide {{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }}
-    pre {{ white-space: pre-wrap; background: #080a0f; border: 1px solid #303746; border-radius: 8px; padding: 14px; line-height: 1.45; max-height: 520px; overflow: auto; }}
-    table {{ width: 100%; border-collapse: collapse; background: #151922; border: 1px solid #303746; border-radius: 8px; overflow: hidden; }}
-    th, td {{ text-align: left; padding: 10px; border-bottom: 1px solid #303746; vertical-align: top; }}
-    th {{ color: #a5adbb; font-weight: 600; }}
-    .ok {{ color: #5bd489; }}
-    .warn {{ color: #ffd166; }}
-    .pause {{ margin-top: 14px; padding: 14px 16px; border-radius: 8px; background: #3b1d24; border: 1px solid #ff6b7a; color: #ffd8dd; }}
-    @media (max-width: 900px) {{ .wide {{ grid-template-columns: 1fr; }} }}
+    :root {{
+      color-scheme: dark;
+      --bg: #0f1117;
+      --panel: #181c24;
+      --panel-2: #121620;
+      --border: #303746;
+      --text: #f6f7fb;
+      --muted: #a5adbb;
+      --good: #5bd489;
+      --warn: #ffd166;
+      --danger: #ff6b7a;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }}
+    main {{ max-width: 1440px; margin: 0 auto; padding: 28px 24px 44px; }}
+    h1 {{ margin: 0; font-size: 36px; line-height: 1.15; }}
+    h2 {{ margin: 26px 0 12px; font-size: 20px; }}
+    .muted {{ color: var(--muted); margin-top: 8px; }}
+    .topline {{ display: flex; align-items: center; justify-content: space-between; gap: 16px; }}
+    .status {{ color: var(--good); font-weight: 700; }}
+    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 12px; margin-top: 12px; }}
+    .card {{ background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; min-height: 86px; }}
+    .label {{ color: var(--muted); font-size: 13px; }}
+    .value {{ font-size: 25px; font-weight: 760; margin-top: 5px; word-break: break-word; }}
+    .wide {{ display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }}
+    pre {{ white-space: pre-wrap; background: #080a0f; border: 1px solid var(--border); border-radius: 8px; padding: 14px; line-height: 1.45; max-height: 520px; overflow: auto; }}
+    table {{ width: 100%; border-collapse: collapse; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }}
+    th, td {{ text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }}
+    th {{ color: var(--muted); font-weight: 600; }}
+    td.command {{ color: var(--muted); font-size: 12px; word-break: break-all; }}
+    .warn {{ color: var(--warn); }}
+    .pause {{ margin: 0 0 18px; padding: 14px 16px; border-radius: 8px; background: #3b1d24; border: 1px solid var(--danger); color: #ffd8dd; }}
+    .note {{ color: var(--muted); margin-top: 10px; font-size: 13px; }}
+    @media (max-width: 900px) {{ .wide {{ grid-template-columns: 1fr; }} .topline {{ align-items: flex-start; flex-direction: column; }} }}
   </style>
 </head>
 <body>
 <main>
-  {pause_html}
-  <h1>HfO2-FerroKG 实时监控</h1>
-  <div class="muted">无闪烁更新 · 每 {refresh} 秒刷新数据 · <span id="active-state"></span></div>
+  {_pause_html(snapshot.get("llm_pause"))}
+  <div class="topline">
+    <div>
+      <h1>HfO2-FerroKG 实时监控</h1>
+      <div class="muted">页面不刷新，只更新数字；每 {refresh} 秒读取一次本地日志和数据库。</div>
+    </div>
+    <div id="active-state" class="status"></div>
+  </div>
 
-  <h2>时间与速度</h2>
+  <h2>时间、速度、剩余</h2>
   <div class="grid">
     {_metric("当前步骤", runtime.get("active_step", ""))}
-    {_metric("已运行", runtime.get("elapsed", "0s"))}
+    {_metric("总运行时间", runtime.get("elapsed", "0s"))}
+    {_metric("当前步骤运行", runtime.get("active_elapsed", "0s"))}
     {_metric("预计剩余", runtime.get("eta", "估算中"))}
     {_metric("速度", f"{runtime.get('rate_per_min', 0)} chunk/min")}
   </div>
 
-  <h2>Token 消耗</h2>
+  <h2>Token 与费用</h2>
   <div class="grid">
     {_metric("真实总 token", tokens.get("actual_total_tokens", 0))}
     {_metric("真实输入 token", tokens.get("actual_prompt_tokens", 0))}
     {_metric("真实输出 token", tokens.get("actual_completion_tokens", 0))}
     {_metric("估算总 token", tokens.get("estimated_total_tokens", 0))}
-    {_metric("结构化估算 token", tokens.get("estimated_structured_tokens", 0))}
-    {_metric("Benchmark 估算 token", tokens.get("estimated_benchmark_tokens", 0))}
+    {_metric("输入单价", f"{input_price_display} {currency}/token")}
+    {_metric("输出单价", f"{output_price_display} {currency}/token")}
+    {_metric("输入费用", f"{tokens.get('actual_input_cost', 0)} {currency}")}
+    {_metric("输出费用", f"{tokens.get('actual_output_cost', 0)} {currency}")}
+    {_metric("真实消费金额", f"{tokens.get('actual_cost', 0)} {currency}")}
+    {_metric("估算消费金额", f"{tokens.get('estimated_cost', 0)} {currency}")}
   </div>
-  <div class="muted" id="token-note">{html.escape(str(tokens.get("note", "")))}</div>
+  <div class="note" id="token-note">{html.escape(str(tokens.get("note", "")))}</div>
 
   <h2>数据库进度</h2>
   <div class="grid">
@@ -107,7 +137,7 @@ def render_html(refresh: int) -> bytes:
 
   <div class="wide">
     <section>
-      <h2>当前进程</h2>
+      <h2>当前后台任务</h2>
       <div id="processes"></div>
     </section>
     <section>
@@ -121,7 +151,15 @@ def render_html(refresh: int) -> bytes:
 </main>
 <script>
 const refreshMs = {refresh * 1000};
-function fmt(v) {{ return v === null || v === undefined ? "" : String(v); }}
+function esc(value) {{
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}}
+function fmt(value) {{ return value === null || value === undefined ? "" : String(value); }}
 function setMetric(label, value) {{
   const el = document.querySelector(`[data-metric="${{label}}"]`);
   if (el) el.textContent = fmt(value);
@@ -134,8 +172,17 @@ function renderProcesses(processes) {{
     return;
   }}
   root.innerHTML = '<table><thead><tr><th>PID</th><th>任务</th><th>命令</th></tr></thead><tbody>' +
-    processes.map(p => `<tr><td>${{p.pid}}</td><td>${{p.task}}</td><td>${{p.command}}</td></tr>`).join('') +
+    processes.map(p => `<tr><td>${{esc(p.pid)}}</td><td>${{esc(p.task)}}</td><td class="command">${{esc(p.command)}}</td></tr>`).join("") +
     '</tbody></table>';
+}}
+function renderPause(pause) {{
+  const old = document.getElementById("pause-banner");
+  if (!old) return;
+  if (!pause) {{
+    old.outerHTML = '<div id="pause-banner"></div>';
+    return;
+  }}
+  old.outerHTML = `<div id="pause-banner" class="pause"><strong>LLM 已自动暂停保护。</strong><br>${{esc(pause.reason || "")}}<br>${{esc(pause.resume_hint || "额度恢复后重新运行同一条 pipeline，会从未完成的位置继续。")}}</div>`;
 }}
 async function refresh() {{
   try {{
@@ -146,22 +193,29 @@ async function refresh() {{
     const tk = data.tokens || {{}};
     const logs = data.logs || [];
     const latest = logs.length ? logs[0] : {{}};
-    const pause = data.llm_pause || null;
-    document.getElementById("pause-banner").outerHTML = pause
-      ? `<div id="pause-banner" class="pause"><strong>LLM 已自动暂停保护。</strong><br>${{pause.reason || ""}}<br>${{pause.resume_hint || "额度恢复后重新运行同一条 pipeline，会从未完成的位置继续。"}}</div>`
-      : '<div id="pause-banner"></div>';
+    const currency = tk.currency || "CNY";
+
+    renderPause(data.llm_pause || null);
     document.getElementById("active-state").textContent = data.active ? "后台任务运行中" : "当前无后台任务";
+
     setMetric("当前步骤", rt.active_step || "");
-    setMetric("已运行", rt.elapsed || "0s");
+    setMetric("总运行时间", rt.elapsed || "0s");
+    setMetric("当前步骤运行", rt.active_elapsed || "0s");
     setMetric("预计剩余", rt.eta || "估算中");
     setMetric("速度", `${{rt.rate_per_min || 0}} chunk/min`);
+
     setMetric("真实总 token", tk.actual_total_tokens || 0);
     setMetric("真实输入 token", tk.actual_prompt_tokens || 0);
     setMetric("真实输出 token", tk.actual_completion_tokens || 0);
     setMetric("估算总 token", tk.estimated_total_tokens || 0);
-    setMetric("结构化估算 token", tk.estimated_structured_tokens || 0);
-    setMetric("Benchmark 估算 token", tk.estimated_benchmark_tokens || 0);
+    setMetric("输入单价", `${{tk.input_price_per_token_display || 0}} ${{currency}}/token`);
+    setMetric("输出单价", `${{tk.output_price_per_token_display || 0}} ${{currency}}/token`);
+    setMetric("输入费用", `${{tk.actual_input_cost || 0}} ${{currency}}`);
+    setMetric("输出费用", `${{tk.actual_output_cost || 0}} ${{currency}}`);
+    setMetric("真实消费金额", `${{tk.actual_cost || 0}} ${{currency}}`);
+    setMetric("估算消费金额", `${{tk.estimated_cost || 0}} ${{currency}}`);
     document.getElementById("token-note").textContent = tk.note || "";
+
     setMetric("PDF 总数", c.pdf_files || 0);
     setMetric("重复 PDF", c.duplicate_pdfs || 0);
     setMetric("已解析 PDF", c.parsed_pdfs || 0);
@@ -174,6 +228,7 @@ async function refresh() {{
     setMetric("Benchmark 抽取", c.benchmark_extractions || 0);
     setMetric("Benchmark 有效", c.benchmark_ok || 0);
     setMetric("Benchmark 错误", c.benchmark_error || 0);
+
     renderProcesses(data.processes || []);
     document.getElementById("progress-json").textContent = JSON.stringify(latest.progress || {{}}, null, 2);
     document.getElementById("log-tail").textContent = (latest.tail || "").slice(-6000);
@@ -204,7 +259,10 @@ class MonitorHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
-        self.wfile.write(payload)
+        try:
+            self.wfile.write(payload)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            return
 
     def log_message(self, format: str, *args: object) -> None:
         return

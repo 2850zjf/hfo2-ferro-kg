@@ -23,6 +23,12 @@ TYPE_STYLE = {
     "Dopant": {"color": "#ff6b6b", "radius": 5},
     "FerroelectricProperty": {"color": "#f45d5d", "radius": 6},
     "Evidence": {"color": "#b9c1d1", "radius": 3},
+    "MaterialSystem": {"color": "#49d17d", "radius": 8},
+    "DesignSample": {"color": "#f8c85a", "radius": 6},
+    "TargetProperty": {"color": "#f45d5d", "radius": 7},
+    "ControllableVariable": {"color": "#7ee787", "radius": 5},
+    "ConstraintVariable": {"color": "#ff9f43", "radius": 5},
+    "MechanismVariable": {"color": "#b991ff", "radius": 5},
 }
 
 TYPE_X = {
@@ -37,6 +43,12 @@ TYPE_X = {
     "Device": 540,
     "FerroelectricProperty": 820,
     "Evidence": 1160,
+    "MaterialSystem": -520,
+    "DesignSample": -120,
+    "ControllableVariable": 220,
+    "ConstraintVariable": 420,
+    "MechanismVariable": 620,
+    "TargetProperty": 860,
 }
 
 

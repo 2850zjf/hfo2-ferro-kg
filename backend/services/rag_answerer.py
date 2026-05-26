@@ -11,6 +11,7 @@ from typing import Any
 from backend.core.config import get_llm_api_key, get_settings
 from backend.db.session import connect
 from backend.services.llm_extractor import normalize_base_url
+from backend.services.llm_quota_guard import is_llm_budget_error, write_llm_pause
 from backend.services.vector_store import search_vector_index
 
 
@@ -392,7 +393,29 @@ If the context is insufficient, say 当前数据库没有足够证据回答该�
         response = client.chat.completions.create(**request_kwargs)
         return response.choices[0].message.content or "", None
     except Exception as exc:
-        return None, str(exc)
+        error = str(exc)
+        if is_llm_budget_error(error):
+            write_llm_pause(
+                error,
+                {
+                    "pipeline": "rag_answer",
+                    "question": context.get("question"),
+                    "model": selected_model,
+                },
+            )
+        return None, error
+
+
+def _friendly_llm_error(error: str | None) -> str:
+    if is_llm_budget_error(error):
+        return (
+            "LLM 调用被服务商拒绝：当前 DashScope/百炼账号的额度、账单或 API Key 状态异常"
+            "（这次返回的是 Arrearage/欠费类错误）。系统已自动切回本地结构化答案；"
+            "恢复账户状态或更换可用 key 后，再开启 LLM 综合回答即可。"
+        )
+    if error:
+        return f"LLM 综合回答失败，已退回本地结构化回答。错误摘要：{error[:300]}"
+    return "LLM 综合回答失败，已退回本地结构化回答。"
 
 
 def answer_question(
@@ -412,7 +435,7 @@ def answer_question(
         llm_answer, error = synthesize_answer_with_llm(context, model=llm_model)
         if llm_answer:
             return llm_answer
-        fallback_note = f"LLM 综合回答失败，已退回本地结构化回答。错误：{error}\n\n"
+        fallback_note = _friendly_llm_error(error) + "\n\n"
 
     range_answer = answer_range_from_context(context) or answer_range_question(question, facts)
     if range_answer:

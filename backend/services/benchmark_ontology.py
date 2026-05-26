@@ -19,6 +19,32 @@ def _candidate_key(candidate: dict[str, Any]) -> tuple[str, str]:
     )
 
 
+def _as_dict_items(value: Any, fallback_key: str) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    if value is None:
+        return items
+    source = value if isinstance(value, list) else [value]
+    for item in source:
+        if isinstance(item, dict):
+            items.append(item)
+            continue
+        if isinstance(item, str):
+            text = item.strip()
+            if text.startswith("{") and text.endswith("}"):
+                try:
+                    parsed = json.loads(text)
+                except json.JSONDecodeError:
+                    parsed = None
+                if isinstance(parsed, dict):
+                    items.append(parsed)
+                    continue
+            if text:
+                items.append({fallback_key: text})
+        elif item is not None:
+            items.append({fallback_key: str(item)})
+    return items
+
+
 def build_benchmark_ontology_extension(
     db_path: Path | None = None,
     min_support: int = 2,
@@ -50,18 +76,18 @@ def build_benchmark_ontology_extension(
             "title": row["title"],
             "doi": row["doi"],
         }
-        for candidate in payload.get("ontology_candidates") or []:
+        for candidate in _as_dict_items(payload.get("ontology_candidates"), "label"):
             key = _candidate_key(candidate)
             if not key[1]:
                 continue
             support[key] += 1
             if len(evidence[key]) < 5:
                 evidence[key].append({**source, "evidence_text": candidate.get("evidence_text")})
-        for item in payload.get("design_rules") or []:
+        for item in _as_dict_items(payload.get("design_rules"), "rule"):
             design_rules.append({**source, **item})
-        for item in payload.get("mechanisms") or []:
+        for item in _as_dict_items(payload.get("mechanisms"), "mechanism_name"):
             mechanisms.append({**source, **item})
-        for item in payload.get("theoretical_insights") or []:
+        for item in _as_dict_items(payload.get("theoretical_insights"), "conclusion"):
             theoretical_insights.append({**source, **item})
 
     candidates = [
@@ -102,4 +128,3 @@ def build_benchmark_ontology_extension(
     }
     record_pipeline_run("20_update_ontology_from_benchmark", "ok", stats, db_path=db_path)
     return stats
-

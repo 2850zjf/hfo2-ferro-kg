@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from datetime import datetime
@@ -14,10 +15,24 @@ from backend.services.pipeline_log import recent_pipeline_runs
 
 
 LLM_PROGRESS_RE = re.compile(
-    r"processed=(?P<processed>\d+).*?llm_used=(?P<llm_used>\d+).*?llm_failed=(?P<llm_failed>\d+).*?empty=(?P<empty>\d+).*?errors=(?P<errors>\d+)"
+    r"processed=(?P<processed>\d+)"
+    r".*?candidates=(?P<candidates>\d+)"
+    r".*?llm_used=(?P<llm_used>\d+)"
+    r".*?llm_failed=(?P<llm_failed>\d+)"
+    r".*?empty=(?P<empty>\d+)"
+    r".*?errors=(?P<errors>\d+)"
 )
 BENCHMARK_PROGRESS_RE = re.compile(
     r"benchmark\s+processed=(?P<processed>\d+)\s+written=(?P<written>\d+)\s+empty=(?P<empty>\d+)\s+errors=(?P<errors>\d+)"
+)
+TABLE_PROGRESS_RE = re.compile(
+    r"tables\s+processed=(?P<processed>\d+)\s+tables=(?P<tables>\d+)\s+rows=(?P<rows>\d+)\s+failed=(?P<failed>\d+)"
+)
+VISUAL_PROGRESS_RE = re.compile(
+    r"visual\s+processed=(?P<processed>\d+)\s+captions=(?P<captions>\d+)\s+images=(?P<images>\d+)\s+failed=(?P<failed>\d+)"
+)
+SAMPLE_LINK_PROGRESS_RE = re.compile(
+    r"sample_links\s+processed=(?P<processed>\d+)\s+llm_used=(?P<llm_used>\d+)\s+llm_failed=(?P<llm_failed>\d+)\s+paused=(?P<paused>\d+)"
 )
 STEP_START_RE = re.compile(r"===== (?P<step>.+?) started (?P<stamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}) =====")
 STEP_END_RE = re.compile(r"===== (?P<step>.+?) exit_code=(?P<code>-?\d+) ended (?P<stamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}) =====")
@@ -35,6 +50,9 @@ WATCH_PATTERNS = [
     "18_multi_model_validate_dataset.py",
     "19_open_benchmark_extraction.py",
     "20_update_ontology_from_benchmark.py",
+    "23_link_sample_facts.py",
+    "24_build_design_graph.py",
+    "25_recommend_active_learning.py",
     "run_full_benchmark_pipeline.py",
 ]
 
@@ -57,6 +75,10 @@ def database_counts(db_path: Path | None = None) -> dict[str, int]:
         "benchmark_ok": "SELECT COUNT(*) FROM benchmark_extractions WHERE status = 'ok'",
         "benchmark_empty": "SELECT COUNT(*) FROM benchmark_extractions WHERE status = 'empty_result'",
         "benchmark_error": "SELECT COUNT(*) FROM benchmark_extractions WHERE status = 'error'",
+        "sample_property_links": "SELECT COUNT(*) FROM sample_property_links",
+        "sample_links_strong": "SELECT COUNT(*) FROM sample_property_links WHERE context_quality = 'strong'",
+        "sample_links_partial": "SELECT COUNT(*) FROM sample_property_links WHERE context_quality = 'partial'",
+        "sample_links_weak": "SELECT COUNT(*) FROM sample_property_links WHERE context_quality = 'weak'",
     }
     with connect(db_path) as conn:
         for key, sql in queries.items():
@@ -67,43 +89,126 @@ def database_counts(db_path: Path | None = None) -> dict[str, int]:
     return counts
 
 
-def token_usage(db_path: Path | None = None) -> dict[str, int | str]:
+def _as_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except Exception:
+        return 0
+
+
+def _usage_from_payload(payload: dict[str, Any]) -> dict[str, int] | None:
+    usage = payload.get("llm_usage")
+    if not isinstance(usage, dict):
+        preaudit = payload.get("preaudit")
+        if isinstance(preaudit, dict):
+            usage = preaudit.get("llm_usage")
+    if not isinstance(usage, dict):
+        return None
+    total = _as_int(usage.get("total_tokens"))
+    prompt = _as_int(usage.get("prompt_tokens"))
+    completion = _as_int(usage.get("completion_tokens"))
+    if total <= 0 and (prompt or completion):
+        total = prompt + completion
+    if total <= 0:
+        return None
+    return {
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": total,
+    }
+
+
+def _estimate_tokens_from_chars(char_count: int | None, base: int = 1800) -> int:
+    return max(0, int((char_count or 0) / 3) + base)
+
+
+def _format_decimal(value: float) -> str:
+    text = f"{value:.12f}".rstrip("0").rstrip(".")
+    return text or "0"
+
+
+def token_usage(db_path: Path | None = None) -> dict[str, int | float | str]:
     actual_prompt = 0
     actual_completion = 0
     actual_total = 0
     actual_rows = 0
     estimated_structured = 0
     estimated_benchmark = 0
+
     with connect(db_path) as conn:
         try:
-            rows = conn.execute("SELECT payload_json FROM benchmark_extractions").fetchall()
-            for row in rows:
-                payload = json.loads(row["payload_json"])
-                usage = payload.get("llm_usage") or {}
-                total = usage.get("total_tokens")
-                if isinstance(total, int):
-                    actual_rows += 1
-                    actual_total += total
-                    actual_prompt += int(usage.get("prompt_tokens") or 0)
-                    actual_completion += int(usage.get("completion_tokens") or 0)
-                else:
-                    estimated_benchmark += 4200
-        except Exception:
-            pass
-        try:
-            structured_rows = conn.execute(
+            rows = conn.execute(
                 """
-                SELECT dc.char_count
+                SELECT ec.payload_json, dc.char_count
                 FROM extraction_candidates ec
                 LEFT JOIN document_chunks dc ON dc.chunk_id = ec.chunk_id
-                WHERE ec.extractor_version LIKE 'llm%'
                 """
             ).fetchall()
-            for row in structured_rows:
-                estimated_structured += int((row["char_count"] or 0) / 3) + 1800
+            for row in rows:
+                try:
+                    payload = json.loads(row["payload_json"] or "{}")
+                except Exception:
+                    payload = {}
+                usage = _usage_from_payload(payload)
+                if usage:
+                    actual_rows += 1
+                    actual_prompt += usage["prompt_tokens"]
+                    actual_completion += usage["completion_tokens"]
+                    actual_total += usage["total_tokens"]
+                else:
+                    estimated_structured += _estimate_tokens_from_chars(row["char_count"])
         except Exception:
             pass
+
+        try:
+            rows = conn.execute(
+                """
+                SELECT be.payload_json, dc.char_count
+                FROM benchmark_extractions be
+                LEFT JOIN document_chunks dc ON dc.chunk_id = be.chunk_id
+                """
+            ).fetchall()
+            for row in rows:
+                try:
+                    payload = json.loads(row["payload_json"] or "{}")
+                except Exception:
+                    payload = {}
+                usage = _usage_from_payload(payload)
+                if usage:
+                    actual_rows += 1
+                    actual_prompt += usage["prompt_tokens"]
+                    actual_completion += usage["completion_tokens"]
+                    actual_total += usage["total_tokens"]
+                else:
+                    estimated_benchmark += _estimate_tokens_from_chars(row["char_count"], base=2200)
+        except Exception:
+            pass
+
     estimated_total = actual_total + estimated_structured + estimated_benchmark
+    input_price = float(
+        os.getenv(
+            "HFO2_FERROKG_INPUT_TOKEN_PRICE",
+            os.getenv("HFO2_FERROKG_PROMPT_TOKEN_PRICE", "0.0000005"),
+        )
+    )
+    output_price = float(
+        os.getenv(
+            "HFO2_FERROKG_OUTPUT_TOKEN_PRICE",
+            os.getenv("HFO2_FERROKG_COMPLETION_TOKEN_PRICE", "0.000002"),
+        )
+    )
+    estimated_input_ratio = float(os.getenv("HFO2_FERROKG_ESTIMATED_INPUT_RATIO", "0.7"))
+    estimated_input_ratio = min(1.0, max(0.0, estimated_input_ratio))
+    estimated_blended_price = (
+        input_price * estimated_input_ratio + output_price * (1.0 - estimated_input_ratio)
+    )
+    estimated_untracked_tokens = estimated_structured + estimated_benchmark
+    actual_input_cost = actual_prompt * input_price
+    actual_output_cost = actual_completion * output_price
+    actual_cost = actual_input_cost + actual_output_cost
+    estimated_untracked_cost = estimated_untracked_tokens * estimated_blended_price
+    estimated_cost = actual_cost + estimated_untracked_cost
+    currency = os.getenv("HFO2_FERROKG_TOKEN_CURRENCY", "CNY")
     return {
         "actual_prompt_tokens": actual_prompt,
         "actual_completion_tokens": actual_completion,
@@ -112,7 +217,27 @@ def token_usage(db_path: Path | None = None) -> dict[str, int | str]:
         "estimated_structured_tokens": estimated_structured,
         "estimated_benchmark_tokens": estimated_benchmark,
         "estimated_total_tokens": estimated_total,
-        "note": "真实 usage 只统计新记录到 llm_usage 的调用；其余按 chunk 长度和输出预算估算。",
+        "input_price_per_token": input_price,
+        "output_price_per_token": output_price,
+        "input_price_per_token_display": _format_decimal(input_price),
+        "output_price_per_token_display": _format_decimal(output_price),
+        "estimated_input_ratio": estimated_input_ratio,
+        "estimated_blended_price": estimated_blended_price,
+        "estimated_blended_price_display": _format_decimal(estimated_blended_price),
+        "actual_input_cost": round(actual_input_cost, 4),
+        "actual_output_cost": round(actual_output_cost, 4),
+        "estimated_untracked_cost": round(estimated_untracked_cost, 4),
+        "actual_cost": round(actual_cost, 4),
+        "estimated_cost": round(estimated_cost, 4),
+        "price_per_token": estimated_blended_price,
+        "price_per_token_display": _format_decimal(estimated_blended_price),
+        "currency": currency,
+        "note": (
+            f"按输入 {_format_decimal(input_price)} {currency}/token、输出 "
+            f"{_format_decimal(output_price)} {currency}/token 分项计费；"
+            f"缺失 usage 的旧记录按 {int(estimated_input_ratio * 100)}% 输入、"
+            f"{int((1.0 - estimated_input_ratio) * 100)}% 输出估算。"
+        ),
     }
 
 
@@ -132,10 +257,13 @@ Where-Object {
     $_.CommandLine -like '*18_multi_model_validate_dataset.py*' -or
     $_.CommandLine -like '*19_open_benchmark_extraction.py*' -or
     $_.CommandLine -like '*20_update_ontology_from_benchmark.py*' -or
+    $_.CommandLine -like '*23_link_sample_facts.py*' -or
+    $_.CommandLine -like '*24_build_design_graph.py*' -or
+    $_.CommandLine -like '*25_recommend_active_learning.py*' -or
     $_.CommandLine -like '*run_full_benchmark_pipeline.py*'
   )
 } |
-Select-Object ProcessId,Name,CommandLine |
+Select-Object ProcessId,Name,CommandLine,@{Name='StartedAt';Expression={$_.CreationDate.ToString('o')}} |
 ConvertTo-Json -Compress
 """
     try:
@@ -170,6 +298,7 @@ ConvertTo-Json -Compress
                 "name": str(item.get("Name") or ""),
                 "task": infer_task_name(command_line),
                 "command": command_line,
+                "started_at": str(item.get("StartedAt") or ""),
             }
         )
     return rows
@@ -220,15 +349,21 @@ def tail_file(path: Path, max_chars: int = 5000) -> str:
 
 def parse_progress_from_log(path: Path) -> dict[str, int | str]:
     text = tail_file(path, max_chars=12000)
-    llm_matches = [match.groupdict() for match in LLM_PROGRESS_RE.finditer(text)]
-    if llm_matches:
-        latest = llm_matches[-1]
-        return {"type": "structured_llm", **{key: int(value) for key, value in latest.items()}}
-    benchmark_matches = [match.groupdict() for match in BENCHMARK_PROGRESS_RE.finditer(text)]
-    if benchmark_matches:
-        latest = benchmark_matches[-1]
-        return {"type": "benchmark_llm", **{key: int(value) for key, value in latest.items()}}
-    return {"type": "unknown"}
+    parsers = [
+        ("structured_llm", LLM_PROGRESS_RE),
+        ("benchmark_llm", BENCHMARK_PROGRESS_RE),
+        ("sample_linking", SAMPLE_LINK_PROGRESS_RE),
+        ("table_extraction", TABLE_PROGRESS_RE),
+        ("visual_assets", VISUAL_PROGRESS_RE),
+    ]
+    matches: list[tuple[int, str, re.Match[str]]] = []
+    for progress_type, regex in parsers:
+        for match in regex.finditer(text):
+            matches.append((match.start(), progress_type, match))
+    if not matches:
+        return {"type": "unknown"}
+    _, progress_type, match = sorted(matches, key=lambda item: item[0])[-1]
+    return {"type": progress_type, **{key: int(value) for key, value in match.groupdict().items()}}
 
 
 def format_duration(seconds: float | None) -> str:
@@ -244,53 +379,113 @@ def format_duration(seconds: float | None) -> str:
     return f"{secs}s"
 
 
-def parse_runtime_from_log(path: Path) -> dict[str, Any]:
+def _active_step(starts: list[re.Match[str]], ends: dict[str, re.Match[str]]) -> re.Match[str]:
+    for start in reversed(starts):
+        if start.group("step") not in ends:
+            return start
+    return starts[-1]
+
+
+def _progress_total(progress_type: str | None, processed: int) -> int | None:
+    counts = database_counts()
+    if progress_type == "structured_llm":
+        return counts.get("high_value_chunks")
+    if progress_type == "benchmark_llm":
+        return counts.get("document_chunks")
+    if progress_type == "sample_linking":
+        return counts.get("reviewed_facts", 0) + counts.get("benchmark_ok", 0)
+    if progress_type == "table_extraction":
+        return processed + counts.get("table_pending_pdfs", 0)
+    if progress_type == "visual_assets":
+        return counts.get("parsed_pdfs")
+    return None
+
+
+def parse_runtime_from_log(
+    path: Path,
+    fallback_started_at: str | None = None,
+    fallback_step: str | None = None,
+) -> dict[str, Any]:
     text = tail_file(path, max_chars=80000)
     starts = list(STEP_START_RE.finditer(text))
     ends = {match.group("step"): match for match in STEP_END_RE.finditer(text)}
     if not starts:
+        progress = parse_progress_from_log(path)
+        processed = int(progress.get("processed") or 0) if progress.get("type") != "unknown" else 0
+        try:
+            start_time = datetime.fromisoformat(str(fallback_started_at)) if fallback_started_at else datetime.fromtimestamp(path.stat().st_ctime)
+        except Exception:
+            start_time = datetime.fromtimestamp(path.stat().st_ctime)
+        now = datetime.now(start_time.tzinfo) if start_time.tzinfo else datetime.now()
+        elapsed_seconds = max(0.0, (now - start_time).total_seconds())
+        rate = processed / (elapsed_seconds / 60) if processed and elapsed_seconds else 0.0
+        eta_seconds = None
+        total = _progress_total(str(progress.get("type")), processed)
+        if total and processed and rate and processed < total:
+            eta_seconds = (total - processed) / (rate / 60)
         return {
-            "started_at": None,
-            "active_step": "等待日志",
-            "elapsed_seconds": 0,
-            "elapsed": "0s",
-            "eta": "估算中",
-            "rate_per_min": 0.0,
+            "started_at": start_time.isoformat(timespec="seconds"),
+            "active_step": fallback_step or str(progress.get("type") or "等待日志"),
+            "elapsed_seconds": int(elapsed_seconds),
+            "active_elapsed_seconds": int(elapsed_seconds),
+            "elapsed": format_duration(elapsed_seconds),
+            "active_elapsed": format_duration(elapsed_seconds),
+            "eta": format_duration(eta_seconds),
+            "rate_per_min": round(rate, 2),
         }
-    first_start = datetime.fromisoformat(starts[0].group("stamp"))
     now = datetime.now()
-    active_step = starts[-1].group("step")
-    for start in reversed(starts):
-        if start.group("step") not in ends:
-            active_step = start.group("step")
-            break
-    elapsed_seconds = max(0.0, (now - first_start).total_seconds())
+    first_start_time = datetime.fromisoformat(starts[0].group("stamp"))
+    active_start = _active_step(starts, ends)
+    active_start_time = datetime.fromisoformat(active_start.group("stamp"))
+    elapsed_seconds = max(0.0, (now - first_start_time).total_seconds())
+    active_elapsed_seconds = max(0.0, (now - active_start_time).total_seconds())
     progress = parse_progress_from_log(path)
     processed = int(progress.get("processed") or 0) if progress.get("type") != "unknown" else 0
-    rate = processed / (elapsed_seconds / 60) if processed and elapsed_seconds else 0.0
+    rate = processed / (active_elapsed_seconds / 60) if processed and active_elapsed_seconds else 0.0
     eta_seconds = None
     if processed and rate:
-        total = None
-        if progress.get("type") == "structured_llm":
-            counts = database_counts()
-            total = counts.get("high_value_chunks")
-        elif progress.get("type") == "benchmark_llm":
-            counts = database_counts()
-            total = counts.get("document_chunks")
+        progress_type = progress.get("type")
+        total = _progress_total(str(progress_type), processed)
         if total and processed < total:
             eta_seconds = (total - processed) / (rate / 60)
     return {
         "started_at": starts[0].group("stamp"),
-        "active_step": active_step,
+        "active_step": active_start.group("step"),
         "elapsed_seconds": int(elapsed_seconds),
+        "active_elapsed_seconds": int(active_elapsed_seconds),
         "elapsed": format_duration(elapsed_seconds),
+        "active_elapsed": format_duration(active_elapsed_seconds),
         "eta": format_duration(eta_seconds),
         "rate_per_min": round(rate, 2),
     }
 
 
-def latest_pipeline_runtime() -> dict[str, Any]:
+def _logs_for_task(task: str) -> list[Path]:
     log_dir = PROJECT_ROOT / "logs"
+    if not log_dir.exists():
+        return []
+    patterns = {
+        "23_link_sample_facts.py": ["sample_linking*.out.log", "sample_linking_qwen37_*.out.log"],
+        "05_run_extraction.py": ["full_qwen_extraction_*.log", "full_benchmark_pipeline_*.log"],
+        "19_open_benchmark_extraction.py": ["full_benchmark_pipeline_*.log"],
+        "run_full_benchmark_pipeline.py": ["full_benchmark_pipeline_*.log", "full_benchmark_wrapper_*.out.log"],
+    }
+    files: list[Path] = []
+    for pattern in patterns.get(task, ["*.log"]):
+        files.extend(path for path in log_dir.glob(pattern) if path.is_file())
+    return sorted(set(files), key=lambda path: path.stat().st_mtime, reverse=True)
+
+
+def latest_pipeline_runtime(processes: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    log_dir = PROJECT_ROOT / "logs"
+    for process in processes or []:
+        logs = _logs_for_task(str(process.get("task") or ""))
+        if logs:
+            return parse_runtime_from_log(
+                logs[0],
+                fallback_started_at=str(process.get("started_at") or ""),
+                fallback_step=str(process.get("task") or ""),
+            ) | {"log": str(logs[0])}
     logs = sorted(
         log_dir.glob("full_benchmark_pipeline_*.log"),
         key=lambda path: path.stat().st_mtime,
@@ -301,7 +496,9 @@ def latest_pipeline_runtime() -> dict[str, Any]:
             "started_at": None,
             "active_step": "等待启动",
             "elapsed_seconds": 0,
+            "active_elapsed_seconds": 0,
             "elapsed": "0s",
+            "active_elapsed": "0s",
             "eta": "估算中",
             "rate_per_min": 0.0,
         }
@@ -317,7 +514,7 @@ def monitor_snapshot() -> dict[str, Any]:
         "logs": latest_logs(),
         "recent_runs": recent_pipeline_runs(limit=12),
         "active": bool(processes),
-        "runtime": latest_pipeline_runtime(),
+        "runtime": latest_pipeline_runtime(processes),
         "tokens": token_usage(),
         "llm_pause": read_llm_pause(),
     }

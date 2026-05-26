@@ -56,6 +56,8 @@ def main() -> None:
     parser.add_argument("--skip-structured", action="store_true")
     parser.add_argument("--reset-structured", action="store_true")
     parser.add_argument("--skip-design-models", action="store_true")
+    parser.add_argument("--skip-sample-linking", action="store_true")
+    parser.add_argument("--skip-active-learning", action="store_true")
     parser.add_argument("--design-min-rows", type=int, default=12)
     args = parser.parse_args()
 
@@ -126,9 +128,29 @@ def main() -> None:
                 ("build_graph", [sys.executable, "pipelines/07_build_graph.py"]),
                 ("export_graph_html", [sys.executable, "pipelines/17_export_graph_html.py"]),
                 ("build_vector_index", [sys.executable, "pipelines/08_build_vector_index.py"]),
-                ("build_design_dataset", [sys.executable, "pipelines/21_build_design_dataset.py"]),
             ]
         )
+        if not args.skip_sample_linking:
+            steps.extend(
+                [
+                    (
+                        "link_sample_level_facts",
+                        [
+                            sys.executable,
+                            "pipelines/23_link_sample_facts.py",
+                            "--max-workers",
+                            str(args.llm_workers),
+                            "--progress-every",
+                            "25",
+                            "--commit-every",
+                            "100",
+                            "--force-llm-when-paused",
+                        ],
+                    ),
+                    ("build_design_graph", [sys.executable, "pipelines/24_build_design_graph.py"]),
+                ]
+            )
+        steps.append(("build_design_dataset", [sys.executable, "pipelines/21_build_design_dataset.py"]))
         if not args.skip_design_models:
             steps.append(
                 (
@@ -141,6 +163,8 @@ def main() -> None:
                     ],
                 )
             )
+        if not args.skip_active_learning:
+            steps.append(("recommend_active_learning", [sys.executable, "pipelines/25_recommend_active_learning.py"]))
         for name, command in steps:
             run_step(name, command, log_fh)
         log_fh.write("\n===== full benchmark pipeline done =====\n")

@@ -413,6 +413,30 @@ def export_benchmark_csv(db_path: Path | None = None) -> dict[str, str | int]:
     ontology_candidates_path = output_dir / "ontology_extension_candidates.jsonl"
     record_count = 0
     ontology_count = 0
+
+    def normalize_items(value: Any, fallback_key: str) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for item in _as_list(value):
+            if isinstance(item, dict):
+                normalized.append(item)
+                continue
+            if isinstance(item, str):
+                text = item.strip()
+                if text.startswith("{") and text.endswith("}"):
+                    try:
+                        parsed = json.loads(text)
+                    except json.JSONDecodeError:
+                        parsed = None
+                    if isinstance(parsed, dict):
+                        normalized.append(parsed)
+                        continue
+                if text:
+                    normalized.append({fallback_key: text})
+                continue
+            if item is not None:
+                normalized.append({fallback_key: str(item)})
+        return normalized
+
     with connect(db_path) as conn, records_path.open("w", encoding="utf-8") as records_fh, ontology_candidates_path.open(
         "w", encoding="utf-8"
     ) as ontology_fh:
@@ -427,7 +451,7 @@ def export_benchmark_csv(db_path: Path | None = None) -> dict[str, str | int]:
         ).fetchall()
         for row in rows:
             payload = json.loads(row["payload_json"])
-            for record in payload.get("benchmark_records") or []:
+            for record in normalize_items(payload.get("benchmark_records"), "raw_record"):
                 records_fh.write(
                     json.dumps(
                         {
@@ -445,7 +469,7 @@ def export_benchmark_csv(db_path: Path | None = None) -> dict[str, str | int]:
                     + "\n"
                 )
                 record_count += 1
-            for candidate in payload.get("ontology_candidates") or []:
+            for candidate in normalize_items(payload.get("ontology_candidates"), "raw_candidate"):
                 ontology_fh.write(
                     json.dumps(
                         {

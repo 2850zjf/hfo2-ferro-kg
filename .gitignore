@@ -14,7 +14,9 @@ data/ontology/
 data/benchmark/
 data/figures/
 data/design/
+data/design_graph/
 data/runtime/
+ontology/benchmark_extension.yaml
 models/
 data/manifest/*.csv
 data/graph/*.csv

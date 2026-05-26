@@ -294,9 +294,11 @@ def _benchmark_rows(db_path: Path | None = None) -> list[dict[str, Any]]:
     for row in rows:
         payload = json.loads(row["payload_json"])
         for index, record in enumerate(payload.get("benchmark_records") or []):
+            if not isinstance(record, dict):
+                continue
             inputs = record.get("input_variables") or {}
             outputs = record.get("output_targets") or {}
-            if not isinstance(outputs, dict):
+            if not isinstance(inputs, dict) or not isinstance(outputs, dict):
                 continue
             for target_name, target in outputs.items():
                 canonical_target = _canonical_property_name(target_name)
@@ -352,15 +354,124 @@ def _benchmark_rows(db_path: Path | None = None) -> list[dict[str, Any]]:
     return rows_out
 
 
+def _sample_link_rows(db_path: Path | None = None) -> list[dict[str, Any]]:
+    rows_out: list[dict[str, Any]] = []
+    with connect(db_path) as conn:
+        try:
+            rows = conn.execute(
+                """
+                SELECT spl.*, p.title, p.doi, p.year, p.paper_type, p.is_review
+                FROM sample_property_links spl
+                LEFT JOIN papers p ON p.paper_id = spl.paper_id
+                WHERE spl.status = 'linked'
+                """
+            ).fetchall()
+        except Exception:
+            return []
+    for row in rows:
+        material = json.loads(row["material_json"] or "{}")
+        sample = json.loads(row["sample_json"] or "{}")
+        phase = json.loads(row["phase_json"] or "{}")
+        prop = json.loads(row["property_json"] or "{}")
+        roles = json.loads(row["variable_roles_json"] or "{}")
+        target_name = _canonical_property_name(prop.get("property_name"))
+        if target_name not in DESIGN_TARGETS:
+            continue
+        value = _safe_float(_first_present(prop.get("normalized_value"), prop.get("value")))
+        if value is None:
+            continue
+        row_out = {
+            "record_id": row["link_id"],
+            "source_record_id": row["source_id"],
+            "sample_id": row["sample_id"],
+            "source": "sample_property_links",
+            "paper_id": row["paper_id"],
+            "pdf_id": row["pdf_id"],
+            "chunk_id": row["chunk_id"],
+            "page_number": row["page_number"],
+            "title": row["title"] or "",
+            "doi": row["doi"] or "",
+            "year": row["year"] or "",
+            "paper_type": row["paper_type"] or "",
+            "is_review": int(row["is_review"] or 0),
+            "review_status": row["context_quality"],
+            "material_name": material.get("canonical_name") or material.get("raw_name") or "",
+            "material_family": material.get("material_family") or "",
+            "formula": material.get("formula") or "",
+            "dopant_elements": ",".join(str(item) for item in _as_csv_list(material.get("dopant_elements"))),
+            "dopant_concentration": material.get("dopant_concentration") or "",
+            "zr_fraction": material.get("zr_fraction") or "",
+            "film_thickness_nm": sample.get("film_thickness_nm") or "",
+            "deposition_method": sample.get("deposition_method") or "",
+            "annealing_temperature_c": sample.get("annealing_temperature_c") or "",
+            "annealing_time_s": sample.get("annealing_time_s") or "",
+            "annealing_atmosphere": sample.get("annealing_atmosphere") or "",
+            "top_electrode": sample.get("top_electrode") or "",
+            "bottom_electrode": sample.get("bottom_electrode") or "",
+            "electrode_stack": sample.get("device_stack") or sample.get("electrode_stack") or "",
+            "substrate": sample.get("substrate") or "",
+            "device_type": prop.get("device_type") or sample.get("device_type") or "",
+            "phase_name": phase.get("phase_name") or "",
+            "space_group": phase.get("space_group") or "",
+            "wake_up_or_endurance_state": sample.get("wake_up_or_endurance_state") or "",
+            "target_property": target_name,
+            "target_value": value,
+            "target_unit": _first_present(prop.get("normalized_unit"), prop.get("unit")) or "",
+            "condition": _json(prop.get("condition")),
+            "evidence_text": row["evidence_text"] or prop.get("evidence_text") or "",
+            "quality_flags": _json(
+                {
+                    "context_quality": row["context_quality"],
+                    "context_score": row["context_score"],
+                    "linkage_method": row["linkage_method"],
+                    "variable_roles": roles,
+                }
+            ),
+        }
+        row_out.update(_normalize_model_target(target_name, value, row_out["target_unit"]))
+        rows_out.append(row_out)
+    return rows_out
+
+
+def _as_csv_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except Exception:
+            parsed = None
+        if isinstance(parsed, list):
+            return parsed
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return [value]
+
+
 def build_design_dataset(
     output_path: Path | None = None,
     db_path: Path | None = None,
 ) -> dict[str, Any]:
     target = output_path or PROJECT_ROOT / "data" / "design" / "hfo2_design_dataset.csv"
     target.parent.mkdir(parents=True, exist_ok=True)
-    rows = _accepted_reviewed_fact_rows(db_path=db_path) + _benchmark_rows(db_path=db_path)
+    sample_rows = _sample_link_rows(db_path=db_path)
+    linked_source_ids = {
+        str(row.get("source_record_id") or "")
+        for row in sample_rows
+        if row.get("source_record_id")
+    }
+    fallback_rows = _accepted_reviewed_fact_rows(db_path=db_path) + _benchmark_rows(db_path=db_path)
+    fallback_rows = [
+        row
+        for row in fallback_rows
+        if str(row.get("record_id") or "") not in linked_source_ids
+    ]
+    rows = sample_rows + fallback_rows
     fieldnames = [
         "record_id",
+        "source_record_id",
+        "sample_id",
         "source",
         "paper_id",
         "pdf_id",
@@ -411,6 +522,7 @@ def build_design_dataset(
         "rows": len(rows),
         "reviewed_fact_rows": sum(1 for row in rows if row["source"] == "reviewed_facts"),
         "benchmark_rows": sum(1 for row in rows if row["source"] == "benchmark_extractions"),
+        "sample_link_rows": sum(1 for row in rows if row["source"] == "sample_property_links"),
         "model_rows": sum(1 for row in rows if int(row.get("model_include") or 0) == 1),
         "excluded_model_rows": sum(1 for row in rows if int(row.get("model_include") or 0) == 0),
         "output_path": str(target),
