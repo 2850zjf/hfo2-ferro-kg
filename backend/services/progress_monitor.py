@@ -34,6 +34,15 @@ VISUAL_PROGRESS_RE = re.compile(
 SAMPLE_LINK_PROGRESS_RE = re.compile(
     r"sample_links\s+processed=(?P<processed>\d+)\s+llm_used=(?P<llm_used>\d+)\s+llm_failed=(?P<llm_failed>\d+)\s+paused=(?P<paused>\d+)"
 )
+LITERATURE_CARD_PROGRESS_RE = re.compile(
+    r"literature_cards\s+processed=(?P<processed>\d+)\s+written=(?P<written>\d+)\s+errors=(?P<errors>\d+)\s+paused=(?P<paused>\d+)"
+)
+CHUNK_LABEL_PROGRESS_RE = re.compile(
+    r"chunk_labels\s+processed=(?P<processed>\d+)\s+written=(?P<written>\d+)\s+errors=(?P<errors>\d+)\s+paused=(?P<paused>\d+)"
+)
+AI_AUDIT_PROGRESS_RE = re.compile(
+    r"ai_audits\s+processed=(?P<processed>\d+)\s+written=(?P<written>\d+)\s+errors=(?P<errors>\d+)\s+paused=(?P<paused>\d+)"
+)
 STEP_START_RE = re.compile(r"===== (?P<step>.+?) started (?P<stamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}) =====")
 STEP_END_RE = re.compile(r"===== (?P<step>.+?) exit_code=(?P<code>-?\d+) ended (?P<stamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}) =====")
 
@@ -53,7 +62,14 @@ WATCH_PATTERNS = [
     "23_link_sample_facts.py",
     "24_build_design_graph.py",
     "25_recommend_active_learning.py",
+    "26_build_literature_cards.py",
+    "27_label_chunks_semantically.py",
+    "28_ai_audit_sample_links.py",
+    "29_build_benchmark_tiers.py",
+    "30_train_tiered_design_models.py",
+    "31_export_design_report.py",
     "run_full_benchmark_pipeline.py",
+    "run_post_sample_link_pipeline.py",
 ]
 
 
@@ -79,6 +95,11 @@ def database_counts(db_path: Path | None = None) -> dict[str, int]:
         "sample_links_strong": "SELECT COUNT(*) FROM sample_property_links WHERE context_quality = 'strong'",
         "sample_links_partial": "SELECT COUNT(*) FROM sample_property_links WHERE context_quality = 'partial'",
         "sample_links_weak": "SELECT COUNT(*) FROM sample_property_links WHERE context_quality = 'weak'",
+        "literature_cards": "SELECT COUNT(*) FROM llm_literature_cards WHERE status = 'ok'",
+        "chunk_semantic_labels": "SELECT COUNT(*) FROM llm_chunk_labels WHERE status = 'ok'",
+        "ai_fact_audits": "SELECT COUNT(*) FROM ai_fact_audits WHERE status = 'ok'",
+        "ai_usable_for_model": "SELECT COUNT(*) FROM ai_fact_audits WHERE ai_review_status = 'usable_for_model'",
+        "ai_needs_review": "SELECT COUNT(*) FROM ai_fact_audits WHERE ai_review_status = 'needs_human_review'",
     }
     with connect(db_path) as conn:
         for key, sql in queries.items():
@@ -260,7 +281,14 @@ Where-Object {
     $_.CommandLine -like '*23_link_sample_facts.py*' -or
     $_.CommandLine -like '*24_build_design_graph.py*' -or
     $_.CommandLine -like '*25_recommend_active_learning.py*' -or
-    $_.CommandLine -like '*run_full_benchmark_pipeline.py*'
+    $_.CommandLine -like '*26_build_literature_cards.py*' -or
+    $_.CommandLine -like '*27_label_chunks_semantically.py*' -or
+    $_.CommandLine -like '*28_ai_audit_sample_links.py*' -or
+    $_.CommandLine -like '*29_build_benchmark_tiers.py*' -or
+    $_.CommandLine -like '*30_train_tiered_design_models.py*' -or
+    $_.CommandLine -like '*31_export_design_report.py*' -or
+    $_.CommandLine -like '*run_full_benchmark_pipeline.py*' -or
+    $_.CommandLine -like '*run_post_sample_link_pipeline.py*'
   )
 } |
 Select-Object ProcessId,Name,CommandLine,@{Name='StartedAt';Expression={$_.CreationDate.ToString('o')}} |
@@ -353,6 +381,9 @@ def parse_progress_from_log(path: Path) -> dict[str, int | str]:
         ("structured_llm", LLM_PROGRESS_RE),
         ("benchmark_llm", BENCHMARK_PROGRESS_RE),
         ("sample_linking", SAMPLE_LINK_PROGRESS_RE),
+        ("literature_cards", LITERATURE_CARD_PROGRESS_RE),
+        ("chunk_labels", CHUNK_LABEL_PROGRESS_RE),
+        ("ai_audits", AI_AUDIT_PROGRESS_RE),
         ("table_extraction", TABLE_PROGRESS_RE),
         ("visual_assets", VISUAL_PROGRESS_RE),
     ]
@@ -394,6 +425,12 @@ def _progress_total(progress_type: str | None, processed: int) -> int | None:
         return counts.get("document_chunks")
     if progress_type == "sample_linking":
         return counts.get("reviewed_facts", 0) + counts.get("benchmark_ok", 0)
+    if progress_type == "literature_cards":
+        return counts.get("pdf_files")
+    if progress_type == "chunk_labels":
+        return counts.get("high_value_chunks")
+    if progress_type == "ai_audits":
+        return counts.get("sample_property_links")
     if progress_type == "table_extraction":
         return processed + counts.get("table_pending_pdfs", 0)
     if progress_type == "visual_assets":
@@ -466,9 +503,13 @@ def _logs_for_task(task: str) -> list[Path]:
         return []
     patterns = {
         "23_link_sample_facts.py": ["sample_linking*.out.log", "sample_linking_qwen37_*.out.log"],
+        "26_build_literature_cards.py": ["literature_cards*.out.log", "full_benchmark_pipeline_*.log"],
+        "27_label_chunks_semantically.py": ["chunk_labels*.out.log", "full_benchmark_pipeline_*.log"],
+        "28_ai_audit_sample_links.py": ["ai_audits*.out.log", "full_benchmark_pipeline_*.log"],
         "05_run_extraction.py": ["full_qwen_extraction_*.log", "full_benchmark_pipeline_*.log"],
         "19_open_benchmark_extraction.py": ["full_benchmark_pipeline_*.log"],
         "run_full_benchmark_pipeline.py": ["full_benchmark_pipeline_*.log", "full_benchmark_wrapper_*.out.log"],
+        "run_post_sample_link_pipeline.py": ["post_sample_link_pipeline_*.log"],
     }
     files: list[Path] = []
     for pattern in patterns.get(task, ["*.log"]):
@@ -478,7 +519,11 @@ def _logs_for_task(task: str) -> list[Path]:
 
 def latest_pipeline_runtime(processes: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     log_dir = PROJECT_ROOT / "logs"
-    for process in processes or []:
+    preferred_processes = sorted(
+        processes or [],
+        key=lambda item: 1 if str(item.get("task") or "") == "run_post_sample_link_pipeline.py" else 0,
+    )
+    for process in preferred_processes:
         logs = _logs_for_task(str(process.get("task") or ""))
         if logs:
             return parse_runtime_from_log(

@@ -20,6 +20,12 @@ DESIGN_TARGETS = {
     "leakage_current_density",
 }
 
+BENCHMARK_TIERS = {
+    "strong_only": "strong sample-level rows approved for modeling",
+    "strong_partial": "strong or partial traceable rows that are not rejected",
+    "all_traceable": "all rows with evidence and paper traceability",
+}
+
 PROPERTY_ALIASES = {
     "pr": "remanent_polarization_Pr",
     "remnant polarization": "remanent_polarization_Pr",
@@ -193,6 +199,73 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True) if value not in (None, "") else ""
 
 
+def _read_json_dict(value: Any) -> dict[str, Any]:
+    if not value:
+        return {}
+    if isinstance(value, dict):
+        return value
+    try:
+        parsed = json.loads(str(value))
+    except Exception:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _read_json_list(value: Any) -> list[Any]:
+    if not value:
+        return []
+    if isinstance(value, list):
+        return value
+    try:
+        parsed = json.loads(str(value))
+    except Exception:
+        parsed = None
+    if isinstance(parsed, list):
+        return parsed
+    return [value]
+
+
+def _has_traceability(row: dict[str, Any]) -> bool:
+    return bool(
+        row.get("paper_id")
+        and (row.get("page_number") not in (None, ""))
+        and str(row.get("evidence_text") or "").strip()
+    )
+
+
+def _assign_benchmark_tier(row: dict[str, Any]) -> str:
+    if not _has_traceability(row):
+        return ""
+    ai_status = str(row.get("ai_review_status") or "")
+    if ai_status == "reject":
+        return ""
+    quality = str(row.get("review_status") or row.get("context_quality") or "")
+    source = str(row.get("source") or "")
+    usable = str(row.get("usable_for_model") or "").lower() in {"1", "true", "yes"}
+    if source == "sample_property_links":
+        if quality == "strong" and (usable or not ai_status):
+            return "strong_only"
+        if quality in {"strong", "partial"} and ai_status != "reject":
+            return "strong_partial"
+        return "all_traceable"
+    if source == "reviewed_facts" and row.get("review_status") == "approved":
+        return "strong_partial"
+    return "all_traceable"
+
+
+def _enrich_row_for_tiers(row: dict[str, Any]) -> dict[str, Any]:
+    row.setdefault("ai_review_status", "")
+    row.setdefault("usable_for_model", "")
+    row.setdefault("risk_flags", "")
+    row["benchmark_tier"] = _assign_benchmark_tier(row)
+    ai_status = str(row.get("ai_review_status") or "")
+    if ai_status in {"needs_human_review", "reject", "usable_for_rag_only"}:
+        row["model_include"] = 0
+        if not row.get("model_exclusion_reason"):
+            row["model_exclusion_reason"] = ai_status
+    return row
+
+
 def _accepted_reviewed_fact_rows(db_path: Path | None = None) -> list[dict[str, Any]]:
     rows_out: list[dict[str, Any]] = []
     with connect(db_path) as conn:
@@ -269,9 +342,12 @@ def _accepted_reviewed_fact_rows(db_path: Path | None = None) -> list[dict[str, 
                         "preaudit_status": (payload.get("preaudit") or {}).get("status"),
                     }
                 ),
+                "ai_review_status": "",
+                "usable_for_model": "",
+                "risk_flags": "",
             }
         row_out.update(_normalize_model_target(target_name, value, row_out["target_unit"]))
-        rows_out.append(row_out)
+        rows_out.append(_enrich_row_for_tiers(row_out))
     return rows_out
 
 
@@ -348,9 +424,12 @@ def _benchmark_rows(db_path: Path | None = None) -> list[dict[str, Any]]:
                         "condition": _json(record.get("conditions")),
                         "evidence_text": record.get("evidence_text") or "",
                         "quality_flags": _json(record.get("quality_flags")),
+                        "ai_review_status": "",
+                        "usable_for_model": "",
+                        "risk_flags": ",".join(str(item) for item in _read_json_list(record.get("quality_flags"))),
                     }
                 row_out.update(_normalize_model_target(canonical_target, value, row_out["target_unit"]))
-                rows_out.append(row_out)
+                rows_out.append(_enrich_row_for_tiers(row_out))
     return rows_out
 
 
@@ -360,9 +439,11 @@ def _sample_link_rows(db_path: Path | None = None) -> list[dict[str, Any]]:
         try:
             rows = conn.execute(
                 """
-                SELECT spl.*, p.title, p.doi, p.year, p.paper_type, p.is_review
+                SELECT spl.*, p.title, p.doi, p.year, p.paper_type, p.is_review,
+                       afa.ai_review_status, afa.usable_for_model, afa.risk_flags_json
                 FROM sample_property_links spl
                 LEFT JOIN papers p ON p.paper_id = spl.paper_id
+                LEFT JOIN ai_fact_audits afa ON afa.link_id = spl.link_id
                 WHERE spl.status = 'linked'
                 """
             ).fetchall()
@@ -395,6 +476,7 @@ def _sample_link_rows(db_path: Path | None = None) -> list[dict[str, Any]]:
             "paper_type": row["paper_type"] or "",
             "is_review": int(row["is_review"] or 0),
             "review_status": row["context_quality"],
+            "context_quality": row["context_quality"],
             "material_name": material.get("canonical_name") or material.get("raw_name") or "",
             "material_family": material.get("material_family") or "",
             "formula": material.get("formula") or "",
@@ -419,17 +501,22 @@ def _sample_link_rows(db_path: Path | None = None) -> list[dict[str, Any]]:
             "target_unit": _first_present(prop.get("normalized_unit"), prop.get("unit")) or "",
             "condition": _json(prop.get("condition")),
             "evidence_text": row["evidence_text"] or prop.get("evidence_text") or "",
+            "ai_review_status": row["ai_review_status"] or "",
+            "usable_for_model": int(row["usable_for_model"] or 0) if row["usable_for_model"] is not None else "",
+            "risk_flags": ",".join(str(item) for item in _read_json_list(row["risk_flags_json"])),
             "quality_flags": _json(
                 {
                     "context_quality": row["context_quality"],
                     "context_score": row["context_score"],
                     "linkage_method": row["linkage_method"],
                     "variable_roles": roles,
+                    "ai_review_status": row["ai_review_status"] or "",
+                    "risk_flags": _read_json_list(row["risk_flags_json"]),
                 }
             ),
         }
         row_out.update(_normalize_model_target(target_name, value, row_out["target_unit"]))
-        rows_out.append(row_out)
+        rows_out.append(_enrich_row_for_tiers(row_out))
     return rows_out
 
 
@@ -449,12 +536,7 @@ def _as_csv_list(value: Any) -> list[Any]:
     return [value]
 
 
-def build_design_dataset(
-    output_path: Path | None = None,
-    db_path: Path | None = None,
-) -> dict[str, Any]:
-    target = output_path or PROJECT_ROOT / "data" / "design" / "hfo2_design_dataset.csv"
-    target.parent.mkdir(parents=True, exist_ok=True)
+def _collect_design_rows(db_path: Path | None = None) -> list[dict[str, Any]]:
     sample_rows = _sample_link_rows(db_path=db_path)
     linked_source_ids = {
         str(row.get("source_record_id") or "")
@@ -467,8 +549,11 @@ def build_design_dataset(
         for row in fallback_rows
         if str(row.get("record_id") or "") not in linked_source_ids
     ]
-    rows = sample_rows + fallback_rows
-    fieldnames = [
+    return sample_rows + fallback_rows
+
+
+def _design_fieldnames() -> list[str]:
+    return [
         "record_id",
         "source_record_id",
         "sample_id",
@@ -483,6 +568,9 @@ def build_design_dataset(
         "paper_type",
         "is_review",
         "review_status",
+        "ai_review_status",
+        "usable_for_model",
+        "benchmark_tier",
         "material_name",
         "material_family",
         "formula",
@@ -511,13 +599,28 @@ def build_design_dataset(
         "model_exclusion_reason",
         "condition",
         "evidence_text",
+        "risk_flags",
         "quality_flags",
     ]
+
+
+def _write_design_rows(rows: list[dict[str, Any]], target: Path) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = _design_fieldnames()
     with target.open("w", newline="", encoding="utf-8-sig") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
             writer.writerow({field: row.get(field, "") for field in fieldnames})
+
+
+def build_design_dataset(
+    output_path: Path | None = None,
+    db_path: Path | None = None,
+) -> dict[str, Any]:
+    target = output_path or PROJECT_ROOT / "data" / "design" / "hfo2_design_dataset.csv"
+    rows = _collect_design_rows(db_path=db_path)
+    _write_design_rows(rows, target)
     stats = {
         "rows": len(rows),
         "reviewed_fact_rows": sum(1 for row in rows if row["source"] == "reviewed_facts"),
@@ -525,7 +628,38 @@ def build_design_dataset(
         "sample_link_rows": sum(1 for row in rows if row["source"] == "sample_property_links"),
         "model_rows": sum(1 for row in rows if int(row.get("model_include") or 0) == 1),
         "excluded_model_rows": sum(1 for row in rows if int(row.get("model_include") or 0) == 0),
+        "strong_only_rows": sum(1 for row in rows if row.get("benchmark_tier") == "strong_only"),
+        "strong_partial_rows": sum(1 for row in rows if row.get("benchmark_tier") in {"strong_only", "strong_partial"}),
+        "all_traceable_rows": sum(1 for row in rows if row.get("benchmark_tier")),
         "output_path": str(target),
     }
     record_pipeline_run("21_build_design_dataset", "ok", stats, db_path=db_path)
+    return stats
+
+
+def build_benchmark_tier_datasets(
+    output_dir: Path | None = None,
+    db_path: Path | None = None,
+) -> dict[str, Any]:
+    out_dir = output_dir or PROJECT_ROOT / "data" / "design"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rows = _collect_design_rows(db_path=db_path)
+    tiers = {
+        "strong_only": [row for row in rows if row.get("benchmark_tier") == "strong_only"],
+        "strong_partial": [
+            row for row in rows if row.get("benchmark_tier") in {"strong_only", "strong_partial"}
+        ],
+        "all_traceable": [row for row in rows if row.get("benchmark_tier")],
+    }
+    outputs: dict[str, Any] = {}
+    for name, tier_rows in tiers.items():
+        path = out_dir / f"hfo2_design_dataset_{name}.csv"
+        _write_design_rows(tier_rows, path)
+        outputs[name] = {"rows": len(tier_rows), "path": str(path)}
+    stats = {"tiers": outputs, "total_rows": len(rows), "tier_definitions": BENCHMARK_TIERS}
+    (out_dir / "benchmark_tiers.json").write_text(
+        json.dumps(stats, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    record_pipeline_run("29_build_benchmark_tiers", "ok", stats, db_path=db_path)
     return stats

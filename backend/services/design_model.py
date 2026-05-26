@@ -220,6 +220,43 @@ def train_design_models(
     return payload
 
 
+def train_tiered_design_models(
+    output_root: Path | None = None,
+    targets: list[str] | None = None,
+    min_rows: int = 12,
+    test_size: float = 0.25,
+    random_state: int = 42,
+    db_path: Path | None = None,
+) -> dict[str, Any]:
+    from backend.services.design_dataset import build_benchmark_tier_datasets
+
+    tier_stats = build_benchmark_tier_datasets(db_path=db_path)
+    out_root = output_root or PROJECT_ROOT / "models" / "tiered_design_models"
+    out_root.mkdir(parents=True, exist_ok=True)
+    results: dict[str, Any] = {
+        "tier_stats": tier_stats,
+        "tiers": {},
+        "output_root": str(out_root),
+    }
+    for tier_name, tier_info in tier_stats.get("tiers", {}).items():
+        dataset_path = Path(tier_info["path"])
+        model_dir = out_root / tier_name
+        results["tiers"][tier_name] = train_design_models(
+            dataset_path=dataset_path,
+            output_dir=model_dir,
+            targets=targets,
+            min_rows=min_rows,
+            test_size=test_size,
+            random_state=random_state,
+            db_path=db_path,
+        )
+    metrics_path = out_root / "tiered_design_model_metrics.json"
+    metrics_path.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
+    results["metrics_path"] = str(metrics_path)
+    record_pipeline_run("30_train_tiered_design_models", "ok", results, db_path=db_path)
+    return results
+
+
 def load_design_model_metrics(metrics_path: Path | None = None) -> dict[str, Any] | None:
     target = metrics_path or PROJECT_ROOT / "models" / "design_models" / "design_model_metrics.json"
     if not target.exists():

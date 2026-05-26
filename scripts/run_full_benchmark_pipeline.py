@@ -57,6 +57,9 @@ def main() -> None:
     parser.add_argument("--reset-structured", action="store_true")
     parser.add_argument("--skip-design-models", action="store_true")
     parser.add_argument("--skip-sample-linking", action="store_true")
+    parser.add_argument("--skip-literature-cards", action="store_true")
+    parser.add_argument("--skip-chunk-labeling", action="store_true")
+    parser.add_argument("--skip-ai-audit", action="store_true")
     parser.add_argument("--skip-active-learning", action="store_true")
     parser.add_argument("--design-min-rows", type=int, default=12)
     args = parser.parse_args()
@@ -130,6 +133,40 @@ def main() -> None:
                 ("build_vector_index", [sys.executable, "pipelines/08_build_vector_index.py"]),
             ]
         )
+        if not args.skip_literature_cards:
+            steps.append(
+                (
+                    "llm_literature_cards",
+                    [
+                        sys.executable,
+                        "pipelines/26_build_literature_cards.py",
+                        "--max-workers",
+                        str(max(4, args.llm_workers // 2)),
+                        "--commit-every",
+                        "20",
+                        "--progress-every",
+                        "10",
+                        "--force-llm-when-paused",
+                    ],
+                )
+            )
+        if not args.skip_chunk_labeling:
+            steps.append(
+                (
+                    "llm_chunk_semantic_labels",
+                    [
+                        sys.executable,
+                        "pipelines/27_label_chunks_semantically.py",
+                        "--max-workers",
+                        str(max(4, args.llm_workers // 2)),
+                        "--commit-every",
+                        "50",
+                        "--progress-every",
+                        "25",
+                        "--force-llm-when-paused",
+                    ],
+                )
+            )
         if not args.skip_sample_linking:
             steps.extend(
                 [
@@ -150,7 +187,25 @@ def main() -> None:
                     ("build_design_graph", [sys.executable, "pipelines/24_build_design_graph.py"]),
                 ]
             )
+        if not args.skip_ai_audit:
+            steps.append(
+                (
+                    "llm_ai_secondary_audit",
+                    [
+                        sys.executable,
+                        "pipelines/28_ai_audit_sample_links.py",
+                        "--max-workers",
+                        str(max(4, args.llm_workers // 2)),
+                        "--commit-every",
+                        "50",
+                        "--progress-every",
+                        "25",
+                        "--force-llm-when-paused",
+                    ],
+                )
+            )
         steps.append(("build_design_dataset", [sys.executable, "pipelines/21_build_design_dataset.py"]))
+        steps.append(("build_benchmark_tiers", [sys.executable, "pipelines/29_build_benchmark_tiers.py"]))
         if not args.skip_design_models:
             steps.append(
                 (
@@ -163,8 +218,20 @@ def main() -> None:
                     ],
                 )
             )
+            steps.append(
+                (
+                    "train_tiered_design_models",
+                    [
+                        sys.executable,
+                        "pipelines/30_train_tiered_design_models.py",
+                        "--min-rows",
+                        str(args.design_min_rows),
+                    ],
+                )
+            )
         if not args.skip_active_learning:
             steps.append(("recommend_active_learning", [sys.executable, "pipelines/25_recommend_active_learning.py"]))
+        steps.append(("export_design_report", [sys.executable, "pipelines/31_export_design_report.py"]))
         for name, command in steps:
             run_step(name, command, log_fh)
         log_fh.write("\n===== full benchmark pipeline done =====\n")
