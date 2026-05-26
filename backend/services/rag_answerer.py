@@ -463,7 +463,9 @@ def synthesize_answer_with_llm(context: dict[str, Any], model: str | None = None
         "max_tokens": min(settings.llm_max_tokens, 2200),
     }
     if settings.llm_provider == "dashscope":
-        request_kwargs["extra_body"] = {"enable_thinking": settings.llm_enable_thinking}
+        # RAG synthesis is evidence-bound summarization. Disabling thinking keeps
+        # the browser response faster and avoids long-lived DashScope connections.
+        request_kwargs["extra_body"] = {"enable_thinking": False}
 
     last_error = ""
     for attempt in range(1, 4):
