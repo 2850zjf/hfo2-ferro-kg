@@ -68,6 +68,7 @@ WATCH_PATTERNS = [
     "29_build_benchmark_tiers.py",
     "30_train_tiered_design_models.py",
     "31_export_design_report.py",
+    "run_rag_job.py",
     "run_full_benchmark_pipeline.py",
     "run_post_sample_link_pipeline.py",
 ]
@@ -139,6 +140,31 @@ def _usage_from_payload(payload: dict[str, Any]) -> dict[str, int] | None:
     }
 
 
+def _usage_from_json_text(value: str | None) -> dict[str, int] | None:
+    if not value:
+        return None
+    try:
+        payload = json.loads(value)
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if "llm_usage" in payload and isinstance(payload["llm_usage"], dict):
+        payload = payload["llm_usage"]
+    total = _as_int(payload.get("total_tokens"))
+    prompt = _as_int(payload.get("prompt_tokens"))
+    completion = _as_int(payload.get("completion_tokens"))
+    if total <= 0 and (prompt or completion):
+        total = prompt + completion
+    if total <= 0:
+        return None
+    return {
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": total,
+    }
+
+
 def _estimate_tokens_from_chars(char_count: int | None, base: int = 1800) -> int:
     return max(0, int((char_count or 0) / 3) + base)
 
@@ -148,7 +174,34 @@ def _format_decimal(value: float) -> str:
     return text or "0"
 
 
-def token_usage(db_path: Path | None = None) -> dict[str, int | float | str]:
+def _estimate_inflight_tokens(processes: list[dict[str, Any]] | None = None) -> int:
+    estimates = {
+        "structured_llm": (20, 2600),
+        "benchmark_llm": (50, 3200),
+        "sample_linking": (50, 3400),
+        "literature_cards": (20, 5200),
+        "chunk_labels": (50, 2400),
+        "ai_audits": (50, 3200),
+    }
+    total = 0
+    for process in processes or active_pipeline_processes():
+        logs = _logs_for_task(str(process.get("task") or ""))
+        if not logs:
+            continue
+        progress = parse_progress_from_log(logs[0])
+        progress_type = str(progress.get("type") or "")
+        processed = _as_int(progress.get("processed"))
+        if not processed or progress_type not in estimates:
+            continue
+        commit_every, tokens_per_item = estimates[progress_type]
+        total += (processed % commit_every) * tokens_per_item
+    return total
+
+
+def token_usage(
+    db_path: Path | None = None,
+    processes: list[dict[str, Any]] | None = None,
+) -> dict[str, int | float | str]:
     actual_prompt = 0
     actual_completion = 0
     actual_total = 0
@@ -205,6 +258,24 @@ def token_usage(db_path: Path | None = None) -> dict[str, int | float | str]:
         except Exception:
             pass
 
+        for table in [
+            "sample_property_links",
+            "llm_literature_cards",
+            "llm_chunk_labels",
+            "ai_fact_audits",
+        ]:
+            try:
+                rows = conn.execute(f"SELECT llm_usage_json FROM {table}").fetchall()
+            except Exception:
+                continue
+            for row in rows:
+                usage = _usage_from_json_text(row["llm_usage_json"])
+                if usage:
+                    actual_rows += 1
+                    actual_prompt += usage["prompt_tokens"]
+                    actual_completion += usage["completion_tokens"]
+                    actual_total += usage["total_tokens"]
+
     estimated_total = actual_total + estimated_structured + estimated_benchmark
     input_price = float(
         os.getenv(
@@ -229,6 +300,10 @@ def token_usage(db_path: Path | None = None) -> dict[str, int | float | str]:
     actual_cost = actual_input_cost + actual_output_cost
     estimated_untracked_cost = estimated_untracked_tokens * estimated_blended_price
     estimated_cost = actual_cost + estimated_untracked_cost
+    estimated_inflight_tokens = _estimate_inflight_tokens(processes)
+    estimated_inflight_cost = estimated_inflight_tokens * estimated_blended_price
+    estimated_live_total_tokens = estimated_total + estimated_inflight_tokens
+    estimated_live_cost = estimated_cost + estimated_inflight_cost
     currency = os.getenv("HFO2_FERROKG_TOKEN_CURRENCY", "CNY")
     return {
         "actual_prompt_tokens": actual_prompt,
@@ -238,6 +313,8 @@ def token_usage(db_path: Path | None = None) -> dict[str, int | float | str]:
         "estimated_structured_tokens": estimated_structured,
         "estimated_benchmark_tokens": estimated_benchmark,
         "estimated_total_tokens": estimated_total,
+        "estimated_inflight_tokens": estimated_inflight_tokens,
+        "estimated_live_total_tokens": estimated_live_total_tokens,
         "input_price_per_token": input_price,
         "output_price_per_token": output_price,
         "input_price_per_token_display": _format_decimal(input_price),
@@ -248,8 +325,10 @@ def token_usage(db_path: Path | None = None) -> dict[str, int | float | str]:
         "actual_input_cost": round(actual_input_cost, 4),
         "actual_output_cost": round(actual_output_cost, 4),
         "estimated_untracked_cost": round(estimated_untracked_cost, 4),
+        "estimated_inflight_cost": round(estimated_inflight_cost, 4),
         "actual_cost": round(actual_cost, 4),
         "estimated_cost": round(estimated_cost, 4),
+        "estimated_live_cost": round(estimated_live_cost, 4),
         "price_per_token": estimated_blended_price,
         "price_per_token_display": _format_decimal(estimated_blended_price),
         "currency": currency,
@@ -287,6 +366,7 @@ Where-Object {
     $_.CommandLine -like '*29_build_benchmark_tiers.py*' -or
     $_.CommandLine -like '*30_train_tiered_design_models.py*' -or
     $_.CommandLine -like '*31_export_design_report.py*' -or
+    $_.CommandLine -like '*run_rag_job.py*' -or
     $_.CommandLine -like '*run_full_benchmark_pipeline.py*' -or
     $_.CommandLine -like '*run_post_sample_link_pipeline.py*'
   )
@@ -553,13 +633,33 @@ def latest_pipeline_runtime(processes: list[dict[str, Any]] | None = None) -> di
 def monitor_snapshot() -> dict[str, Any]:
     counts = database_counts()
     processes = active_pipeline_processes()
-    return {
+    runtime = latest_pipeline_runtime(processes)
+    tokens = token_usage(processes=processes)
+    snapshot = {
         "counts": counts,
         "processes": processes,
         "logs": latest_logs(),
         "recent_runs": recent_pipeline_runs(limit=12),
         "active": bool(processes),
-        "runtime": latest_pipeline_runtime(processes),
-        "tokens": token_usage(),
+        "runtime": runtime,
+        "tokens": tokens,
         "llm_pause": read_llm_pause(),
     }
+    snapshot.update(counts)
+    snapshot.update(
+        {
+            "status": "running" if processes else "idle",
+            "active_processes": len(processes),
+            "llm_paused": bool(snapshot["llm_pause"]),
+            "actual_total_tokens": tokens.get("actual_total_tokens", 0),
+            "estimated_total_tokens": tokens.get("estimated_total_tokens", 0),
+            "estimated_live_total_tokens": tokens.get("estimated_live_total_tokens", 0),
+            "actual_cost_cny": tokens.get("actual_cost", 0),
+            "estimated_cost_cny": tokens.get("estimated_cost", 0),
+            "estimated_live_cost_cny": tokens.get("estimated_live_cost", 0),
+            "elapsed": runtime.get("elapsed", "0s"),
+            "eta": runtime.get("eta", "估算中"),
+            "rate_per_min": runtime.get("rate_per_min", 0),
+        }
+    )
+    return snapshot

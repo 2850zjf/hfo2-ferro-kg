@@ -72,7 +72,7 @@ def _metric_row(tokens: dict, runtime: dict) -> None:
     cols[1].metric("输入 token", f"{tokens.get('actual_prompt_tokens', 0):,}")
     cols[2].metric("输出 token", f"{tokens.get('actual_completion_tokens', 0):,}")
     cols[3].metric("真实消费", f"{tokens.get('actual_cost', 0)} {currency}")
-    cols[4].metric("估算消费", f"{tokens.get('estimated_cost', 0)} {currency}")
+    cols[4].metric("实时估算", f"{tokens.get('estimated_live_cost', tokens.get('estimated_cost', 0))} {currency}")
 
 
 st.set_page_config(page_title="任务实时监控", layout="wide")

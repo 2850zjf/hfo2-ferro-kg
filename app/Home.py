@@ -53,10 +53,13 @@ metric_cols[4].metric("Benchmark", counts.get("benchmark_extractions", 0))
 metric_cols[5].metric("样品级关联", counts.get("sample_property_links", 0))
 
 token_cols = st.columns(4)
-token_cols[0].metric("输入 token", tokens.get("prompt_tokens", 0))
-token_cols[1].metric("输出 token", tokens.get("completion_tokens", 0))
-token_cols[2].metric("累计 token", tokens.get("total_tokens", 0))
-token_cols[3].metric("估算费用", tokens.get("total_cost_cny", "0.00"))
+token_cols[0].metric("输入 token", f"{tokens.get('actual_prompt_tokens', 0):,}")
+token_cols[1].metric("输出 token", f"{tokens.get('actual_completion_tokens', 0):,}")
+token_cols[2].metric("实时估算 token", f"{tokens.get('estimated_live_total_tokens', 0):,}")
+token_cols[3].metric(
+    "实时估算费用",
+    f"{tokens.get('estimated_live_cost', 0)} {tokens.get('currency', 'CNY')}",
+)
 
 left, right = st.columns([2, 1])
 

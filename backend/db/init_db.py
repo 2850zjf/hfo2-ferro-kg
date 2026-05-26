@@ -154,6 +154,20 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS rag_jobs (
+    job_id TEXT PRIMARY KEY,
+    question TEXT NOT NULL,
+    use_llm INTEGER DEFAULT 1,
+    llm_model TEXT,
+    status TEXT NOT NULL DEFAULT 'queued',
+    answer_markdown TEXT,
+    error_message TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    started_at TEXT,
+    completed_at TEXT,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS ontology_versions (
     ontology_version TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -283,6 +297,15 @@ MIGRATIONS = {
         "height": "ALTER TABLE pdf_visual_assets ADD COLUMN height INTEGER",
         "extraction_status": "ALTER TABLE pdf_visual_assets ADD COLUMN extraction_status TEXT DEFAULT 'ok'",
         "error_message": "ALTER TABLE pdf_visual_assets ADD COLUMN error_message TEXT",
+    },
+    "rag_jobs": {
+        "use_llm": "ALTER TABLE rag_jobs ADD COLUMN use_llm INTEGER DEFAULT 1",
+        "llm_model": "ALTER TABLE rag_jobs ADD COLUMN llm_model TEXT",
+        "answer_markdown": "ALTER TABLE rag_jobs ADD COLUMN answer_markdown TEXT",
+        "error_message": "ALTER TABLE rag_jobs ADD COLUMN error_message TEXT",
+        "started_at": "ALTER TABLE rag_jobs ADD COLUMN started_at TEXT",
+        "completed_at": "ALTER TABLE rag_jobs ADD COLUMN completed_at TEXT",
+        "updated_at": "ALTER TABLE rag_jobs ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP",
     },
 }
 

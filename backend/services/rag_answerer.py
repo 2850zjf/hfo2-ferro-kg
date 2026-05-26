@@ -4,7 +4,7 @@ import json
 import math
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import median
 from typing import Any
@@ -17,6 +17,8 @@ from backend.services.vector_store import search_vector_index
 
 
 ACCEPTED_STATUSES = {"approved", "preapproved_machine", "needs_human_review"}
+MODEL_SAFE_AI_STATUSES = {"", "usable_for_model"}
+TRACEABLE_AI_STATUSES = {"", "usable_for_model", "usable_for_rag_only", "needs_human_review"}
 
 PROPERTY_ALIASES = {
     "double_remanent_polarization_2Pr": [
@@ -37,7 +39,7 @@ PROPERTY_ALIASES = {
 }
 
 MATERIAL_ALIASES = {
-    "HZO": ["hzo", "hfzr", "hf0.5zr0.5o2", "hf1-xzrxo2", "zirconium", "zr", "铪锆"],
+    "HZO": ["hzo", "hfzr", "hf0.5zr0.5o2", "hf1-xzrxo2", "zirconium", "zr", "锆"],
     "HfO2": ["hfo2", "hafnia", "hafnium oxide", "氧化铪"],
     "La:HfO2": ["la", "lanthanum", "la:hfo2", "la-doped", "镧"],
     "Si:HfO2": ["si", "silicon", "si:hfo2", "si-doped", "硅"],
@@ -51,6 +53,18 @@ POLARIZATION_PROPERTIES = {
     "double_remanent_polarization_2Pr",
     "remanent_polarization_Pr",
     "saturation_polarization_Ps",
+}
+
+SPECIAL_RISK_FLAGS = {
+    "review_secondary_value",
+    "theoretical_only",
+    "figure_estimated",
+    "sample_property_mismatch",
+    "low_temperature_value",
+    "fatigue_after_value",
+    "wakeup_after_value",
+    "unit_ambiguity",
+    "pr_2pr_confusion",
 }
 
 
@@ -72,12 +86,16 @@ class FactHit:
     context_score: float | None
     sample_id: str = ""
     sample_context: str = ""
+    ai_review_status: str = ""
+    usable_for_model: bool | None = None
+    risk_flags: tuple[str, ...] = field(default_factory=tuple)
+    benchmark_tier: str = "all_traceable"
 
 
 def tokenize(text: str) -> set[str]:
     return {
         token.lower()
-        for token in re.findall(r"[A-Za-z0-9_+\-./µμ²℃]+|[\u4e00-\u9fff]+", text or "")
+        for token in re.findall(r"[A-Za-z0-9_+\-./μµ²℃°]+|[\u4e00-\u9fff]+", text or "")
         if len(token) > 1
     }
 
@@ -102,21 +120,90 @@ def _load_json(value: str | None) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def _load_json_list(value: str | None) -> list[Any]:
+    try:
+        data = json.loads(value or "[]")
+    except Exception:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def _row_get(row: Any, key: str, default: Any = None) -> Any:
+    try:
+        value = row[key]
+    except Exception:
+        return default
+    return default if value is None else value
+
+
+def _table_exists(conn: Any, table_name: str) -> bool:
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+    except Exception:
+        return False
+    return row is not None
+
+
+def _looks_bad_title(title: str | None) -> bool:
+    text = str(title or "").strip().lower()
+    if not text:
+        return True
+    bad_fragments = [
+        "replace this line",
+        "paper identification number",
+        "u.s. department of energy",
+        "microsoft powerpoint",
+        "unknown paper",
+    ]
+    return any(fragment in text for fragment in bad_fragments)
+
+
+def _best_title(row: Any) -> str:
+    card_title = str(_row_get(row, "card_title", "") or "").strip()
+    paper_title = str(_row_get(row, "paper_title", _row_get(row, "title", "")) or "").strip()
+    if card_title and not _looks_bad_title(card_title):
+        return card_title
+    if paper_title and not _looks_bad_title(paper_title):
+        return paper_title
+    if card_title:
+        return card_title
+    if paper_title:
+        return paper_title
+    return "Unknown paper"
+
+
+def _risk_flags_from_quality(quality_flags: str | None) -> tuple[str, ...]:
+    data = _load_json(quality_flags)
+    risks = data.get("risk_flags") or []
+    if isinstance(risks, str):
+        risks = [risks]
+    return tuple(str(item) for item in risks if str(item).strip())
+
+
+def _has_value(mapping: dict[str, Any], key: str) -> bool:
+    return mapping.get(key) not in (None, "", [])
+
+
 def _sample_context(sample: dict[str, Any], phase: dict[str, Any]) -> str:
     parts = []
-    for label, key in [
-        ("厚度", "film_thickness_nm"),
-        ("沉积", "deposition_method"),
-        ("退火温度", "annealing_temperature_c"),
-        ("退火时间", "annealing_time_s"),
-        ("气氛", "annealing_atmosphere"),
-        ("电极/stack", "device_stack"),
-        ("衬底", "substrate"),
-        ("器件", "device_type"),
-    ]:
+    fields = [
+        ("厚度", "film_thickness_nm", " nm"),
+        ("沉积", "deposition_method", ""),
+        ("退火温度", "annealing_temperature_c", " °C"),
+        ("退火时间", "annealing_time_s", " s"),
+        ("气氛", "annealing_atmosphere", ""),
+        ("电极/stack", "device_stack", ""),
+        ("衬底", "substrate", ""),
+        ("器件", "device_type", ""),
+        ("状态", "wake_up_or_endurance_state", ""),
+    ]
+    for label, key, suffix in fields:
         value = sample.get(key)
         if value not in (None, "", []):
-            parts.append(f"{label}={value}")
+            parts.append(f"{label}={value}{suffix}")
     if phase.get("phase_name"):
         parts.append(f"相={phase['phase_name']}")
     if phase.get("space_group"):
@@ -127,7 +214,9 @@ def _sample_context(sample: dict[str, Any], phase: dict[str, Any]) -> str:
 def unit_matches_property(property_name: str | None, unit: str | None) -> bool:
     if not property_name:
         return True
-    compact = (unit or "").lower().replace(" ", "").replace("μ", "u").replace("µ", "u").replace("²", "2")
+    compact = (
+        unit or ""
+    ).lower().replace(" ", "").replace("μ", "u").replace("µ", "u").replace("²", "2")
     if property_name in POLARIZATION_PROPERTIES:
         return "c/cm" in compact
     if property_name == "coercive_field_Ec":
@@ -165,6 +254,20 @@ def infer_material_family(question: str) -> str | None:
     return None
 
 
+def _tier_for_fact(fact: FactHit) -> str:
+    if fact.ai_review_status == "reject":
+        return ""
+    if fact.source == "sample_property_links":
+        if fact.context_quality == "strong" and fact.ai_review_status in MODEL_SAFE_AI_STATUSES:
+            return "strong_only"
+        if fact.context_quality in {"strong", "partial"} and fact.ai_review_status in TRACEABLE_AI_STATUSES:
+            return "strong_partial"
+        return "all_traceable"
+    if fact.source == "reviewed_facts" and fact.review_status == "approved":
+        return "strong_partial"
+    return "all_traceable"
+
+
 def _fact_from_reviewed_row(row: Any) -> FactHit:
     payload = _load_json(row["payload_json"])
     prop = payload.get("property") or {}
@@ -173,10 +276,11 @@ def _fact_from_reviewed_row(row: Any) -> FactHit:
     phase_items = payload.get("phases") or []
     phase = phase_items[0] if isinstance(phase_items, list) and phase_items else {}
     ontology_context = payload.get("ontology_context") or {}
-    return FactHit(
+    preaudit = payload.get("preaudit") or {}
+    fact = FactHit(
         fact_id=row["fact_id"],
         source="reviewed_facts",
-        title=row["title"] or "Unknown paper",
+        title=_best_title(row),
         doi=row["doi"],
         page_number=row["page_number"],
         review_status=row["review_status"],
@@ -189,7 +293,9 @@ def _fact_from_reviewed_row(row: Any) -> FactHit:
         context_quality=ontology_context.get("context_quality") or "reviewed",
         context_score=_safe_float(ontology_context.get("context_score")),
         sample_context=_sample_context(sample, phase if isinstance(phase, dict) else {}),
+        risk_flags=tuple(str(item) for item in (preaudit.get("warnings") or []) if str(item).strip()),
     )
+    return fact.__class__(**{**fact_to_record(fact), "benchmark_tier": _tier_for_fact(fact)})
 
 
 def _fact_from_sample_link_row(row: Any) -> FactHit:
@@ -197,10 +303,12 @@ def _fact_from_sample_link_row(row: Any) -> FactHit:
     sample = _load_json(row["sample_json"])
     phase = _load_json(row["phase_json"])
     prop = _load_json(row["property_json"])
-    return FactHit(
+    ai_status = _row_get(row, "ai_review_status", "") or ""
+    risk_flags = tuple(str(item) for item in _load_json_list(_row_get(row, "risk_flags_json", "[]")) if str(item).strip())
+    fact = FactHit(
         fact_id=row["link_id"],
         source="sample_property_links",
-        title=row["title"] or "Unknown paper",
+        title=_best_title(row),
         doi=row["doi"],
         page_number=row["page_number"],
         review_status="sample_linked",
@@ -214,38 +322,78 @@ def _fact_from_sample_link_row(row: Any) -> FactHit:
         context_score=_safe_float(row["context_score"]),
         sample_id=row["sample_id"] or "",
         sample_context=_sample_context(sample, phase),
+        ai_review_status=ai_status,
+        usable_for_model=bool(_row_get(row, "usable_for_model")) if _row_get(row, "usable_for_model") is not None else None,
+        risk_flags=risk_flags,
     )
+    return FactHit(**{**fact_to_record(fact), "benchmark_tier": _tier_for_fact(fact)})
 
 
 def load_accepted_facts(db_path: Path | None = None) -> list[FactHit]:
     facts: list[FactHit] = []
     placeholders = ",".join("?" for _ in ACCEPTED_STATUSES)
     with connect(db_path) as conn:
+        has_cards = _table_exists(conn, "llm_literature_cards")
+        has_ai_audits = _table_exists(conn, "ai_fact_audits")
+        card_select = "lc.title AS card_title," if has_cards else "NULL AS card_title,"
+        card_join = "LEFT JOIN llm_literature_cards lc ON lc.pdf_id = spl.pdf_id" if has_cards else ""
+        review_card_join = "LEFT JOIN llm_literature_cards lc ON lc.pdf_id = rf.pdf_id" if has_cards else ""
+        audit_select = (
+            "afa.ai_review_status, afa.usable_for_model, afa.risk_flags_json"
+            if has_ai_audits
+            else "NULL AS ai_review_status, NULL AS usable_for_model, NULL AS risk_flags_json"
+        )
+        audit_join = "LEFT JOIN ai_fact_audits afa ON afa.link_id = spl.link_id" if has_ai_audits else ""
         try:
             rows = conn.execute(
-                """
-                SELECT spl.*, p.title, p.doi
+                f"""
+                SELECT spl.*, p.title AS paper_title, p.doi,
+                       {card_select}
+                       {audit_select}
                 FROM sample_property_links spl
                 LEFT JOIN papers p ON p.paper_id = spl.paper_id
+                {card_join}
+                {audit_join}
                 WHERE spl.status = 'linked'
                 """
             ).fetchall()
             facts.extend(_fact_from_sample_link_row(row) for row in rows)
         except Exception:
-            pass
+            try:
+                rows = conn.execute(
+                    f"""
+                    SELECT spl.*, p.title AS paper_title, p.doi,
+                           {card_select}
+                    FROM sample_property_links spl
+                    LEFT JOIN papers p ON p.paper_id = spl.paper_id
+                    {card_join}
+                    WHERE spl.status = 'linked'
+                    """
+                ).fetchall()
+                facts.extend(_fact_from_sample_link_row(row) for row in rows)
+            except Exception:
+                pass
 
         rows = conn.execute(
             f"""
             SELECT rf.fact_id, rf.review_status, rf.page_number, rf.payload_json,
-                   p.title, p.doi
+                   p.title AS paper_title, p.doi,
+                   {"lc.title AS card_title" if has_cards else "NULL AS card_title"}
             FROM reviewed_facts rf
             LEFT JOIN papers p ON p.paper_id = rf.paper_id
+            {review_card_join}
             WHERE rf.review_status IN ({placeholders})
             """,
             tuple(sorted(ACCEPTED_STATUSES)),
         ).fetchall()
     facts.extend(_fact_from_reviewed_row(row) for row in rows)
     return facts
+
+
+def _material_matches(fact: FactHit, material_filter: str) -> bool:
+    material_text = f"{fact.material} {fact.material_family}".lower()
+    aliases = MATERIAL_ALIASES.get(material_filter, [])
+    return material_filter.lower() in material_text or any(alias.strip() and alias in material_text for alias in aliases)
 
 
 def retrieve_facts(question: str, limit: int = 12, db_path: Path | None = None) -> list[FactHit]:
@@ -256,11 +404,10 @@ def retrieve_facts(question: str, limit: int = 12, db_path: Path | None = None) 
     for fact in load_accepted_facts(db_path=db_path):
         if prop_filter and fact.property_name != prop_filter:
             continue
-        if material_filter:
-            material_text = f"{fact.material} {fact.material_family}".lower()
-            aliases = MATERIAL_ALIASES.get(material_filter, [])
-            if material_filter.lower() not in material_text and not any(alias in material_text for alias in aliases):
-                continue
+        if material_filter and not _material_matches(fact, material_filter):
+            continue
+        if fact.ai_review_status == "reject":
+            continue
         searchable = " ".join(
             [
                 fact.title,
@@ -271,6 +418,7 @@ def retrieve_facts(question: str, limit: int = 12, db_path: Path | None = None) 
                 fact.unit,
                 fact.sample_context,
                 fact.evidence_text,
+                " ".join(fact.risk_flags),
             ]
         )
         score = len(q_tokens & tokenize(searchable))
@@ -280,7 +428,9 @@ def retrieve_facts(question: str, limit: int = 12, db_path: Path | None = None) 
             score += 2
         if fact.source == "sample_property_links":
             score += 3
-        if fact.context_quality == "strong":
+        if fact.benchmark_tier == "strong_only":
+            score += 3
+        elif fact.benchmark_tier == "strong_partial":
             score += 2
         elif fact.context_quality == "partial":
             score += 1
@@ -307,6 +457,10 @@ def fact_to_record(fact: FactHit) -> dict[str, Any]:
         "context_score": fact.context_score,
         "sample_id": fact.sample_id,
         "sample_context": fact.sample_context,
+        "ai_review_status": fact.ai_review_status,
+        "usable_for_model": fact.usable_for_model,
+        "risk_flags": list(fact.risk_flags),
+        "benchmark_tier": fact.benchmark_tier,
     }
 
 
@@ -314,69 +468,100 @@ def _dedupe_facts(facts: list[FactHit]) -> list[FactHit]:
     seen: set[str] = set()
     unique: list[FactHit] = []
     for fact in facts:
-        key = fact.fact_id
-        if key in seen:
+        if fact.fact_id in seen:
             continue
-        seen.add(key)
+        seen.add(fact.fact_id)
         unique.append(fact)
     return unique
+
+
+def _facts_for_tier(facts: list[FactHit], tier: str) -> list[FactHit]:
+    if tier == "strong_only":
+        return [fact for fact in facts if fact.benchmark_tier == "strong_only"]
+    if tier == "strong_partial":
+        return [fact for fact in facts if fact.benchmark_tier in {"strong_only", "strong_partial"}]
+    return [fact for fact in facts if fact.benchmark_tier]
+
+
+def _numeric_stats(facts: list[FactHit], prop: str | None) -> dict[str, Any]:
+    numeric_candidates = [fact for fact in facts if fact.value is not None]
+    numeric = [
+        fact for fact in numeric_candidates if unit_matches_property(prop or fact.property_name, fact.unit)
+    ]
+    out: dict[str, Any] = {
+        "fact_count": len(facts),
+        "numeric_candidate_count": len(numeric_candidates),
+        "excluded_numeric_count_due_to_unit": len(numeric_candidates) - len(numeric),
+    }
+    if not numeric:
+        return out
+    values = [fact.value for fact in numeric if fact.value is not None]
+    min_fact = min(numeric, key=lambda item: item.value if item.value is not None else float("inf"))
+    max_fact = max(numeric, key=lambda item: item.value if item.value is not None else float("-inf"))
+    positive = [fact for fact in numeric if fact.value is not None and fact.value > 0]
+    special = [fact for fact in numeric if set(fact.risk_flags) & SPECIAL_RISK_FLAGS]
+    out.update(
+        {
+            "numeric_fact_count": len(numeric),
+            "min": min(values),
+            "max": max(values),
+            "median": median(values),
+            "unit": max_fact.unit or min_fact.unit,
+            "min_fact": fact_to_record(min_fact),
+            "max_fact": fact_to_record(max_fact),
+            "special_condition_count": len(special),
+        }
+    )
+    if positive and len(positive) != len(numeric):
+        positive_values = [fact.value for fact in positive if fact.value is not None]
+        positive_min_fact = min(positive, key=lambda item: item.value if item.value is not None else float("inf"))
+        out.update(
+            {
+                "positive_numeric_fact_count": len(positive),
+                "positive_min": min(positive_values),
+                "positive_median": median(positive_values),
+                "positive_min_fact": fact_to_record(positive_min_fact),
+            }
+        )
+    return out
 
 
 def build_rag_context(question: str, db_path: Path | None = None, fact_limit: int = 24) -> dict[str, Any]:
     all_facts = retrieve_facts(question, limit=5000, db_path=db_path)
     prop = infer_property(question)
     material = infer_material_family(question)
-    numeric_candidates = [fact for fact in all_facts if fact.value is not None]
-    numeric = [
-        fact
-        for fact in numeric_candidates
-        if unit_matches_property(prop or fact.property_name, fact.unit)
-    ]
+    tiered_statistics = {
+        "strong_only": _numeric_stats(_facts_for_tier(all_facts, "strong_only"), prop),
+        "strong_partial": _numeric_stats(_facts_for_tier(all_facts, "strong_partial"), prop),
+        "all_traceable": _numeric_stats(_facts_for_tier(all_facts, "all_traceable"), prop),
+    }
     statistics: dict[str, Any] = {
         "property_filter": prop,
         "material_filter": material,
         "fact_count": len(all_facts),
-        "numeric_candidate_count": len(numeric_candidates),
-        "excluded_numeric_count_due_to_unit": len(numeric_candidates) - len(numeric),
+        "tiered": tiered_statistics,
     }
-    if numeric:
-        values = [fact.value for fact in numeric if fact.value is not None]
-        min_fact = min(numeric, key=lambda item: item.value if item.value is not None else float("inf"))
-        max_fact = max(numeric, key=lambda item: item.value if item.value is not None else float("-inf"))
-        positive = [fact for fact in numeric if fact.value is not None and fact.value > 0]
-        statistics.update(
-            {
-                "numeric_fact_count": len(numeric),
-                "min": min(values),
-                "max": max(values),
-                "median": median(values),
-                "unit": max_fact.unit or min_fact.unit,
-                "min_fact": fact_to_record(min_fact),
-                "max_fact": fact_to_record(max_fact),
-            }
-        )
-        if positive and len(positive) != len(numeric):
-            positive_values = [fact.value for fact in positive if fact.value is not None]
-            positive_min_fact = min(positive, key=lambda item: item.value if item.value is not None else float("inf"))
-            statistics.update(
-                {
-                    "positive_numeric_fact_count": len(positive),
-                    "positive_min": min(positive_values),
-                    "positive_median": median(positive_values),
-                    "positive_min_fact": fact_to_record(positive_min_fact),
-                }
-            )
+    # For direct compatibility, expose the broad traceable stats at the top.
+    statistics.update(tiered_statistics["all_traceable"])
+
     evidence_seed: list[FactHit] = []
-    if numeric:
-        evidence_seed.extend([min_fact, max_fact])
-        evidence_seed.extend(numeric[:fact_limit])
-    else:
-        evidence_seed.extend(all_facts[:fact_limit])
+    for tier in ["strong_only", "strong_partial", "all_traceable"]:
+        stats = tiered_statistics[tier]
+        for key in ["min_fact", "max_fact", "positive_min_fact"]:
+            if isinstance(stats.get(key), dict):
+                evidence_seed.append(FactHit(**stats[key]))
+    evidence_seed.extend(_facts_for_tier(all_facts, "strong_only")[:fact_limit])
+    evidence_seed.extend(_facts_for_tier(all_facts, "strong_partial")[:fact_limit])
+    evidence_seed.extend(all_facts[:fact_limit])
     evidence_facts = _dedupe_facts(evidence_seed)[:fact_limit]
     vector_hits = [] if db_path is not None else search_vector_index(question, limit=5)
     return {
         "question": question,
-        "accepted_facts_definition": "approved + preapproved_machine + needs_human_review + sample_property_links are usable baseline facts.",
+        "accepted_facts_definition": (
+            "accepted facts include approved, preapproved_machine, needs_human_review, "
+            "and sample_property_links; benchmark tiers separate strong_only, "
+            "strong_partial, and all_traceable evidence."
+        ),
         "statistics": statistics,
         "evidence_facts": [fact_to_record(fact) for fact in evidence_facts],
         "related_chunks": vector_hits,
@@ -388,41 +573,59 @@ def _format_evidence(fact: FactHit, index: int) -> list[str]:
     page = f"p. {fact.page_number}" if fact.page_number else "页码未识别"
     value = f"{fact.value:g} {fact.unit}".strip() if fact.value is not None else "数值未识别"
     sample = f" | 样品条件：{fact.sample_context}" if fact.sample_context else ""
+    risks = f" | 风险：{', '.join(fact.risk_flags)}" if fact.risk_flags else ""
     return [
-        f"{index}. {fact.title} | {doi} | {page} | {fact.material} | {fact.property_name} = {value}{sample}",
+        (
+            f"{index}. [{fact.benchmark_tier}] {fact.title} | {doi} | {page} | "
+            f"{fact.material} | {fact.property_name} = {value}{sample}{risks}"
+        ),
         f"   证据：{fact.evidence_text}",
+        f"   fact_id：{fact.fact_id}",
     ]
+
+
+def _format_range_line(label: str, stats: dict[str, Any]) -> str:
+    if "min" not in stats or "max" not in stats:
+        return f"- {label}：暂无足够可统计数值"
+    unit = stats.get("unit") or ""
+    line = (
+        f"- {label}：n={stats.get('numeric_fact_count', 0)}，"
+        f"范围 {stats['min']:g} - {stats['max']:g} {unit}，"
+        f"中位数 {stats['median']:g} {unit}"
+    )
+    if "positive_min" in stats:
+        line += (
+            f"；排除 0/负值后正值下限 {stats['positive_min']:g} {unit}，"
+            f"正值中位数 {stats['positive_median']:g} {unit}"
+        )
+    if stats.get("special_condition_count"):
+        line += f"；其中 {stats['special_condition_count']} 条带特殊条件/风险标记"
+    if stats.get("excluded_numeric_count_due_to_unit"):
+        line += f"；排除 {stats['excluded_numeric_count_due_to_unit']} 条单位不匹配数值"
+    return line
 
 
 def answer_range_from_context(context: dict[str, Any]) -> str | None:
     stats = context.get("statistics") or {}
     prop = stats.get("property_filter")
-    if not prop or "min" not in stats or "max" not in stats:
+    tiered = stats.get("tiered") or {}
+    if not prop or not any("min" in (tiered.get(tier) or {}) for tier in ["strong_only", "strong_partial", "all_traceable"]):
         return None
     material = stats.get("material_filter") or "当前筛选材料"
-    unit = stats.get("unit") or ""
-    min_fact = FactHit(**stats["min_fact"])
-    max_fact = FactHit(**stats["max_fact"])
     lines = [
-        f"基于当前 accepted facts，{material} 的 {prop} 统计如下：",
+        f"基于当前 accepted facts，{material} 的 {prop} 证据分层统计如下：",
         "",
-        f"- 样本数：{stats.get('numeric_fact_count', 0)} 条可统计事实",
-        f"- 范围：{stats['min']:g} - {stats['max']:g} {unit}",
-        f"- 中位数：{stats['median']:g} {unit}",
+        _format_range_line("strong_only，用于可信图表和建模优先引用", tiered.get("strong_only") or {}),
+        _format_range_line("strong_partial，用于更宽覆盖的探索模型", tiered.get("strong_partial") or {}),
+        _format_range_line("all_traceable，用于 RAG 线索和人工复核", tiered.get("all_traceable") or {}),
+        "",
+        "关键证据：",
     ]
-    if "positive_min" in stats:
-        lines.append(
-            f"- 排除 0 或负值后的正值范围：{stats['positive_min']:g} - {stats['max']:g} {unit}；"
-            f"正值中位数：{stats['positive_median']:g} {unit}"
-        )
-    excluded = stats.get("excluded_numeric_count_due_to_unit") or 0
-    if excluded:
-        lines.append(f"- 已排除：{excluded} 条单位不匹配的数值，例如倍率、百分比或其他非目标物理量。")
-    lines.extend(["", "关键证据："])
-    lines.extend(_format_evidence(min_fact, 1))
-    lines.extend(_format_evidence(max_fact, 2))
+    facts = [FactHit(**record) for record in context.get("evidence_facts", [])]
+    for index, fact in enumerate(facts[:8], start=1):
+        lines.extend(_format_evidence(fact, index))
     lines.append("")
-    lines.append("注意：Pr 和 2Pr 已分开统计；这里不会把 2Pr 自动当作 Pr。")
+    lines.append("注意：Pr 和 2Pr 已分开统计；这里不会把 2Pr 自动当作 Pr。带风险标记的数据只作为线索，正式结论建议优先引用 strong_only。")
     return "\n".join(lines)
 
 
@@ -445,13 +648,15 @@ def synthesize_answer_with_llm(context: dict[str, Any], model: str | None = None
         client_kwargs["base_url"] = base_url
     client = OpenAI(**client_kwargs)
     system_prompt = """
-你是 HfO2-FerroKG 的证据推理型 RAG 回答器。
-只能使用用户提供的 JSON context，不允许编造论文、DOI、页码、数值或趋势。
-回答必须使用中文。
-每个关键结论都要引用 fact_id、论文标题或 DOI、页码、证据句。
-如果是数值范围问题，必须严格使用 context.statistics 中的统计值。
-严格区分 Pr 和 2Pr；除非 context 明确给出派生规则，否则不要把 2Pr 除以 2 当作 Pr。
-如果证据不足，回答“当前数据库没有足够证据回答该问题。”
+你是 HfO2-FerroKG 的证据推理型 RAG 回答器。只能使用用户提供的 JSON context，不允许编造论文、DOI、页码、数值或趋势。回答必须使用中文。
+
+回答规则：
+1. 每个关键结论都要引用 fact_id、论文标题或 DOI、页码、证据句和样品条件。
+2. 范围类问题必须使用 context.statistics.tiered，分开说明 strong_only、strong_partial、all_traceable。
+3. strong_only 是最适合正式图表/建模的证据；strong_partial 可用于探索；all_traceable 只能作为 RAG 线索和人工复核。
+4. 严格区分 Pr 和 2Pr；除非 context 明确给出派生规则，否则不要把 2Pr 除以 2 当作 Pr。
+5. 对 review_secondary_value、theoretical_only、figure_estimated、low_temperature_value、fatigue_after_value 等风险标记要主动提示。
+6. 如果证据不足，回答“当前数据库没有足够证据回答该问题。”
 """.strip()
     request_kwargs: dict[str, Any] = {
         "model": selected_model,
@@ -460,11 +665,9 @@ def synthesize_answer_with_llm(context: dict[str, Any], model: str | None = None
             {"role": "user", "content": json.dumps(context, ensure_ascii=False)},
         ],
         "temperature": 0,
-        "max_tokens": min(settings.llm_max_tokens, 2200),
+        "max_tokens": min(settings.llm_max_tokens, 2600),
     }
     if settings.llm_provider == "dashscope":
-        # RAG synthesis is evidence-bound summarization. Disabling thinking keeps
-        # the browser response faster and avoids long-lived DashScope connections.
         request_kwargs["extra_body"] = {"enable_thinking": False}
 
     last_error = ""
@@ -537,7 +740,7 @@ def answer_question(
         return fallback_note + range_answer
 
     lines = [
-        "基于当前 accepted facts，检索到以下证据。正式论文结论建议优先引用你最终人工确认后的 approved facts。",
+        "基于当前 accepted facts，检索到以下证据。正式论文结论建议优先引用 strong_only 或你最终人工确认后的 approved facts。",
         "",
     ]
     if facts:
