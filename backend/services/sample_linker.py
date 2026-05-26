@@ -394,7 +394,28 @@ def _llm_link_record(record: dict[str, Any], model: str | None = None) -> dict[s
     }
     if settings.llm_provider == "dashscope":
         request_kwargs["extra_body"] = {"enable_thinking": settings.llm_enable_thinking}
-    response = client.chat.completions.create(**request_kwargs)
+    last_error: Exception | None = None
+    response = None
+    for attempt in range(1, 4):
+        try:
+            response = client.chat.completions.create(**request_kwargs)
+            break
+        except Exception as exc:
+            last_error = exc
+            message = str(exc).lower()
+            if attempt < 3 and (
+                "connection" in message
+                or "timeout" in message
+                or "timed out" in message
+                or "temporarily" in message
+            ):
+                import time
+
+                time.sleep(1.5 * attempt)
+                continue
+            raise
+    if response is None:
+        raise last_error or RuntimeError("LLM response is empty")
     data = json_loads_object(response.choices[0].message.content or "{}")
     usage = getattr(response, "usage", None)
     material = data.get("material") if isinstance(data.get("material"), dict) else record["material"]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import median
@@ -452,32 +453,45 @@ def synthesize_answer_with_llm(context: dict[str, Any], model: str | None = None
 严格区分 Pr 和 2Pr；除非 context 明确给出派生规则，否则不要把 2Pr 除以 2 当作 Pr。
 如果证据不足，回答“当前数据库没有足够证据回答该问题。”
 """.strip()
-    try:
-        request_kwargs: dict[str, Any] = {
-            "model": selected_model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": json.dumps(context, ensure_ascii=False)},
-            ],
-            "temperature": 0,
-            "max_tokens": min(settings.llm_max_tokens, 2200),
-        }
-        if settings.llm_provider == "dashscope":
-            request_kwargs["extra_body"] = {"enable_thinking": settings.llm_enable_thinking}
-        response = client.chat.completions.create(**request_kwargs)
-        return response.choices[0].message.content or "", None
-    except Exception as exc:
-        error = str(exc)
-        if is_llm_budget_error(error):
-            write_llm_pause(
-                error,
-                {
-                    "pipeline": "rag_answer",
-                    "question": context.get("question"),
-                    "model": selected_model,
-                },
-            )
-        return None, error
+    request_kwargs: dict[str, Any] = {
+        "model": selected_model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": json.dumps(context, ensure_ascii=False)},
+        ],
+        "temperature": 0,
+        "max_tokens": min(settings.llm_max_tokens, 2200),
+    }
+    if settings.llm_provider == "dashscope":
+        request_kwargs["extra_body"] = {"enable_thinking": settings.llm_enable_thinking}
+
+    last_error = ""
+    for attempt in range(1, 4):
+        try:
+            response = client.chat.completions.create(**request_kwargs)
+            return response.choices[0].message.content or "", None
+        except Exception as exc:
+            last_error = str(exc)
+            if is_llm_budget_error(last_error):
+                write_llm_pause(
+                    last_error,
+                    {
+                        "pipeline": "rag_answer",
+                        "question": context.get("question"),
+                        "model": selected_model,
+                    },
+                )
+                return None, last_error
+            if attempt < 3 and (
+                "connection" in last_error.lower()
+                or "timeout" in last_error.lower()
+                or "timed out" in last_error.lower()
+                or "temporarily" in last_error.lower()
+            ):
+                time.sleep(1.5 * attempt)
+                continue
+            return None, last_error
+    return None, last_error
 
 
 def _friendly_llm_error(error: str | None) -> str:
@@ -487,6 +501,12 @@ def _friendly_llm_error(error: str | None) -> str:
             "系统已自动切回本地结构化证据回答；恢复账户状态或更换可用 key 后，可以重新开启 LLM 综合回答。"
         )
     if error:
+        if "connection" in error.lower() or "timeout" in error.lower():
+            return (
+                "LLM 综合回答遇到临时连接问题，已重试后退回本地结构化证据回答。"
+                "这通常是网络波动、服务商连接被重置，或后台并行抽取占用大量并发连接导致的。"
+                f"错误摘要：{error[:240]}"
+            )
         return f"LLM 综合回答失败，已退回本地结构化证据回答。错误摘要：{error[:300]}"
     return "LLM 综合回答失败，已退回本地结构化证据回答。"
 
