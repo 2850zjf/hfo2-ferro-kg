@@ -18,9 +18,17 @@ from backend.services.vector_store import search_vector_index
 ACCEPTED_STATUSES = {"approved", "preapproved_machine", "needs_human_review"}
 
 PROPERTY_ALIASES = {
-    "double_remanent_polarization_2Pr": ["2pr", "2.pr", "double remanent", "双剩余", "双倍剩余"],
+    "double_remanent_polarization_2Pr": [
+        "2pr",
+        "2.pr",
+        "2 pr",
+        "double remanent",
+        "double remanent polarization",
+        "双剩余极化",
+        "双倍剩余极化",
+    ],
     "remanent_polarization_Pr": ["pr", "remanent polarization", "剩余极化"],
-    "coercive_field_Ec": ["ec", "coercive", "矫顽"],
+    "coercive_field_Ec": ["ec", "coercive", "coercive field", "矫顽场"],
     "endurance_cycles": ["endurance", "cycles", "循环", "耐久"],
     "memory_window": ["memory window", "窗口"],
     "retention_time": ["retention", "保持"],
@@ -30,12 +38,12 @@ PROPERTY_ALIASES = {
 MATERIAL_ALIASES = {
     "HZO": ["hzo", "hfzr", "hf0.5zr0.5o2", "hf1-xzrxo2", "zirconium", "zr", "铪锆"],
     "HfO2": ["hfo2", "hafnia", "hafnium oxide", "氧化铪"],
-    "La:HfO2": ["la", "lanthanum", "la:hfo2", "la-doped"],
-    "Si:HfO2": ["si", "silicon", "si:hfo2", "si-doped"],
-    "Al:HfO2": ["al", "aluminum", "al:hfo2", "al-doped"],
-    "Y:HfO2": [" y ", "yttrium", "y:hfo2", "y-doped"],
-    "Gd:HfO2": ["gd", "gadolinium", "gd:hfo2", "gd-doped"],
-    "Sr:HfO2": ["sr", "strontium", "sr:hfo2", "sr-doped"],
+    "La:HfO2": ["la", "lanthanum", "la:hfo2", "la-doped", "镧"],
+    "Si:HfO2": ["si", "silicon", "si:hfo2", "si-doped", "硅"],
+    "Al:HfO2": ["al", "aluminum", "al:hfo2", "al-doped", "铝"],
+    "Y:HfO2": [" y ", "yttrium", "y:hfo2", "y-doped", "钇"],
+    "Gd:HfO2": ["gd", "gadolinium", "gd:hfo2", "gd-doped", "钆"],
+    "Sr:HfO2": ["sr", "strontium", "sr:hfo2", "sr-doped", "锶"],
 }
 
 POLARIZATION_PROPERTIES = {
@@ -48,6 +56,7 @@ POLARIZATION_PROPERTIES = {
 @dataclass(frozen=True)
 class FactHit:
     fact_id: str
+    source: str
     title: str
     doi: str | None
     page_number: int | None
@@ -60,12 +69,14 @@ class FactHit:
     evidence_text: str
     context_quality: str
     context_score: float | None
+    sample_id: str = ""
+    sample_context: str = ""
 
 
 def tokenize(text: str) -> set[str]:
     return {
         token.lower()
-        for token in re.findall(r"[A-Za-z0-9_+\-.μµ/²℃°]+|[\u4e00-\u9fff]+", text)
+        for token in re.findall(r"[A-Za-z0-9_+\-./µμ²℃]+|[\u4e00-\u9fff]+", text or "")
         if len(token) > 1
     }
 
@@ -82,11 +93,40 @@ def _safe_float(value: Any) -> float | None:
     return number
 
 
+def _load_json(value: str | None) -> dict[str, Any]:
+    try:
+        data = json.loads(value or "{}")
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _sample_context(sample: dict[str, Any], phase: dict[str, Any]) -> str:
+    parts = []
+    for label, key in [
+        ("厚度", "film_thickness_nm"),
+        ("沉积", "deposition_method"),
+        ("退火温度", "annealing_temperature_c"),
+        ("退火时间", "annealing_time_s"),
+        ("气氛", "annealing_atmosphere"),
+        ("电极/stack", "device_stack"),
+        ("衬底", "substrate"),
+        ("器件", "device_type"),
+    ]:
+        value = sample.get(key)
+        if value not in (None, "", []):
+            parts.append(f"{label}={value}")
+    if phase.get("phase_name"):
+        parts.append(f"相={phase['phase_name']}")
+    if phase.get("space_group"):
+        parts.append(f"空间群={phase['space_group']}")
+    return "；".join(parts)
+
+
 def unit_matches_property(property_name: str | None, unit: str | None) -> bool:
-    """Keep range statistics from mixing physical quantities with ratios."""
     if not property_name:
         return True
-    compact = (unit or "").lower().replace(" ", "").replace("µ", "μ")
+    compact = (unit or "").lower().replace(" ", "").replace("μ", "u").replace("µ", "u").replace("²", "2")
     if property_name in POLARIZATION_PROPERTIES:
         return "c/cm" in compact
     if property_name == "coercive_field_Ec":
@@ -96,9 +136,7 @@ def unit_matches_property(property_name: str | None, unit: str | None) -> bool:
     if property_name == "memory_window":
         return compact in {"v", "volt", "volts"} or compact.endswith("v")
     if property_name == "retention_time":
-        return compact in {"s", "sec", "second", "seconds", "h", "hour", "hours", "year", "years"} or bool(
-            re.search(r"(?:^|/)(?:s|h)$", compact)
-        )
+        return compact in {"s", "sec", "second", "seconds", "h", "hour", "hours", "year", "years"}
     if property_name == "leakage_current_density":
         return "a/cm" in compact
     return True
@@ -106,7 +144,7 @@ def unit_matches_property(property_name: str | None, unit: str | None) -> bool:
 
 def infer_property(question: str) -> str | None:
     q = question.lower()
-    if re.search(r"\b2\s*\.?\s*pr\b|2\s*倍|双剩余|双倍剩余", q):
+    if re.search(r"\b2\s*\.?\s*pr\b|双剩余极化|双倍剩余极化", q):
         return "double_remanent_polarization_2Pr"
     if re.search(r"\bec\b|矫顽", q):
         return "coercive_field_Ec"
@@ -126,13 +164,17 @@ def infer_material_family(question: str) -> str | None:
     return None
 
 
-def _fact_from_row(row: Any) -> FactHit:
-    payload = json.loads(row["payload_json"])
+def _fact_from_reviewed_row(row: Any) -> FactHit:
+    payload = _load_json(row["payload_json"])
     prop = payload.get("property") or {}
     material = payload.get("material") or {}
+    sample = payload.get("sample") or {}
+    phase_items = payload.get("phases") or []
+    phase = phase_items[0] if isinstance(phase_items, list) and phase_items else {}
     ontology_context = payload.get("ontology_context") or {}
     return FactHit(
         fact_id=row["fact_id"],
+        source="reviewed_facts",
         title=row["title"] or "Unknown paper",
         doi=row["doi"],
         page_number=row["page_number"],
@@ -143,14 +185,54 @@ def _fact_from_row(row: Any) -> FactHit:
         value=_safe_float(prop.get("normalized_value", prop.get("value"))),
         unit=prop.get("normalized_unit") or prop.get("unit") or "",
         evidence_text=prop.get("evidence_text") or "",
-        context_quality=ontology_context.get("context_quality") or "unknown",
+        context_quality=ontology_context.get("context_quality") or "reviewed",
         context_score=_safe_float(ontology_context.get("context_score")),
+        sample_context=_sample_context(sample, phase if isinstance(phase, dict) else {}),
+    )
+
+
+def _fact_from_sample_link_row(row: Any) -> FactHit:
+    material = _load_json(row["material_json"])
+    sample = _load_json(row["sample_json"])
+    phase = _load_json(row["phase_json"])
+    prop = _load_json(row["property_json"])
+    return FactHit(
+        fact_id=row["link_id"],
+        source="sample_property_links",
+        title=row["title"] or "Unknown paper",
+        doi=row["doi"],
+        page_number=row["page_number"],
+        review_status="sample_linked",
+        material=material.get("canonical_name") or material.get("raw_name") or "",
+        material_family=material.get("material_family") or "",
+        property_name=prop.get("property_name") or "",
+        value=_safe_float(prop.get("normalized_value", prop.get("value"))),
+        unit=prop.get("normalized_unit") or prop.get("unit") or "",
+        evidence_text=row["evidence_text"] or prop.get("evidence_text") or "",
+        context_quality=row["context_quality"],
+        context_score=_safe_float(row["context_score"]),
+        sample_id=row["sample_id"] or "",
+        sample_context=_sample_context(sample, phase),
     )
 
 
 def load_accepted_facts(db_path: Path | None = None) -> list[FactHit]:
+    facts: list[FactHit] = []
     placeholders = ",".join("?" for _ in ACCEPTED_STATUSES)
     with connect(db_path) as conn:
+        try:
+            rows = conn.execute(
+                """
+                SELECT spl.*, p.title, p.doi
+                FROM sample_property_links spl
+                LEFT JOIN papers p ON p.paper_id = spl.paper_id
+                WHERE spl.status = 'linked'
+                """
+            ).fetchall()
+            facts.extend(_fact_from_sample_link_row(row) for row in rows)
+        except Exception:
+            pass
+
         rows = conn.execute(
             f"""
             SELECT rf.fact_id, rf.review_status, rf.page_number, rf.payload_json,
@@ -161,7 +243,8 @@ def load_accepted_facts(db_path: Path | None = None) -> list[FactHit]:
             """,
             tuple(sorted(ACCEPTED_STATUSES)),
         ).fetchall()
-    return [_fact_from_row(row) for row in rows]
+    facts.extend(_fact_from_reviewed_row(row) for row in rows)
+    return facts
 
 
 def retrieve_facts(question: str, limit: int = 12, db_path: Path | None = None) -> list[FactHit]:
@@ -174,9 +257,8 @@ def retrieve_facts(question: str, limit: int = 12, db_path: Path | None = None) 
             continue
         if material_filter:
             material_text = f"{fact.material} {fact.material_family}".lower()
-            if material_filter.lower() not in material_text and not any(
-                alias in material_text for alias in MATERIAL_ALIASES.get(material_filter, [])
-            ):
+            aliases = MATERIAL_ALIASES.get(material_filter, [])
+            if material_filter.lower() not in material_text and not any(alias in material_text for alias in aliases):
                 continue
         searchable = " ".join(
             [
@@ -186,6 +268,7 @@ def retrieve_facts(question: str, limit: int = 12, db_path: Path | None = None) 
                 fact.material_family,
                 fact.property_name,
                 fact.unit,
+                fact.sample_context,
                 fact.evidence_text,
             ]
         )
@@ -194,6 +277,8 @@ def retrieve_facts(question: str, limit: int = 12, db_path: Path | None = None) 
             score += 3
         if material_filter:
             score += 2
+        if fact.source == "sample_property_links":
+            score += 3
         if fact.context_quality == "strong":
             score += 2
         elif fact.context_quality == "partial":
@@ -206,6 +291,7 @@ def retrieve_facts(question: str, limit: int = 12, db_path: Path | None = None) 
 def fact_to_record(fact: FactHit) -> dict[str, Any]:
     return {
         "fact_id": fact.fact_id,
+        "source": fact.source,
         "title": fact.title,
         "doi": fact.doi,
         "page_number": fact.page_number,
@@ -218,6 +304,8 @@ def fact_to_record(fact: FactHit) -> dict[str, Any]:
         "evidence_text": fact.evidence_text,
         "context_quality": fact.context_quality,
         "context_score": fact.context_score,
+        "sample_id": fact.sample_id,
+        "sample_context": fact.sample_context,
     }
 
 
@@ -225,9 +313,10 @@ def _dedupe_facts(facts: list[FactHit]) -> list[FactHit]:
     seen: set[str] = set()
     unique: list[FactHit] = []
     for fact in facts:
-        if fact.fact_id in seen:
+        key = fact.fact_id
+        if key in seen:
             continue
-        seen.add(fact.fact_id)
+        seen.add(key)
         unique.append(fact)
     return unique
 
@@ -253,6 +342,7 @@ def build_rag_context(question: str, db_path: Path | None = None, fact_limit: in
         values = [fact.value for fact in numeric if fact.value is not None]
         min_fact = min(numeric, key=lambda item: item.value if item.value is not None else float("inf"))
         max_fact = max(numeric, key=lambda item: item.value if item.value is not None else float("-inf"))
+        positive = [fact for fact in numeric if fact.value is not None and fact.value > 0]
         statistics.update(
             {
                 "numeric_fact_count": len(numeric),
@@ -264,6 +354,17 @@ def build_rag_context(question: str, db_path: Path | None = None, fact_limit: in
                 "max_fact": fact_to_record(max_fact),
             }
         )
+        if positive and len(positive) != len(numeric):
+            positive_values = [fact.value for fact in positive if fact.value is not None]
+            positive_min_fact = min(positive, key=lambda item: item.value if item.value is not None else float("inf"))
+            statistics.update(
+                {
+                    "positive_numeric_fact_count": len(positive),
+                    "positive_min": min(positive_values),
+                    "positive_median": median(positive_values),
+                    "positive_min_fact": fact_to_record(positive_min_fact),
+                }
+            )
     evidence_seed: list[FactHit] = []
     if numeric:
         evidence_seed.extend([min_fact, max_fact])
@@ -274,7 +375,7 @@ def build_rag_context(question: str, db_path: Path | None = None, fact_limit: in
     vector_hits = [] if db_path is not None else search_vector_index(question, limit=5)
     return {
         "question": question,
-        "accepted_facts_definition": "approved + preapproved_machine + needs_human_review are treated as usable baseline facts by current project setting.",
+        "accepted_facts_definition": "approved + preapproved_machine + needs_human_review + sample_property_links are usable baseline facts.",
         "statistics": statistics,
         "evidence_facts": [fact_to_record(fact) for fact in evidence_facts],
         "related_chunks": vector_hits,
@@ -285,42 +386,11 @@ def _format_evidence(fact: FactHit, index: int) -> list[str]:
     doi = fact.doi or "DOI 未识别"
     page = f"p. {fact.page_number}" if fact.page_number else "页码未识别"
     value = f"{fact.value:g} {fact.unit}".strip() if fact.value is not None else "数值未识别"
+    sample = f" | 样品条件：{fact.sample_context}" if fact.sample_context else ""
     return [
-        f"{index}. {fact.title} | {doi} | {page} | {fact.material} | {fact.property_name} = {value}",
+        f"{index}. {fact.title} | {doi} | {page} | {fact.material} | {fact.property_name} = {value}{sample}",
         f"   证据：{fact.evidence_text}",
     ]
-
-
-def answer_range_question(question: str, facts: list[FactHit]) -> str | None:
-    prop = infer_property(question)
-    if prop is None:
-        return None
-    numeric = [
-        fact
-        for fact in facts
-        if fact.value is not None and unit_matches_property(prop, fact.unit)
-    ]
-    if not numeric:
-        return None
-    values = [fact.value for fact in numeric if fact.value is not None]
-    min_fact = min(numeric, key=lambda item: item.value if item.value is not None else float("inf"))
-    max_fact = max(numeric, key=lambda item: item.value if item.value is not None else float("-inf"))
-    unit = max_fact.unit or min_fact.unit
-    material = infer_material_family(question) or "当前筛选材料"
-    lines = [
-        f"基于当前 accepted facts，{material} 的 {prop} 统计如下：",
-        "",
-        f"- 样本数：{len(numeric)} 条事实",
-        f"- 范围：{min(values):g} - {max(values):g} {unit}",
-        f"- 中位数：{median(values):g} {unit}",
-        "",
-        "关键证据：",
-    ]
-    lines.extend(_format_evidence(min_fact, 1))
-    lines.extend(_format_evidence(max_fact, 2))
-    lines.append("")
-    lines.append("注意：Pr 和 2Pr 已分开统计；这里不会把 2Pr 自动当作 Pr。")
-    return "\n".join(lines)
 
 
 def answer_range_from_context(context: dict[str, Any]) -> str | None:
@@ -339,9 +409,14 @@ def answer_range_from_context(context: dict[str, Any]) -> str | None:
         f"- 范围：{stats['min']:g} - {stats['max']:g} {unit}",
         f"- 中位数：{stats['median']:g} {unit}",
     ]
+    if "positive_min" in stats:
+        lines.append(
+            f"- 排除 0 或负值后的正值范围：{stats['positive_min']:g} - {stats['max']:g} {unit}；"
+            f"正值中位数：{stats['positive_median']:g} {unit}"
+        )
     excluded = stats.get("excluded_numeric_count_due_to_unit") or 0
     if excluded:
-        lines.append(f"- 已排除：{excluded} 条单位不匹配的数值，例如倍率、百分比或其他非目标物理量")
+        lines.append(f"- 已排除：{excluded} 条单位不匹配的数值，例如倍率、百分比或其他非目标物理量。")
     lines.extend(["", "关键证据："])
     lines.extend(_format_evidence(min_fact, 1))
     lines.extend(_format_evidence(max_fact, 2))
@@ -369,14 +444,13 @@ def synthesize_answer_with_llm(context: dict[str, Any], model: str | None = None
         client_kwargs["base_url"] = base_url
     client = OpenAI(**client_kwargs)
     system_prompt = """
-You are the HfO2-FerroKG evidence-grounded RAG answerer.
-Answer in Chinese.
-Use only the provided JSON context. Do not invent papers, values, DOI, page numbers, or trends.
-For numerical range questions, use the precomputed statistics exactly.
-Do not include values whose units were excluded by excluded_numeric_count_due_to_unit.
-Every important claim must cite fact_id, DOI or paper title, page_number, and the evidence sentence.
-Strictly distinguish Pr from 2Pr. Never convert 2Pr to Pr unless the context explicitly says it is derived.
-If the context is insufficient, say 当前数据库没有足够证据回答该问题。
+你是 HfO2-FerroKG 的证据推理型 RAG 回答器。
+只能使用用户提供的 JSON context，不允许编造论文、DOI、页码、数值或趋势。
+回答必须使用中文。
+每个关键结论都要引用 fact_id、论文标题或 DOI、页码、证据句。
+如果是数值范围问题，必须严格使用 context.statistics 中的统计值。
+严格区分 Pr 和 2Pr；除非 context 明确给出派生规则，否则不要把 2Pr 除以 2 当作 Pr。
+如果证据不足，回答“当前数据库没有足够证据回答该问题。”
 """.strip()
     try:
         request_kwargs: dict[str, Any] = {
@@ -409,13 +483,12 @@ If the context is insufficient, say 当前数据库没有足够证据回答该�
 def _friendly_llm_error(error: str | None) -> str:
     if is_llm_budget_error(error):
         return (
-            "LLM 调用被服务商拒绝：当前 DashScope/百炼账号的额度、账单或 API Key 状态异常"
-            "（这次返回的是 Arrearage/欠费类错误）。系统已自动切回本地结构化答案；"
-            "恢复账户状态或更换可用 key 后，再开启 LLM 综合回答即可。"
+            "LLM 调用被服务商拒绝，通常是额度、账单、限流或 API key 状态问题。"
+            "系统已自动切回本地结构化证据回答；恢复账户状态或更换可用 key 后，可以重新开启 LLM 综合回答。"
         )
     if error:
-        return f"LLM 综合回答失败，已退回本地结构化回答。错误摘要：{error[:300]}"
-    return "LLM 综合回答失败，已退回本地结构化回答。"
+        return f"LLM 综合回答失败，已退回本地结构化证据回答。错误摘要：{error[:300]}"
+    return "LLM 综合回答失败，已退回本地结构化证据回答。"
 
 
 def answer_question(
@@ -437,12 +510,12 @@ def answer_question(
             return llm_answer
         fallback_note = _friendly_llm_error(error) + "\n\n"
 
-    range_answer = answer_range_from_context(context) or answer_range_question(question, facts)
+    range_answer = answer_range_from_context(context)
     if range_answer:
         return fallback_note + range_answer
 
     lines = [
-        "基于当前 accepted facts，检索到以下证据。正式论文结论仍建议优先引用你最终人工确认后的 approved facts。",
+        "基于当前 accepted facts，检索到以下证据。正式论文结论建议优先引用你最终人工确认后的 approved facts。",
         "",
     ]
     if facts:
