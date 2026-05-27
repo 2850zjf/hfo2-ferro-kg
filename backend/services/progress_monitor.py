@@ -599,6 +599,17 @@ def _logs_for_task(task: str) -> list[Path]:
 
 def latest_pipeline_runtime(processes: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     log_dir = PROJECT_ROOT / "logs"
+    if not processes:
+        return {
+            "started_at": None,
+            "active_step": "等待启动",
+            "elapsed_seconds": 0,
+            "active_elapsed_seconds": 0,
+            "elapsed": "0s",
+            "active_elapsed": "0s",
+            "eta": "无运行任务",
+            "rate_per_min": 0.0,
+        }
     preferred_processes = sorted(
         processes or [],
         key=lambda item: 1 if str(item.get("task") or "") == "run_post_sample_link_pipeline.py" else 0,

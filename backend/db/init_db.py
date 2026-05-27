@@ -168,6 +168,26 @@ CREATE TABLE IF NOT EXISTS rag_jobs (
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS manual_annotations (
+    annotation_id TEXT PRIMARY KEY,
+    link_id TEXT NOT NULL,
+    paper_id TEXT,
+    pdf_id TEXT,
+    page_number INTEGER,
+    annotation_status TEXT NOT NULL DEFAULT 'unchecked',
+    corrected_material_json TEXT NOT NULL,
+    corrected_sample_json TEXT NOT NULL,
+    corrected_phase_json TEXT NOT NULL,
+    corrected_property_json TEXT NOT NULL,
+    corrected_evidence_text TEXT,
+    corrected_context_quality TEXT,
+    reviewer_notes TEXT,
+    applied_to_source INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(link_id)
+);
+
 CREATE TABLE IF NOT EXISTS ontology_versions (
     ontology_version TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -257,6 +277,12 @@ ON extraction_candidates(ontology_version, status);
 
 CREATE INDEX IF NOT EXISTS idx_reviewed_facts_status_property
 ON reviewed_facts(review_status, fact_type);
+
+CREATE INDEX IF NOT EXISTS idx_manual_annotations_link
+ON manual_annotations(link_id);
+
+CREATE INDEX IF NOT EXISTS idx_manual_annotations_status
+ON manual_annotations(annotation_status);
 """
 
 
@@ -306,6 +332,14 @@ MIGRATIONS = {
         "started_at": "ALTER TABLE rag_jobs ADD COLUMN started_at TEXT",
         "completed_at": "ALTER TABLE rag_jobs ADD COLUMN completed_at TEXT",
         "updated_at": "ALTER TABLE rag_jobs ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP",
+    },
+    "manual_annotations": {
+        "paper_id": "ALTER TABLE manual_annotations ADD COLUMN paper_id TEXT",
+        "pdf_id": "ALTER TABLE manual_annotations ADD COLUMN pdf_id TEXT",
+        "page_number": "ALTER TABLE manual_annotations ADD COLUMN page_number INTEGER",
+        "corrected_context_quality": "ALTER TABLE manual_annotations ADD COLUMN corrected_context_quality TEXT",
+        "applied_to_source": "ALTER TABLE manual_annotations ADD COLUMN applied_to_source INTEGER DEFAULT 0",
+        "updated_at": "ALTER TABLE manual_annotations ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP",
     },
 }
 
