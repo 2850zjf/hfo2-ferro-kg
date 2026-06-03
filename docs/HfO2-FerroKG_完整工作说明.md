@@ -758,6 +758,35 @@ http://127.0.0.1:8502/
 3. 构建文献卡片。
 4. 对 chunk 做语义分类。
 5. 将性能值和样品条件关联。
+
+## 10. 论文原型路线
+
+当前系统已经整理为 HfO2-FerroKG 论文原型。主研究问题固定为：如何从 HfO2/HZO 文献中构建样品级、证据可追溯、可建模的材料知识图谱。
+
+论文原型不再使用旧 README 中 213 篇 PDF 的早期规模作为当前基线，而以本工作说明和本地数据库快照为准。论文主数据表为 `sample_property_links`，`reviewed_facts` 和 `benchmark_extractions` 是上游来源；正式结果优先使用 strong sample-level rows、AI 判定 `usable_for_model` 的事实和人工标注后的数据。
+
+第一版论文结果优先聚焦：
+
+1. `remanent_polarization_Pr`
+2. `double_remanent_polarization_2Pr`
+3. `strong_only` 与 `strong_partial` benchmark
+4. 样品级关联准确性、Pr/2Pr 混淆率和单位标准化错误率
+
+新增论文原型说明文档：
+
+```text
+docs/paper_prototype.md
+```
+
+新增 gold set 评测入口：
+
+```bash
+python3 pipelines/32_evaluate_paper_prototype.py --sample-size 30
+```
+
+首次运行会生成 `data/evaluation/hfo2_paper_gold_set_template.csv`。人工填写 `gold_*` 字段后再次运行，会输出 JSON、CSV 和 Markdown 评测报告，用于论文中的 extraction precision/recall/F1、sample-property linking accuracy、Pr/2Pr confusion rate 和 unit normalization error rate。
+
+LLM 配置继续只走 `.env` 或环境变量。千问 3.7 max 通过 DashScope OpenAI-compatible endpoint 接入，真实 API key 配置文档不读取、不复制、不提交、不在报告中复述。
 6. 对事实做二次审核。
 7. 在 RAG 中组织证据回答。
 8. 为材料设计候选给出解释和风险提示。

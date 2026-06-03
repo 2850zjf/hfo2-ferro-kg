@@ -16,6 +16,7 @@ data/benchmark/
 data/figures/
 data/design/
 data/design_graph/
+data/evaluation/
 data/runtime/
 ontology/benchmark_extension.yaml
 models/
@@ -29,6 +30,12 @@ data/exports/
 *.log
 *.pdf
 *.PDF
+*APIkey*
+*apikey*
+*API_KEY*
+*api_key*
+*密钥*
+*配置.docx
 outputs/
 logs/
 reports/artifact-build-manifest.json

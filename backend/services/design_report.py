@@ -50,10 +50,16 @@ def export_design_progress_report(
     dataset_path = PROJECT_ROOT / "data" / "design" / "hfo2_design_dataset.csv"
     candidates_path = PROJECT_ROOT / "data" / "design" / "active_learning_candidates.csv"
     tiers_path = PROJECT_ROOT / "data" / "design" / "benchmark_tiers.json"
+    tiered_metrics_path = PROJECT_ROOT / "models" / "tiered_design_models" / "tiered_design_model_metrics.json"
     dataset = _load_csv(dataset_path)
     candidates = _load_csv(candidates_path)
     metrics = load_design_model_metrics()
     tier_stats = json.loads(tiers_path.read_text(encoding="utf-8")) if tiers_path.exists() else {}
+    tiered_metrics = (
+        json.loads(tiered_metrics_path.read_text(encoding="utf-8"))
+        if tiered_metrics_path.exists()
+        else {}
+    )
 
     material_counts: list[dict[str, Any]] = []
     target_counts: list[dict[str, Any]] = []
@@ -82,6 +88,32 @@ def export_design_progress_report(
                     "R2": round(float(item.get("r2", 0)), 4) if item.get("r2") is not None else "",
                 }
             )
+
+    primary_metric_rows: list[dict[str, Any]] = []
+    strong_only_metrics = (
+        ((tiered_metrics.get("tiers") or {}).get("strong_only") or {}).get("targets") or []
+    )
+    for item in strong_only_metrics:
+        if item.get("target_property") not in {
+            "remanent_polarization_Pr",
+            "double_remanent_polarization_2Pr",
+        }:
+            continue
+        primary_metric_rows.append(
+            {
+                "target_property": item.get("target_property"),
+                "rows": item.get("rows"),
+                "MAE": round(float(item.get("mae", 0)), 4) if item.get("mae") is not None else "",
+                "RMSE": round(float(item.get("rmse", 0)), 4) if item.get("rmse") is not None else "",
+                "R2": round(float(item.get("r2", 0)), 4) if item.get("r2") is not None else "",
+                "baseline_MAE": round(float(item.get("baseline_mae", 0)), 4)
+                if item.get("baseline_mae") is not None
+                else "",
+                "improvement": round(float(item.get("improvement_vs_baseline", 0)), 4)
+                if item.get("improvement_vs_baseline") is not None
+                else "",
+            }
+        )
 
     candidate_rows: list[dict[str, Any]] = []
     if not candidates.empty:
@@ -161,6 +193,15 @@ def export_design_progress_report(
         "",
         "## Baseline 模型指标",
         _table(metrics_rows, ["target_property", "status", "rows", "MAE", "RMSE", "R2"]),
+        "",
+        "## 论文主模型指标：strong_only Pr/2Pr",
+        _table(
+            primary_metric_rows,
+            ["target_property", "rows", "MAE", "RMSE", "R2", "baseline_MAE", "improvement"],
+        ),
+        "",
+        "## Gold set 评测",
+        "运行 `python3 pipelines/32_evaluate_paper_prototype.py --sample-size 30` 生成标注模板；填写 `gold_*` 字段后再次运行，输出 extraction F1、样品级关联准确率、Pr/2Pr 混淆率和单位标准化错误率。",
         "",
         "## 主动学习候选预览",
         _table(candidate_rows, ["candidate_id", "target_property", "predicted_value", "uncertainty", "material", "anneal_C", "stack"]),

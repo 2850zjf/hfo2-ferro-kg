@@ -6,13 +6,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.impute import SimpleImputer
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
 
 from backend.core.config import PROJECT_ROOT
 from backend.services.design_dataset import build_design_dataset
@@ -95,6 +88,12 @@ def _prepare_target_frame(df: pd.DataFrame, target_property: str) -> pd.DataFram
 
 
 def _make_pipeline(random_state: int) -> Pipeline:
+    from sklearn.compose import ColumnTransformer
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.impute import SimpleImputer
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import OneHotEncoder
+
     numeric_pipe = Pipeline(
         steps=[
             ("imputer", SimpleImputer(strategy="median")),
@@ -130,6 +129,9 @@ def train_design_models(
     random_state: int = 42,
     db_path: Path | None = None,
 ) -> dict[str, Any]:
+    from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+    from sklearn.model_selection import train_test_split
+
     df, source_path = _load_or_build_dataset(dataset_path)
     out_dir = output_dir or PROJECT_ROOT / "models" / "design_models"
     out_dir.mkdir(parents=True, exist_ok=True)
