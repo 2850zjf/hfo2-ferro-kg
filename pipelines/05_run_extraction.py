@@ -20,7 +20,11 @@ def main() -> None:
     parser.add_argument("--commit-every", type=int, default=25, help="Commit database writes every N processed chunks.")
     parser.add_argument("--progress-every", type=int, default=20, help="Print progress every N processed chunks.")
     parser.add_argument("--max-workers", type=int, default=1, help="Concurrent LLM calls for extraction.")
+    parser.add_argument("--paper-list", type=Path, default=None, help="CSV/TXT file with paper_id values to extract.")
+    parser.add_argument("--chunk-list", type=Path, default=None, help="CSV/TXT file with chunk_id values to extract.")
     args = parser.parse_args()
+    paper_ids = _read_id_list(args.paper_list)
+    chunk_ids = _read_id_list(args.chunk_list)
     runner = run_parallel_extraction if args.max_workers and args.max_workers > 1 else run_extraction
     result = runner(
         limit_chunks=args.limit_chunks,
@@ -30,11 +34,27 @@ def main() -> None:
         reset_existing=not args.incremental,
         commit_every=args.commit_every,
         progress_every=args.progress_every,
+        paper_ids=paper_ids,
+        chunk_ids=chunk_ids,
         **({"max_workers": args.max_workers} if runner is run_parallel_extraction else {}),
     )
     print(result)
     if result.get("paused"):
         raise SystemExit(75)
+
+
+def _read_id_list(path: Path | None) -> list[str] | None:
+    if not path:
+        return None
+    ids: list[str] = []
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith("#"):
+            continue
+        first = raw.split(",", 1)[0].strip()
+        if first and first not in {"paper_id", "chunk_id"}:
+            ids.append(first)
+    return ids
 
 
 if __name__ == "__main__":

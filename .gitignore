@@ -7,6 +7,7 @@ data/parsed_pages/
 data/chunks/
 data/tables/
 data/extraction_candidates/
+data/extraction_queues/
 data/reviewed_facts/
 data/vector_index/
 data/literature_candidates/

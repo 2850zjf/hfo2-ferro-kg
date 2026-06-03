@@ -237,6 +237,8 @@ def run_parallel_extraction(
     commit_every: int = 50,
     progress_every: int | None = 10,
     max_workers: int = 24,
+    paper_ids: list[str] | None = None,
+    chunk_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     output_path = PROJECT_ROOT / "data" / "extraction_candidates" / "hfo2_candidates.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -265,28 +267,50 @@ def run_parallel_extraction(
         clear_llm_pause()
 
     with connect(db_path) as conn:
-        rows = conn.execute(
-            """
-            SELECT chunk_id, paper_id, pdf_id, page_number, text
-            FROM document_chunks
-            WHERE is_high_value = 1
-              AND (? = 1 OR NOT EXISTS (
-                  SELECT 1 FROM extraction_candidates ec
-                  WHERE ec.chunk_id = document_chunks.chunk_id
-                    AND ec.ontology_version = ?
-              ))
-            ORDER BY pdf_id, chunk_index
-            """,
-            (int(reset_existing), ontology_version),
-        ).fetchall()
+        query = """
+        SELECT chunk_id, paper_id, pdf_id, page_number, text
+        FROM document_chunks
+        WHERE is_high_value = 1
+          AND (? = 1 OR NOT EXISTS (
+              SELECT 1 FROM extraction_candidates ec
+              WHERE ec.chunk_id = document_chunks.chunk_id
+                AND ec.ontology_version = ?
+          ))
+        """
+        params: list[object] = [int(reset_existing), ontology_version]
+        if paper_ids:
+            placeholders = ",".join("?" for _ in paper_ids)
+            query += f" AND paper_id IN ({placeholders})"
+            params.extend(paper_ids)
+        if chunk_ids:
+            placeholders = ",".join("?" for _ in chunk_ids)
+            query += f" AND chunk_id IN ({placeholders})"
+            params.extend(chunk_ids)
+        query += " ORDER BY pdf_id, chunk_index"
+        rows = conn.execute(query, params).fetchall()
         row_dicts = [dict(row) for row in rows]
         if limit_chunks is not None:
             row_dicts = row_dicts[:limit_chunks]
 
         if not dry_run:
             if reset_existing:
-                conn.execute("DELETE FROM extraction_candidates")
-                conn.execute("DELETE FROM reviewed_facts")
+                if paper_ids or chunk_ids:
+                    delete_params: list[object] = []
+                    clauses: list[str] = []
+                    if paper_ids:
+                        placeholders = ",".join("?" for _ in paper_ids)
+                        clauses.append(f"paper_id IN ({placeholders})")
+                        delete_params.extend(paper_ids)
+                    if chunk_ids:
+                        placeholders = ",".join("?" for _ in chunk_ids)
+                        clauses.append(f"chunk_id IN ({placeholders})")
+                        delete_params.extend(chunk_ids)
+                    where_sql = " OR ".join(clauses)
+                    conn.execute(f"DELETE FROM extraction_candidates WHERE {where_sql}", delete_params)
+                    conn.execute(f"DELETE FROM reviewed_facts WHERE {where_sql}", delete_params)
+                else:
+                    conn.execute("DELETE FROM extraction_candidates")
+                    conn.execute("DELETE FROM reviewed_facts")
                 conn.commit()
             else:
                 stats["skipped_existing"] = conn.execute(
