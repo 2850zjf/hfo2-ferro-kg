@@ -229,19 +229,18 @@ def _graph_panel(
             """,
             unsafe_allow_html=True,
         )
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("节点", f"{len(nodes):,}")
-        m2.metric("关系", f"{len(edges):,}")
-        m3.metric("节点类型", f"{type_count:,}")
-        m4.metric("关系类型", f"{relation_count:,}")
-
-        with st.expander("图谱结构摘要", expanded=False):
-            st.write("主要节点类型：", " / ".join(top_types) if top_types else "暂无")
-
         if html_path.exists():
-            components.html(html_path.read_text(encoding="utf-8"), height=900, scrolling=False)
+            components.html(html_path.read_text(encoding="utf-8"), height=940, scrolling=False)
         else:
             st.info("还没有生成 HTML 图谱。请点击上方按钮生成。")
+
+        with st.expander("图谱结构摘要", expanded=False):
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("节点", f"{len(nodes):,}")
+            m2.metric("关系", f"{len(edges):,}")
+            m3.metric("节点类型", f"{type_count:,}")
+            m4.metric("关系类型", f"{relation_count:,}")
+            st.write("主要节点类型：", " / ".join(top_types) if top_types else "暂无")
 
         actions = st.columns([1, 1, 1, 1.2])
         with actions[0]:

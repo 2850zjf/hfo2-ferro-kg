@@ -133,14 +133,30 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       overflow: hidden;
     }}
-    canvas {{ display: block; width: 100vw; height: 100vh; cursor: grab; }}
+    .workspace {{
+      display: grid;
+      grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+      width: 100vw;
+      height: 100vh;
+      gap: 14px;
+      padding: 14px;
+    }}
+    .canvas-shell {{
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(248, 245, 253, 0.72), rgba(246, 250, 252, 0.80));
+      box-shadow: 0 18px 54px var(--shadow);
+    }}
+    canvas {{ display: block; width: 100%; height: 100%; cursor: grab; }}
     canvas.dragging {{ cursor: grabbing; }}
     .panel {{
-      position: fixed;
-      left: 18px;
-      top: 18px;
-      width: min(452px, calc(100vw - 36px));
-      max-height: calc(100vh - 36px);
+      min-height: 0;
+      max-height: calc(100vh - 28px);
       overflow: auto;
       background: var(--panel);
       backdrop-filter: blur(18px);
@@ -151,9 +167,17 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
     }}
     h1 {{ margin: 0 0 6px; font-size: 23px; letter-spacing: 0; }}
     .muted {{ color: var(--muted); font-size: 13px; line-height: 1.5; }}
-    .row {{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }}
+    .row {{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }}
     .metric {{ border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: var(--panel-strong); }}
     .metric strong {{ display: block; font-size: 20px; }}
+    details {{
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.52);
+      padding: 9px 10px;
+    }}
+    summary {{ cursor: pointer; font-weight: 750; color: var(--text); }}
     input, select, button {{
       width: 100%;
       border: 1px solid var(--border);
@@ -166,33 +190,55 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
     input:focus, select:focus {{ border-color: rgba(132, 167, 205, 0.78); box-shadow: 0 0 0 3px rgba(132, 167, 205, 0.14); }}
     button {{ cursor: pointer; font-weight: 700; }}
     button:hover {{ border-color: var(--accent); background: #F2F6FA; }}
+    .tool-row {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 12px; }}
+    .tool-row button {{ min-height: 38px; }}
+    .zoom-readout {{ text-align: center; color: var(--muted); font-size: 12px; margin-top: -5px; margin-bottom: 8px; }}
     .legend {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 10px 0; }}
     label {{ display: flex; gap: 7px; align-items: center; font-size: 13px; color: var(--muted); }}
     .swatch {{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }}
     .details {{ margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.55; }}
     .pill {{ display: inline-block; padding: 2px 7px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); margin: 3px 4px 3px 0; font-size: 12px; }}
+    @media (max-width: 860px) {{
+      body {{ overflow: auto; }}
+      .workspace {{ grid-template-columns: 1fr; height: auto; min-height: 100vh; }}
+      .panel {{ max-height: none; }}
+      .canvas-shell {{ height: 72vh; min-height: 560px; }}
+    }}
   </style>
 </head>
 <body>
-  <canvas id="graph"></canvas>
-  <section class="panel">
-    <h1>{title}</h1>
-    <div class="muted">滚轮缩放，拖动画布平移；点击节点查看 DOI、证据句、性能值等详情。</div>
-    <div class="row">
-      <div class="metric"><span class="muted">节点</span><strong id="nodeCount"></strong></div>
-      <div class="metric"><span class="muted">关系</span><strong id="edgeCount"></strong></div>
-    </div>
-    <input id="search" placeholder="搜索材料 / DOI / 论文 / 性能 / 证据句">
-    <div class="row">
-      <button id="fit">适配全图</button>
-      <button id="neighbors">只看选中邻域</button>
-    </div>
-    <select id="relationFilter">
-      <option value="all">全部关系</option>
-    </select>
-    <div class="legend" id="legend"></div>
-    <div class="details" id="details">点击一个节点查看详情和相邻证据链。</div>
-  </section>
+  <main class="workspace">
+    <section class="panel">
+      <h1>{title}</h1>
+      <div class="muted">右侧画布独立展示图谱。点击节点查看 DOI、证据句、性能值；拖动画布平移，滚轮或按钮缩放。</div>
+      <input id="search" placeholder="搜索材料 / DOI / 论文 / 性能 / 证据句">
+      <div class="tool-row">
+        <button id="zoomIn" title="放大图谱">放大</button>
+        <button id="zoomOut" title="缩小图谱">缩小</button>
+        <button id="resetView" title="重置视图">重置</button>
+      </div>
+      <div class="zoom-readout" id="zoomReadout">缩放 100%</div>
+      <div class="row">
+        <button id="fit">适配全图</button>
+        <button id="neighbors">只看选中邻域</button>
+      </div>
+      <select id="relationFilter">
+        <option value="all">全部关系</option>
+      </select>
+      <div class="legend" id="legend"></div>
+      <div class="details" id="details">点击一个节点查看详情和相邻证据链。</div>
+      <details>
+        <summary>图谱概览</summary>
+        <div class="row">
+          <div class="metric"><span class="muted">节点</span><strong id="nodeCount"></strong></div>
+          <div class="metric"><span class="muted">关系</span><strong id="edgeCount"></strong></div>
+        </div>
+      </details>
+    </section>
+    <section class="canvas-shell">
+      <canvas id="graph"></canvas>
+    </section>
+  </main>
   <script>
     const DATA = {data_json};
     const canvas = document.getElementById("graph");
@@ -208,7 +254,7 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
     let relationFilter = "all";
     let enabledTypes = new Set(nodeTypes);
     let searchText = "";
-    let transform = {{ x: window.innerWidth / 2, y: window.innerHeight / 2, scale: 0.62 }};
+    let transform = {{ x: 0, y: 0, scale: 0.62 }};
     let dragging = false;
     let last = {{ x: 0, y: 0 }};
 
@@ -243,11 +289,14 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
       legend.appendChild(label);
     }}
 
+    function canvasSize() {{
+      const rect = canvas.getBoundingClientRect();
+      return {{ width: Math.max(1, rect.width), height: Math.max(1, rect.height), left: rect.left, top: rect.top }};
+    }}
     function resize() {{
-      canvas.width = Math.floor(window.innerWidth * DPR);
-      canvas.height = Math.floor(window.innerHeight * DPR);
-      canvas.style.width = window.innerWidth + "px";
-      canvas.style.height = window.innerHeight + "px";
+      const size = canvasSize();
+      canvas.width = Math.floor(size.width * DPR);
+      canvas.height = Math.floor(size.height * DPR);
       draw();
     }}
     window.addEventListener("resize", resize);
@@ -255,8 +304,14 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
     function worldToScreen(x, y) {{
       return {{ x: (x * transform.scale + transform.x) * DPR, y: (y * transform.scale + transform.y) * DPR }};
     }}
-    function screenToWorld(x, y) {{
-      return {{ x: (x / DPR - transform.x) / transform.scale, y: (y / DPR - transform.y) / transform.scale }};
+    function screenToWorld(clientX, clientY) {{
+      const size = canvasSize();
+      const x = clientX - size.left;
+      const y = clientY - size.top;
+      return {{ x: (x - transform.x) / transform.scale, y: (y - transform.y) / transform.scale }};
+    }}
+    function updateZoomReadout() {{
+      document.getElementById("zoomReadout").textContent = `缩放 ${{Math.round(transform.scale * 100)}}%`;
     }}
     function visibleNode(n) {{
       if (!enabledTypes.has(n.type || "Unknown")) return false;
@@ -282,6 +337,7 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
     function draw() {{
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      updateZoomReadout();
       const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
       grad.addColorStop(0, "#F8F5FD");
       grad.addColorStop(0.52, "#F6FAFC");
@@ -410,14 +466,21 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
     }});
     canvas.addEventListener("wheel", e => {{
       e.preventDefault();
-      const before = screenToWorld(e.clientX, e.clientY);
-      const factor = e.deltaY < 0 ? 1.12 : 0.89;
+      zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.12 : 0.89);
+    }}, {{ passive: false }});
+
+    function zoomAt(clientX, clientY, factor) {{
+      const before = screenToWorld(clientX, clientY);
       transform.scale = Math.min(8, Math.max(0.06, transform.scale * factor));
-      const after = screenToWorld(e.clientX, e.clientY);
+      const after = screenToWorld(clientX, clientY);
       transform.x += (after.x - before.x) * transform.scale;
       transform.y += (after.y - before.y) * transform.scale;
       draw();
-    }}, {{ passive: false }});
+    }}
+    function zoomAtCenter(factor) {{
+      const size = canvasSize();
+      zoomAt(size.left + size.width / 2, size.top + size.height / 2, factor);
+    }}
 
     document.getElementById("search").addEventListener("input", e => {{
       searchText = e.target.value.trim().toLowerCase();
@@ -433,19 +496,23 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
       draw();
     }});
     document.getElementById("fit").addEventListener("click", fit);
+    document.getElementById("zoomIn").addEventListener("click", () => zoomAtCenter(1.18));
+    document.getElementById("zoomOut").addEventListener("click", () => zoomAtCenter(0.84));
+    document.getElementById("resetView").addEventListener("click", fit);
 
     function fit() {{
       const visible = nodes.filter(visibleNode);
       if (!visible.length) return;
+      const size = canvasSize();
       const minX = Math.min(...visible.map(n => n.x));
       const maxX = Math.max(...visible.map(n => n.x));
       const minY = Math.min(...visible.map(n => n.y));
       const maxY = Math.max(...visible.map(n => n.y));
-      const scaleX = window.innerWidth / Math.max(1, maxX - minX + 260);
-      const scaleY = window.innerHeight / Math.max(1, maxY - minY + 260);
+      const scaleX = size.width / Math.max(1, maxX - minX + 260);
+      const scaleY = size.height / Math.max(1, maxY - minY + 260);
       transform.scale = Math.min(1.4, Math.max(0.05, Math.min(scaleX, scaleY)));
-      transform.x = window.innerWidth / 2 - ((minX + maxX) / 2) * transform.scale;
-      transform.y = window.innerHeight / 2 - ((minY + maxY) / 2) * transform.scale;
+      transform.x = size.width / 2 - ((minX + maxX) / 2) * transform.scale;
+      transform.y = size.height / 2 - ((minY + maxY) / 2) * transform.scale;
       draw();
     }}
     resize();
