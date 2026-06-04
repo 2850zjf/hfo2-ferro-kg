@@ -12,23 +12,23 @@ from backend.services.pipeline_log import record_pipeline_run
 
 
 TYPE_STYLE = {
-    "Paper": {"color": "#62a8ff", "radius": 5},
-    "HafniaMaterial": {"color": "#49d17d", "radius": 8},
-    "ThinFilmSample": {"color": "#f8c85a", "radius": 5},
-    "FabricationProcess": {"color": "#ff9f43", "radius": 5},
-    "PhaseStructure": {"color": "#b991ff", "radius": 6},
-    "Device": {"color": "#ff78b5", "radius": 6},
-    "Electrode": {"color": "#85e7ff", "radius": 4},
-    "Substrate": {"color": "#cdd6e5", "radius": 4},
-    "Dopant": {"color": "#ff6b6b", "radius": 5},
-    "FerroelectricProperty": {"color": "#f45d5d", "radius": 6},
-    "Evidence": {"color": "#b9c1d1", "radius": 3},
-    "MaterialSystem": {"color": "#49d17d", "radius": 8},
-    "DesignSample": {"color": "#f8c85a", "radius": 6},
-    "TargetProperty": {"color": "#f45d5d", "radius": 7},
-    "ControllableVariable": {"color": "#7ee787", "radius": 5},
-    "ConstraintVariable": {"color": "#ff9f43", "radius": 5},
-    "MechanismVariable": {"color": "#b991ff", "radius": 5},
+    "Paper": {"color": "#84A7CD", "radius": 5},
+    "HafniaMaterial": {"color": "#9DDFE4", "radius": 8},
+    "ThinFilmSample": {"color": "#B5D6EA", "radius": 5},
+    "FabricationProcess": {"color": "#F5CED0", "radius": 5},
+    "PhaseStructure": {"color": "#B2A4CF", "radius": 6},
+    "Device": {"color": "#8D9ECF", "radius": 6},
+    "Electrode": {"color": "#D3E8F1", "radius": 4},
+    "Substrate": {"color": "#D4D4D4", "radius": 4},
+    "Dopant": {"color": "#A5CAB5", "radius": 5},
+    "FerroelectricProperty": {"color": "#7F6E9C", "radius": 6},
+    "Evidence": {"color": "#C5C3C6", "radius": 3},
+    "MaterialSystem": {"color": "#9DDFE4", "radius": 8},
+    "DesignSample": {"color": "#B5D6EA", "radius": 6},
+    "TargetProperty": {"color": "#7F6E9C", "radius": 7},
+    "ControllableVariable": {"color": "#A5CAB5", "radius": 5},
+    "ConstraintVariable": {"color": "#F5CED0", "radius": 5},
+    "MechanismVariable": {"color": "#B2A4CF", "radius": 5},
 }
 
 TYPE_X = {
@@ -111,27 +111,61 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
   <title>{title}</title>
   <style>
     :root {{
-      color-scheme: dark;
-      --bg: #0f1117;
-      --panel: rgba(24, 28, 36, 0.94);
-      --border: rgba(255,255,255,0.12);
-      --text: #f6f7fb;
-      --muted: #a9b2c3;
-      --accent: #69a7ff;
+      color-scheme: light;
+      --bg: #F8F5FD;
+      --panel: rgba(255, 255, 255, 0.88);
+      --panel-strong: rgba(248, 245, 253, 0.94);
+      --border: rgba(118, 126, 145, 0.20);
+      --text: #252936;
+      --muted: #6F7481;
+      --accent: #84A7CD;
+      --accent-2: #B2A4CF;
+      --shadow: rgba(86, 93, 112, 0.16);
     }}
     * {{ box-sizing: border-box; }}
-    body {{ margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; overflow: hidden; }}
+    body {{
+      margin: 0;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(218, 240, 244, 0.82), transparent 28%),
+        radial-gradient(circle at 86% 20%, rgba(235, 216, 234, 0.72), transparent 30%),
+        linear-gradient(135deg, #F8F5FD 0%, #F6FAFC 52%, #EFE8E8 100%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }}
     canvas {{ display: block; width: 100vw; height: 100vh; cursor: grab; }}
     canvas.dragging {{ cursor: grabbing; }}
-    .panel {{ position: fixed; left: 18px; top: 18px; width: min(440px, calc(100vw - 36px)); max-height: calc(100vh - 36px); overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.35); }}
-    h1 {{ margin: 0 0 6px; font-size: 22px; }}
+    .panel {{
+      position: fixed;
+      left: 18px;
+      top: 18px;
+      width: min(452px, calc(100vw - 36px));
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      background: var(--panel);
+      backdrop-filter: blur(18px);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 18px 54px var(--shadow);
+    }}
+    h1 {{ margin: 0 0 6px; font-size: 23px; letter-spacing: 0; }}
     .muted {{ color: var(--muted); font-size: 13px; line-height: 1.5; }}
     .row {{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }}
-    .metric {{ border: 1px solid var(--border); border-radius: 8px; padding: 9px; background: rgba(255,255,255,0.04); }}
+    .metric {{ border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: var(--panel-strong); }}
     .metric strong {{ display: block; font-size: 20px; }}
-    input, select, button {{ width: 100%; border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; background: #171b24; color: var(--text); }}
+    input, select, button {{
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 10px;
+      background: rgba(255,255,255,0.86);
+      color: var(--text);
+      outline: none;
+    }}
+    input:focus, select:focus {{ border-color: rgba(132, 167, 205, 0.78); box-shadow: 0 0 0 3px rgba(132, 167, 205, 0.14); }}
     button {{ cursor: pointer; font-weight: 700; }}
-    button:hover {{ border-color: var(--accent); }}
+    button:hover {{ border-color: var(--accent); background: #F2F6FA; }}
     .legend {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 10px 0; }}
     label {{ display: flex; gap: 7px; align-items: center; font-size: 13px; color: var(--muted); }}
     .swatch {{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }}
@@ -248,8 +282,25 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
     function draw() {{
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "#0f1117";
+      const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      grad.addColorStop(0, "#F8F5FD");
+      grad.addColorStop(0.52, "#F6FAFC");
+      grad.addColorStop(1, "#EFE8E8");
+      ctx.fillStyle = grad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const grid = 36 * DPR;
+      ctx.strokeStyle = "rgba(132, 167, 205, 0.12)";
+      ctx.lineWidth = 1 * DPR;
+      ctx.beginPath();
+      for (let x = ((transform.x * DPR) % grid); x < canvas.width; x += grid) {{
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+      }}
+      for (let y = ((transform.y * DPR) % grid); y < canvas.height; y += grid) {{
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+      }}
+      ctx.stroke();
 
       ctx.lineWidth = Math.max(0.35, transform.scale * 0.9) * DPR;
       for (const e of edges) {{
@@ -259,7 +310,7 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
         const a = worldToScreen(s.x, s.y);
         const b = worldToScreen(t.x, t.y);
         ctx.strokeStyle = selected && (e.source === selected.id || e.target === selected.id)
-          ? "rgba(255, 230, 128, 0.75)" : "rgba(180, 190, 210, 0.14)";
+          ? "rgba(127, 110, 156, 0.62)" : "rgba(132, 167, 205, 0.20)";
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(b.x, b.y);
@@ -270,18 +321,21 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
         if (!visibleNode(n)) continue;
         const p = worldToScreen(n.x, n.y);
         const r = Math.max(2.2, (Number(n.radius) || 4) * transform.scale) * DPR;
+        ctx.shadowColor = "rgba(86, 93, 112, 0.16)";
+        ctx.shadowBlur = Math.max(2, r * 0.55);
         ctx.fillStyle = n.color || "#d7dde8";
         ctx.globalAlpha = selected && n.id !== selected.id ? 0.72 : 1;
         ctx.beginPath();
         ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
         if (selected && n.id === selected.id) {{
-          ctx.strokeStyle = "#fff0a6";
+          ctx.strokeStyle = "#4D77A7";
           ctx.lineWidth = 3 * DPR;
           ctx.stroke();
         }}
         if (transform.scale > 0.95 && n.type !== "Evidence") {{
-          ctx.fillStyle = "#f6f7fb";
+          ctx.fillStyle = "#252936";
           ctx.font = `${{11 * DPR}}px Segoe UI, sans-serif`;
           ctx.fillText(String(n.label || n.id).slice(0, 42), p.x + r + 3 * DPR, p.y + 4 * DPR);
         }}

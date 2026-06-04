@@ -18,8 +18,175 @@ from backend.services.graph_visualizer import export_graph_html
 
 
 st.set_page_config(page_title="知识图谱浏览", layout="wide")
-st.title("知识图谱浏览")
-st.caption("浏览可缩放、可点击、可搜索的 HfO2 知识图谱和设计图谱。")
+
+st.markdown(
+    """
+    <style>
+    :root {
+        --kg-bg: #F8F5FD;
+        --kg-panel: rgba(255, 255, 255, 0.84);
+        --kg-panel-2: rgba(248, 245, 253, 0.76);
+        --kg-border: rgba(118, 126, 145, 0.20);
+        --kg-text: #252936;
+        --kg-muted: #6F7481;
+        --kg-cyan: #9DDFE4;
+        --kg-blue: #84A7CD;
+        --kg-green: #A5CAB5;
+        --kg-amber: #F5CED0;
+        --kg-red: #7F6E9C;
+    }
+    .stApp {
+        background:
+          radial-gradient(circle at 14% 10%, rgba(218, 240, 244, 0.74), transparent 28%),
+          radial-gradient(circle at 82% 18%, rgba(235, 216, 234, 0.64), transparent 30%),
+          linear-gradient(135deg, #F8F5FD 0%, #F6FAFC 52%, #EFE8E8 100%);
+        color: var(--kg-text);
+    }
+    header[data-testid="stHeader"] { background: transparent; }
+    .block-container {
+        max-width: 1440px;
+        padding-top: 1.35rem;
+        padding-bottom: 2rem;
+    }
+    [data-testid="stSidebar"] {
+        background: rgba(238, 243, 251, 0.92);
+        border-right: 1px solid rgba(23, 32, 42, 0.08);
+    }
+    .kg-hero {
+        border: 1px solid var(--kg-border);
+        background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(248, 245, 253, 0.82)),
+            linear-gradient(90deg, rgba(181, 214, 234, 0.28), rgba(235, 216, 234, 0.24));
+        box-shadow: 0 24px 70px rgba(86, 93, 112, 0.14);
+        border-radius: 8px;
+        padding: 24px 26px;
+        margin-bottom: 16px;
+        position: relative;
+        overflow: hidden;
+    }
+    .kg-hero:after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(132,167,205,0.10) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(132,167,205,0.10) 1px, transparent 1px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(90deg, transparent, black 22%, black 72%, transparent);
+        pointer-events: none;
+    }
+    .kg-kicker {
+        color: var(--kg-cyan);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+    }
+    .kg-title {
+        color: var(--kg-text);
+        font-size: clamp(34px, 4vw, 58px);
+        line-height: 1.02;
+        font-weight: 850;
+        letter-spacing: 0;
+        margin: 0 0 12px;
+    }
+    .kg-subtitle {
+        color: var(--kg-muted);
+        font-size: 16px;
+        line-height: 1.6;
+        max-width: 940px;
+        margin: 0;
+    }
+    .kg-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+    .kg-chip {
+        border: 1px solid rgba(132,167,205,0.32);
+        background: rgba(255,255,255,0.58);
+        color: #4D6176;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .kg-panel {
+        border: 1px solid var(--kg-border);
+        background: var(--kg-panel);
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 18px 48px rgba(86, 93, 112, 0.14);
+        backdrop-filter: blur(18px);
+    }
+    .kg-panel h3 {
+        margin: 0 0 8px;
+        color: var(--kg-text);
+        font-size: 18px;
+    }
+    .kg-note { color: var(--kg-muted); font-size: 13px; line-height: 1.55; }
+    .kg-metric {
+        border: 1px solid var(--kg-border);
+        background: var(--kg-panel-2);
+        border-radius: 8px;
+        min-height: 96px;
+        padding: 14px;
+    }
+    .kg-metric-label { color: var(--kg-muted); font-size: 12px; font-weight: 750; margin-bottom: 8px; }
+    .kg-metric-value { color: var(--kg-text); font-size: 31px; font-weight: 850; line-height: 1; }
+    .kg-metric-note { color: var(--kg-muted); font-size: 12px; margin-top: 8px; }
+    div[data-testid="stMetric"] {
+        border: 1px solid var(--kg-border);
+        background: var(--kg-panel-2);
+        border-radius: 8px;
+        padding: 12px 14px;
+    }
+    div[data-testid="stMetricLabel"] { color: var(--kg-muted); }
+    div[data-testid="stMetricValue"] { color: var(--kg-text); font-size: 30px; font-weight: 850; }
+    .stButton > button, .stDownloadButton > button, .stLinkButton > a {
+        border-radius: 8px !important;
+        border: 1px solid rgba(132,167,205,0.32) !important;
+        background: rgba(255, 255, 255, 0.72) !important;
+        color: #252936 !important;
+        min-height: 46px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .stButton > button:hover, .stDownloadButton > button:hover, .stLinkButton > a:hover {
+        border-color: rgba(132,167,205,0.68) !important;
+        background: rgba(242, 246, 250, 0.96) !important;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        border-bottom: 1px solid rgba(139,168,214,0.18);
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px 8px 0 0;
+        color: var(--kg-muted);
+        font-weight: 800;
+    }
+    iframe { border-radius: 8px; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <section class="kg-hero">
+      <div class="kg-kicker">AI GRAPH INTELLIGENCE WORKBENCH</div>
+      <h1 class="kg-title">HfO2-FerroKG 图谱驾驶舱</h1>
+      <p class="kg-subtitle">
+        用知识图谱查看 HfO2/HZO 文献中的材料、工艺、相结构、器件和 Pr/2Pr 性能证据；
+        用设计图谱把样品级事实转成可筛选、可追溯、可建模的材料设计线索。
+      </p>
+      <div class="kg-chip-row">
+        <span class="kg-chip">semantic search</span>
+        <span class="kg-chip">neighborhood focus</span>
+        <span class="kg-chip">evidence trace</span>
+        <span class="kg-chip">sample-property graph</span>
+        <span class="kg-chip">Pr / 2Pr benchmark</span>
+      </div>
+    </section>
+    """,
+    unsafe_allow_html=True,
+)
 
 kg_nodes_path = PROJECT_ROOT / "data" / "graph" / "nodes.csv"
 kg_edges_path = PROJECT_ROOT / "data" / "graph" / "edges.csv"
@@ -41,54 +208,76 @@ def _graph_panel(
     rebuild_csv,
     rebuild_html,
 ) -> None:
-    actions = st.columns([1, 1, 1, 1.4])
-    with actions[0]:
-        if st.button(f"重建 {title} CSV", use_container_width=True):
-            stats = rebuild_csv()
-            st.success(f"已重建：{stats.get('nodes', 0)} 个节点，{stats.get('edges', 0)} 条关系。")
-    with actions[1]:
-        if st.button(f"生成 {title} HTML", use_container_width=True):
-            stats = rebuild_html()
-            st.success(f"已生成：{stats.get('output_path') or stats.get('html_path')}")
-    with actions[2]:
-        if html_path.exists():
-            st.download_button(
-                f"下载 {title} HTML",
-                html_path.read_bytes(),
-                file_name=html_path.name,
-                mime="text/html",
-                use_container_width=True,
-            )
-        else:
-            st.button(f"下载 {title} HTML", disabled=True, use_container_width=True)
-    with actions[3]:
-        if html_path.exists():
-            st.link_button(f"新窗口打开 {title}", html_path.resolve().as_uri(), use_container_width=True)
-        else:
-            st.button(f"新窗口打开 {title}", disabled=True, use_container_width=True)
-
     if nodes_path.exists() and edges_path.exists():
         nodes = pd.read_csv(nodes_path)
         edges = pd.read_csv(edges_path)
-        m1, m2, m3 = st.columns(3)
-        m1.metric("节点", len(nodes))
-        m2.metric("关系", len(edges))
-        m3.metric("节点类型", nodes["type"].nunique() if "type" in nodes else 0)
+        type_count = nodes["type"].nunique() if "type" in nodes else 0
+        relation_count = edges["type"].nunique() if "type" in edges else 0
+        top_types = []
+        if "type" in nodes:
+            top_types = [f"{idx} {val}" for idx, val in nodes["type"].value_counts().head(5).items()]
+
+        st.markdown(
+            f"""
+            <div class="kg-panel">
+              <h3>{title} 智能探索层</h3>
+              <div class="kg-note">
+                图谱已按节点类型分层布局。进入画布后可搜索材料、DOI、性能值或 evidence；
+                点击节点后可切换到邻域模式，只保留与当前节点直接关联的证据链。
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("节点", f"{len(nodes):,}")
+        m2.metric("关系", f"{len(edges):,}")
+        m3.metric("节点类型", f"{type_count:,}")
+        m4.metric("关系类型", f"{relation_count:,}")
+
+        with st.expander("图谱结构摘要", expanded=False):
+            st.write("主要节点类型：", " / ".join(top_types) if top_types else "暂无")
 
         if html_path.exists():
-            st.subheader(f"{title} 可视化窗口")
-            st.caption("滚轮缩放，拖动画布平移，点击节点查看详情；左侧面板可搜索材料、DOI、性能或证据句。")
-            components.html(html_path.read_text(encoding="utf-8"), height=780, scrolling=False)
-            st.code(str(html_path), language="text")
+            components.html(html_path.read_text(encoding="utf-8"), height=900, scrolling=False)
         else:
             st.info("还没有生成 HTML 图谱。请点击上方按钮生成。")
 
-        with st.expander("节点 CSV", expanded=False):
+        actions = st.columns([1, 1, 1, 1.2])
+        with actions[0]:
+            if st.button(f"重建 {title} CSV", use_container_width=True):
+                stats = rebuild_csv()
+                st.success(f"已重建：{stats.get('nodes', 0)} 个节点，{stats.get('edges', 0)} 条关系。")
+        with actions[1]:
+            if st.button(f"生成 {title} HTML", use_container_width=True):
+                stats = rebuild_html()
+                st.success(f"已生成：{stats.get('output_path') or stats.get('html_path')}")
+        with actions[2]:
+            if html_path.exists():
+                st.download_button(
+                    f"下载 {title} HTML",
+                    html_path.read_bytes(),
+                    file_name=html_path.name,
+                    mime="text/html",
+                    use_container_width=True,
+                )
+            else:
+                st.button(f"下载 {title} HTML", disabled=True, use_container_width=True)
+        with actions[3]:
+            if html_path.exists():
+                st.link_button(f"新窗口打开 {title}", html_path.resolve().as_uri(), use_container_width=True)
+            else:
+                st.button(f"新窗口打开 {title}", disabled=True, use_container_width=True)
+
+        with st.expander("节点 CSV 原始表", expanded=False):
             st.dataframe(nodes, use_container_width=True)
-        with st.expander("关系 CSV", expanded=False):
+        with st.expander("关系 CSV 原始表", expanded=False):
             st.dataframe(edges, use_container_width=True)
     else:
-        st.info("尚未生成图谱 CSV。请先点击上方重建按钮。")
+        st.info("尚未生成图谱 CSV。请先点击下方重建按钮。")
+        if st.button(f"重建 {title} CSV", use_container_width=True):
+            stats = rebuild_csv()
+            st.success(f"已重建：{stats.get('nodes', 0)} 个节点，{stats.get('edges', 0)} 条关系。")
 
 
 with tab_kg:
