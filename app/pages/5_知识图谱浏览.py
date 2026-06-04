@@ -17,7 +17,7 @@ from backend.services.graph_builder import build_graph
 from backend.services.graph_visualizer import export_graph_html
 
 
-st.set_page_config(page_title="知识图谱浏览", layout="wide")
+st.set_page_config(page_title="知识图谱浏览", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown(
     """
@@ -44,9 +44,14 @@ st.markdown(
     }
     header[data-testid="stHeader"] { background: transparent; }
     .block-container {
-        max-width: 1440px;
+        max-width: 1680px;
         padding-top: 1.35rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
         padding-bottom: 2rem;
+    }
+    [data-testid="collapsedControl"] {
+        display: flex;
     }
     [data-testid="stSidebar"] {
         background: rgba(238, 243, 251, 0.92);
@@ -230,7 +235,26 @@ def _graph_panel(
             unsafe_allow_html=True,
         )
         if html_path.exists():
-            components.html(html_path.read_text(encoding="utf-8"), height=940, scrolling=False)
+            view_actions = st.columns([1.15, 1, 1, 1])
+            with view_actions[0]:
+                st.link_button(f"打开 {title} 大画布", html_path.resolve().as_uri(), use_container_width=True)
+            with view_actions[1]:
+                st.download_button(
+                    f"下载 {title} HTML",
+                    html_path.read_bytes(),
+                    file_name=html_path.name,
+                    mime="text/html",
+                    use_container_width=True,
+                )
+            with view_actions[2]:
+                if st.button(f"生成 {title} HTML", use_container_width=True):
+                    stats = rebuild_html()
+                    st.success(f"已生成：{stats.get('output_path') or stats.get('html_path')}")
+            with view_actions[3]:
+                if st.button(f"重建 {title} CSV", use_container_width=True):
+                    stats = rebuild_csv()
+                    st.success(f"已重建：{stats.get('nodes', 0)} 个节点，{stats.get('edges', 0)} 条关系。")
+            components.html(html_path.read_text(encoding="utf-8"), height=1120, scrolling=False)
         else:
             st.info("还没有生成 HTML 图谱。请点击上方按钮生成。")
 
@@ -241,32 +265,6 @@ def _graph_panel(
             m3.metric("节点类型", f"{type_count:,}")
             m4.metric("关系类型", f"{relation_count:,}")
             st.write("主要节点类型：", " / ".join(top_types) if top_types else "暂无")
-
-        actions = st.columns([1, 1, 1, 1.2])
-        with actions[0]:
-            if st.button(f"重建 {title} CSV", use_container_width=True):
-                stats = rebuild_csv()
-                st.success(f"已重建：{stats.get('nodes', 0)} 个节点，{stats.get('edges', 0)} 条关系。")
-        with actions[1]:
-            if st.button(f"生成 {title} HTML", use_container_width=True):
-                stats = rebuild_html()
-                st.success(f"已生成：{stats.get('output_path') or stats.get('html_path')}")
-        with actions[2]:
-            if html_path.exists():
-                st.download_button(
-                    f"下载 {title} HTML",
-                    html_path.read_bytes(),
-                    file_name=html_path.name,
-                    mime="text/html",
-                    use_container_width=True,
-                )
-            else:
-                st.button(f"下载 {title} HTML", disabled=True, use_container_width=True)
-        with actions[3]:
-            if html_path.exists():
-                st.link_button(f"新窗口打开 {title}", html_path.resolve().as_uri(), use_container_width=True)
-            else:
-                st.button(f"新窗口打开 {title}", disabled=True, use_container_width=True)
 
         with st.expander("节点 CSV 原始表", expanded=False):
             st.dataframe(nodes, use_container_width=True)

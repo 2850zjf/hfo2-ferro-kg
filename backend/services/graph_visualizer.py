@@ -134,15 +134,14 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
       overflow: hidden;
     }}
     .workspace {{
-      display: grid;
-      grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+      position: relative;
       width: 100vw;
       height: 100vh;
-      gap: 14px;
-      padding: 14px;
+      padding: 10px;
     }}
     .canvas-shell {{
-      position: relative;
+      position: absolute;
+      inset: 10px;
       min-width: 0;
       min-height: 0;
       border: 1px solid var(--border);
@@ -155,18 +154,22 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
     canvas {{ display: block; width: 100%; height: 100%; cursor: grab; }}
     canvas.dragging {{ cursor: grabbing; }}
     .panel {{
-      min-height: 0;
-      max-height: calc(100vh - 28px);
+      position: absolute;
+      z-index: 4;
+      top: 18px;
+      left: 18px;
+      width: min(362px, calc(100vw - 36px));
+      max-height: calc(100vh - 36px);
       overflow: auto;
       background: var(--panel);
       backdrop-filter: blur(18px);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 16px;
+      padding: 12px;
       box-shadow: 0 18px 54px var(--shadow);
     }}
-    h1 {{ margin: 0 0 6px; font-size: 23px; letter-spacing: 0; }}
-    .muted {{ color: var(--muted); font-size: 13px; line-height: 1.5; }}
+    h1 {{ margin: 0 0 5px; font-size: 19px; letter-spacing: 0; }}
+    .muted {{ color: var(--muted); font-size: 12px; line-height: 1.45; }}
     .row {{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }}
     .metric {{ border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: var(--panel-strong); }}
     .metric strong {{ display: block; font-size: 20px; }}
@@ -190,19 +193,24 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
     input:focus, select:focus {{ border-color: rgba(132, 167, 205, 0.78); box-shadow: 0 0 0 3px rgba(132, 167, 205, 0.14); }}
     button {{ cursor: pointer; font-weight: 700; }}
     button:hover {{ border-color: var(--accent); background: #F2F6FA; }}
-    .tool-row {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 12px; }}
-    .tool-row button {{ min-height: 38px; }}
-    .zoom-readout {{ text-align: center; color: var(--muted); font-size: 12px; margin-top: -5px; margin-bottom: 8px; }}
+    .tool-row {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin: 8px 0; }}
+    .icon-btn {{
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 40px;
+      padding: 7px;
+    }}
+    .icon-btn svg {{ width: 19px; height: 19px; stroke-width: 2.2; }}
+    .zoom-readout {{ text-align: center; color: var(--muted); font-size: 12px; margin: -2px 0 7px; }}
     .legend {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 10px 0; }}
     label {{ display: flex; gap: 7px; align-items: center; font-size: 13px; color: var(--muted); }}
     .swatch {{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }}
     .details {{ margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.55; }}
     .pill {{ display: inline-block; padding: 2px 7px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); margin: 3px 4px 3px 0; font-size: 12px; }}
-    @media (max-width: 860px) {{
-      body {{ overflow: auto; }}
-      .workspace {{ grid-template-columns: 1fr; height: auto; min-height: 100vh; }}
-      .panel {{ max-height: none; }}
-      .canvas-shell {{ height: 72vh; min-height: 560px; }}
+    @media (max-width: 620px) {{
+      .panel {{ width: calc(100vw - 28px); left: 14px; top: 14px; max-height: 46vh; }}
+      .canvas-shell {{ inset: 8px; }}
     }}
   </style>
 </head>
@@ -213,19 +221,31 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
       <div class="muted">右侧画布独立展示图谱。点击节点查看 DOI、证据句、性能值；拖动画布平移，滚轮或按钮缩放。</div>
       <input id="search" placeholder="搜索材料 / DOI / 论文 / 性能 / 证据句">
       <div class="tool-row">
-        <button id="zoomIn" title="放大图谱">放大</button>
-        <button id="zoomOut" title="缩小图谱">缩小</button>
-        <button id="resetView" title="重置视图">重置</button>
+        <button class="icon-btn" id="zoomIn" title="放大图谱" aria-label="放大图谱">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="M15.5 15.5 21 21"></path><path d="M10.5 7.5v6"></path><path d="M7.5 10.5h6"></path></svg>
+        </button>
+        <button class="icon-btn" id="zoomOut" title="缩小图谱" aria-label="缩小图谱">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="M15.5 15.5 21 21"></path><path d="M7.5 10.5h6"></path></svg>
+        </button>
+        <button class="icon-btn" id="resetView" title="适配全图" aria-label="适配全图">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M16 3h3a2 2 0 0 1 2 2v3"></path><path d="M8 21H5a2 2 0 0 1-2-2v-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>
+        </button>
+        <button class="icon-btn" id="fullScreen" title="全屏查看" aria-label="全屏查看">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 3H3v5"></path><path d="M16 3h5v5"></path><path d="M8 21H3v-5"></path><path d="M16 21h5v-5"></path></svg>
+        </button>
       </div>
       <div class="zoom-readout" id="zoomReadout">缩放 100%</div>
       <div class="row">
         <button id="fit">适配全图</button>
         <button id="neighbors">只看选中邻域</button>
       </div>
-      <select id="relationFilter">
-        <option value="all">全部关系</option>
-      </select>
-      <div class="legend" id="legend"></div>
+      <details>
+        <summary>关系与节点类型</summary>
+        <select id="relationFilter">
+          <option value="all">全部关系</option>
+        </select>
+        <div class="legend" id="legend"></div>
+      </details>
       <div class="details" id="details">点击一个节点查看详情和相邻证据链。</div>
       <details>
         <summary>图谱概览</summary>
@@ -499,6 +519,14 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
     document.getElementById("zoomIn").addEventListener("click", () => zoomAtCenter(1.18));
     document.getElementById("zoomOut").addEventListener("click", () => zoomAtCenter(0.84));
     document.getElementById("resetView").addEventListener("click", fit);
+    document.getElementById("fullScreen").addEventListener("click", () => {{
+      const shell = document.querySelector(".canvas-shell");
+      if (!document.fullscreenElement && shell?.requestFullscreen) {{
+        shell.requestFullscreen().then(() => setTimeout(() => {{ resize(); fit(); }}, 120)).catch(() => {{}});
+      }} else if (document.exitFullscreen) {{
+        document.exitFullscreen().then(() => setTimeout(() => {{ resize(); fit(); }}, 120)).catch(() => {{}});
+      }}
+    }});
 
     function fit() {{
       const visible = nodes.filter(visibleNode);
