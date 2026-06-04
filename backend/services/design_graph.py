@@ -173,7 +173,7 @@ def build_design_graph(output_dir: Path | None = None, db_path: Path | None = No
         nodes_path=nodes_path,
         edges_path=edges_path,
         output_path=html_path,
-        title="HfO2-FerroKG Design Graph",
+        title="HfO2-FerroKG 设计图谱",
         db_path=db_path,
     )
     stats = {

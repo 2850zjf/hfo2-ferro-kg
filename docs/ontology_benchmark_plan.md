@@ -71,6 +71,7 @@ Prediction performance is evaluated only on a validation holdout split, not on t
 - Accuracy-style metrics: validation tolerance hit rate within 5 μC/cm², within 10 μC/cm², and within 10 percent relative error.
 - Baseline: training-set mean predictor.
 - Models: RandomForest, ExtraTrees, GradientBoosting, Ridge, ElasticNet, SVR-RBF.
+- Graph models: planned GNN extension after tensorizing the design graph. Candidate models are GCN, GAT, and GraphSAGE; they should be evaluated with the same validation split and reported separately from the current tabular model comparison.
 
 ## Gold Set
 

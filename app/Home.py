@@ -209,14 +209,14 @@ st.markdown(
         <h1 class="kg-title">HfO2-FerroKG</h1>
         <p class="kg-subtitle">
             HfO2/HZO 铁电材料论文原型工作台：从本地 PDF 证据出发，构建样品级事实关联、
-            分层 benchmark、设计图谱、Pr/2Pr baseline 模型和证据推理式 RAG。
+            分层 benchmark、设计图谱、Pr/2Pr 预测模型验证和证据推理式 RAG。
         </p>
         <div class="kg-chip-row">
-            <span class="kg-chip">ontology-first extraction</span>
-            <span class="kg-chip">sample-property linking</span>
-            <span class="kg-chip">tiered benchmark</span>
-            <span class="kg-chip">evidence-grounded RAG</span>
-            <span class="kg-chip">Pr / 2Pr focus</span>
+            <span class="kg-chip">本体约束抽取</span>
+            <span class="kg-chip">样品-性能关联</span>
+            <span class="kg-chip">分层数据集</span>
+            <span class="kg-chip">证据约束问答</span>
+            <span class="kg-chip">Pr / 2Pr 主线</span>
         </div>
     </section>
     """,
@@ -247,9 +247,9 @@ with metric_cols[0]:
 with metric_cols[1]:
     _metric_card("解析页", counts.get("parsed_pages", 0), f"表格 {counts.get('pdf_tables', 0)}")
 with metric_cols[2]:
-    _metric_card("Document chunks", counts.get("document_chunks", 0), f"高价值 {counts.get('high_value_chunks', 0)}")
+    _metric_card("文本切片", counts.get("document_chunks", 0), f"高价值 {counts.get('high_value_chunks', 0)}")
 with metric_cols[3]:
-    _metric_card("Reviewed facts", counts.get("reviewed_facts", 0), "机器预审/待复核")
+    _metric_card("复核事实", counts.get("reviewed_facts", 0), "机器预审/待复核")
 with metric_cols[4]:
     _metric_card("样品级关联", counts.get("sample_property_links", 0), f"strong {counts.get('sample_links_strong', 0)}")
 with metric_cols[5]:
@@ -272,17 +272,17 @@ with left:
         """
     )
     st.page_link("pages/13_人工标注.py", label="进入人工标注", use_container_width=True)
-    st.page_link("pages/10_多模型数据验证.py", label="多模型数据验证", use_container_width=True)
+    st.page_link("pages/10_事实一致性复核.py", label="事实一致性复核", use_container_width=True)
 
 with middle:
-    st.subheader("Benchmark 与模型")
+    st.subheader("数据集与模型")
     tier_cols = st.columns(3)
     with tier_cols[0]:
-        st.metric("strong_only", _fmt(992), help="论文主结果优先使用")
+        st.metric("强相关", _fmt(992), help="对应 strong_only，论文主结果优先使用")
     with tier_cols[1]:
-        st.metric("strong_partial", _fmt(4731), help="探索分析和补充结果")
+        st.metric("强/部分相关", _fmt(4731), help="对应 strong_partial，用于探索分析和补充结果")
     with tier_cols[2]:
-        st.metric("all_traceable", _fmt(12168), help="RAG 线索和人工复核")
+        st.metric("可追溯", _fmt(12168), help="对应 all_traceable，用于 RAG 线索和人工复核")
     st.markdown(
         """
         ```bash
@@ -321,7 +321,7 @@ workflow_items = [
     ("2", "结构化抽取", "材料、工艺、相、性能"),
     ("3", "样品级关联", "性能值绑定样品条件"),
     ("4", "分层 benchmark", "strong / partial / traceable"),
-    ("5", "图谱与模型", "RAG、设计图谱、候选推荐"),
+    ("5", "预测模型验证", "SVR、树模型、GNN 扩展"),
 ]
 for col, (step, title, body) in zip(workflow_cols, workflow_items):
     with col:

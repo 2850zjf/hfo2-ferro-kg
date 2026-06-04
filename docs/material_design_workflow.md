@@ -68,7 +68,7 @@ HfO2 铁电材料的性能不由单一材料名称决定，而是由材料体系
 
 ### 对材料设计
 
-它可以把文献事实转化为 benchmark，进一步训练预测模型或排序模型，用于提出下一批值得验证的实验组合。
+它可以把文献事实转化为 benchmark，进一步训练和验证预测模型或排序模型，用于提出下一批值得验证的实验组合。
 
 ### 对数据可信度
 
@@ -94,7 +94,7 @@ HfO2 铁电材料的性能不由单一材料名称决定，而是由材料体系
 -> 人工抽查
 -> 知识图谱
 -> Benchmark 数据集
--> Baseline 模型
+-> 预测模型验证
 -> 候选工艺推荐
 -> 实验反馈回填
 ```
@@ -138,7 +138,20 @@ HfO2 铁电材料的性能不由单一材料名称决定，而是由材料体系
 - 中间结构：相结构、取向、缺陷、应力、界面。
 - 目标性能：Pr、2Pr、Ec、endurance、retention、leakage。
 
-### 4. 从“普通模型训练”升级为“受约束材料设计”
+### 4. 从“普通模型训练”升级为“预测模型验证”
+
+模型验证指材料性能预测模型的训练/验证集评判，不是 LLM 对抽取事实的复核。当前强相关 Pr/2Pr 数据集使用固定 holdout 验证集评估：
+
+- RandomForest
+- ExtraTrees
+- GradientBoosting
+- Ridge
+- ElasticNet
+- SVR-RBF
+
+主报指标为验证集 MAE、RMSE、R2、within 5 μC/cm²、within 10 μC/cm² 和相对训练集均值 baseline 的 improvement。GNN/图神经网络放在下一阶段，先把设计图谱张量化，再接入 GCN/GAT/GraphSAGE 等图结构模型，并使用同一验证集协议比较。
+
+### 5. 从“预测模型”升级为“受约束材料设计”
 
 模型推荐候选工艺时，不能只输出一个数值预测。它还要输出：
 
@@ -158,6 +171,7 @@ HfO2 铁电材料的性能不由单一材料名称决定，而是由材料体系
 ```bash
 python pipelines/21_build_design_dataset.py
 python pipelines/22_train_design_models.py
+python pipelines/33_filter_and_compare_models.py --min-rows 30
 ```
 
 也可以在 Streamlit 的“材料设计工作流”页面中点击按钮运行。

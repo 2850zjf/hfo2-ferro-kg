@@ -177,12 +177,12 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
   <canvas id="graph"></canvas>
   <section class="panel">
     <h1>{title}</h1>
-    <div class="muted">滚轮缩放，拖动画布平移；点击节点查看 DOI、证据、性能值等详情。</div>
+    <div class="muted">滚轮缩放，拖动画布平移；点击节点查看 DOI、证据句、性能值等详情。</div>
     <div class="row">
       <div class="metric"><span class="muted">节点</span><strong id="nodeCount"></strong></div>
       <div class="metric"><span class="muted">关系</span><strong id="edgeCount"></strong></div>
     </div>
-    <input id="search" placeholder="搜索材料 / DOI / 论文 / 性能 / evidence">
+    <input id="search" placeholder="搜索材料 / DOI / 论文 / 性能 / 证据句">
     <div class="row">
       <button id="fit">适配全图</button>
       <button id="neighbors">只看选中邻域</button>
@@ -191,7 +191,7 @@ def _html_template(title: str, nodes: list[dict[str, Any]], edges: list[dict[str
       <option value="all">全部关系</option>
     </select>
     <div class="legend" id="legend"></div>
-    <div class="details" id="details">点击一个节点查看详情。</div>
+    <div class="details" id="details">点击一个节点查看详情和相邻证据链。</div>
   </section>
   <script>
     const DATA = {data_json};
@@ -460,7 +460,7 @@ def export_graph_html(
     nodes_path: Path | None = None,
     edges_path: Path | None = None,
     output_path: Path | None = None,
-    title: str = "HfO2-FerroKG Knowledge Graph",
+    title: str = "HfO2-FerroKG 知识图谱",
     db_path: Path | None = None,
 ) -> dict[str, Any]:
     nodes_file = nodes_path or PROJECT_ROOT / "data" / "graph" / "nodes.csv"

@@ -88,7 +88,7 @@ pause = read_llm_pause()
 
 st.title("材料设计工作流")
 st.caption(
-    "目标：从 PDF 证据出发，形成样品级事实、证据推理 RAG、设计图谱、benchmark 数据集、baseline 模型和主动学习候选。"
+    "目标：从 PDF 证据出发，形成样品级事实、证据推理 RAG、设计图谱、benchmark 数据集、预测模型验证和主动学习候选。"
 )
 
 if pause:
@@ -137,7 +137,7 @@ cards = [
     ("样品条件缺失", "只有材料名和 Pr/2Pr 不够。性能值必须绑定厚度、退火、电极、沉积方法、器件、相结构和状态。"),
     ("证据不可追溯", "每个结论都要能回到 DOI、论文标题、页码、chunk 和原文证据句。"),
     ("图谱还不是设计图谱", "设计图谱要区分可控变量、目标变量、约束变量、机制变量和证据。"),
-    ("模型需要闭环", "baseline 只是起点，主动学习要推荐高性能、高不确定性、可实验实现的候选。"),
+    ("预测需要验证", "用 SVR、树模型、线性模型等在训练/验证集上检验 Pr/2Pr 可预测性；GNN 放在图结构扩展阶段。"),
 ]
 for col, (title, body) in zip(problem_cols, cards):
     with col:
@@ -155,7 +155,12 @@ workflow = pd.DataFrame(
         {"阶段": "6 LLM 二次审核", "目标": "排查 Pr/2Pr、单位、综述二手值、样品错配", "产物": "ai_fact_audits"},
         {"阶段": "7 设计图谱", "目标": "可控变量、目标变量、约束变量、机制变量、证据", "产物": "design_graph CSV + HTML"},
         {"阶段": "8 Benchmark 分层", "目标": "strong_only / strong_partial / all_traceable", "产物": "tiered benchmark CSV"},
-        {"阶段": "9 模型与主动学习", "目标": "baseline 对比，并推荐候选工艺组合", "产物": "metrics / active_learning_candidates"},
+        {
+            "阶段": "9 预测模型验证",
+            "目标": "RandomForest / ExtraTrees / GradientBoosting / Ridge / ElasticNet / SVR；GNN 作为图结构扩展",
+            "产物": "validation metrics / model comparison report",
+        },
+        {"阶段": "10 主动学习", "目标": "结合预测值、不确定性和证据强度推荐候选工艺组合", "产物": "active_learning_candidates"},
     ]
 )
 st.dataframe(workflow, use_container_width=True, hide_index=True)
@@ -224,11 +229,11 @@ with row3[0]:
         stats = build_design_dataset()
         st.success(f"设计数据集：{stats['rows']} 行，其中可建模 {stats['model_rows']} 行。")
 with row3[1]:
-    if st.button("训练普通 baseline", use_container_width=True):
+    if st.button("训练基础模型", use_container_width=True):
         stats = train_design_models(min_rows=12)
         st.success(f"训练完成：{stats['trained_models']} 个模型。")
 with row3[2]:
-    if st.button("训练分层模型", use_container_width=True):
+    if st.button("训练分层基线", use_container_width=True):
         stats = train_tiered_design_models(min_rows=12)
         st.success("分层模型训练完成。")
         st.json({"metrics_path": stats.get("metrics_path")})
@@ -241,16 +246,38 @@ if st.button("导出进展报告", use_container_width=True):
     stats = export_design_progress_report()
     st.success(f"报告已导出：{stats['output_path']}")
 
+row4 = st.columns(4)
+with row4[0]:
+    _start_pipeline_button(
+        "强相关模型验证",
+        "pipelines/33_filter_and_compare_models.py",
+        "predictive_model_validation",
+        ["--min-rows", "30"],
+    )
+with row4[1]:
+    st.button(
+        "GNN 验证待接入",
+        disabled=True,
+        use_container_width=True,
+        help="需要把设计图谱张量化，并接入 PyTorch Geometric 或 DGL。当前先用 SVR 和树模型做可复现验证。",
+    )
+with row4[2]:
+    st.page_link("pages/10_事实一致性复核.py", label="事实一致性复核", use_container_width=True)
+with row4[3]:
+    st.page_link("pages/13_人工标注.py", label="人工标注 Gold set", use_container_width=True)
+
 st.divider()
 
 dataset_path = PROJECT_ROOT / "data" / "design" / "hfo2_design_dataset.csv"
 candidates_path = PROJECT_ROOT / "data" / "design" / "active_learning_candidates.csv"
 design_graph_html = PROJECT_ROOT / "data" / "exports" / "hfo2_design_graph.html"
 report_path = PROJECT_ROOT / "data" / "exports" / "hfo2_design_progress_report.md"
+model_compare_csv = PROJECT_ROOT / "models" / "model_comparison" / "strong_relevant_model_comparison.csv"
+model_compare_report = PROJECT_ROOT / "models" / "model_comparison" / "strong_relevant_model_comparison.md"
 metrics = load_design_model_metrics()
 
 st.subheader("当前产物")
-artifact_cols = st.columns(4)
+artifact_cols = st.columns(5)
 with artifact_cols[0]:
     if dataset_path.exists():
         st.download_button("下载设计数据集 CSV", dataset_path.read_bytes(), dataset_path.name, "text/csv", use_container_width=True)
@@ -271,6 +298,17 @@ with artifact_cols[3]:
         st.download_button("下载进展报告", report_path.read_bytes(), report_path.name, "text/markdown", use_container_width=True)
     else:
         st.button("进展报告未生成", disabled=True, use_container_width=True)
+with artifact_cols[4]:
+    if model_compare_report.exists():
+        st.download_button(
+            "下载模型验证报告",
+            model_compare_report.read_bytes(),
+            model_compare_report.name,
+            "text/markdown",
+            use_container_width=True,
+        )
+    else:
+        st.button("模型验证报告未生成", disabled=True, use_container_width=True)
 
 df = _load_csv(dataset_path)
 if not df.empty:
@@ -295,12 +333,45 @@ else:
     st.info("还没有设计数据集。可以点击上面的“构建数据集”或“启动完整流水线”。")
 
 if metrics:
-    st.subheader("Baseline 模型指标")
+    st.subheader("基础模型指标")
     metrics_df = pd.DataFrame(metrics.get("targets", []))
     st.dataframe(metrics_df, use_container_width=True, hide_index=True)
     trained = metrics_df[metrics_df.get("status", "") == "trained"] if not metrics_df.empty else pd.DataFrame()
     if not trained.empty and "mae" in trained:
         st.bar_chart(trained, x="target_property", y="mae")
+
+model_compare = _load_csv(model_compare_csv)
+if not model_compare.empty:
+    st.subheader("预测模型验证结果")
+    st.caption(
+        "以下结果使用训练集/验证集划分评判。accuracy 指验证集容差命中率；Pr/2Pr 主看 MAE、RMSE、R2 和 within_10uC_cm2。"
+    )
+    display_cols = [
+        "dataset_name",
+        "target_property",
+        "model_name",
+        "rows",
+        "train_rows",
+        "validation_rows",
+        "mae",
+        "rmse",
+        "r2",
+        "baseline_mae",
+        "improvement_vs_baseline",
+        "within_5uC_cm2",
+        "within_10uC_cm2",
+    ]
+    available_cols = [col for col in display_cols if col in model_compare.columns]
+    display = model_compare[available_cols].copy()
+    for col in ["mae", "rmse", "r2", "baseline_mae", "improvement_vs_baseline"]:
+        if col in display:
+            display[col] = pd.to_numeric(display[col], errors="coerce").round(4)
+    for col in ["within_5uC_cm2", "within_10uC_cm2"]:
+        if col in display:
+            display[col] = (pd.to_numeric(display[col], errors="coerce") * 100).round(2)
+    st.dataframe(display, use_container_width=True, hide_index=True)
+else:
+    st.info("还没有强相关预测模型验证结果。可以点击“强相关模型验证”运行 SVR、树模型和线性模型对比。")
 
 candidates = _load_csv(candidates_path)
 if not candidates.empty:

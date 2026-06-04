@@ -6,7 +6,7 @@
 
 > 如何从 HfO2/HZO 文献中构建样品级、证据可追溯、可建模的材料知识图谱？
 
-论文原型主线固定为 HfO2/HZO/doped HfO2，不扩展到 BaTiO3、PZT、BiFeO3 等其他铁电体系。核心贡献包括 ontology-first extraction、sample-property linking、tiered benchmark、evidence-grounded RAG 和 baseline design model。第一性能目标聚焦 `remanent_polarization_Pr` 与 `double_remanent_polarization_2Pr`。
+论文原型主线固定为 HfO2/HZO/doped HfO2，不扩展到 BaTiO3、PZT、BiFeO3 等其他铁电体系。核心贡献包括 ontology-first extraction、sample-property linking、tiered benchmark、evidence-grounded RAG 和可验证的材料性能预测模型。第一性能目标聚焦 `remanent_polarization_Pr` 与 `double_remanent_polarization_2Pr`。
 
 ## 当前状态
 
@@ -19,7 +19,7 @@
 - 20633 条样品级关联事实，其中 strong 6133、partial 9187、weak 5288、ambiguous 25
 - 584 张 LLM 文献卡片、17177 个 chunk 语义标签、4180 条 AI 二次审核结果
 - 12297 行 design dataset，分层 benchmark 包含 strong_only 992 行、strong_partial 4731 行、all_traceable 12168 行
-- Pr、2Pr、Ec、endurance、retention、memory window、leakage 等 baseline 模型已训练
+- Pr、2Pr、Ec、endurance、retention、memory window、leakage 等基础模型已训练；强相关 Pr/2Pr 数据可用 SVR、树模型和线性模型做训练/验证集评判
 
 旧版 README 中的 213 篇 PDF 和小规模图谱数字只代表历史阶段，不再作为论文原型基线。
 
@@ -33,7 +33,8 @@ PDF
 -> AI audit and manual review
 -> evidence KG / design KG
 -> tiered benchmark
--> baseline models and active-learning candidates
+-> predictive model validation
+-> active-learning candidates
 -> evidence-grounded RAG
 ```
 
@@ -87,7 +88,10 @@ python3 pipelines/10_validate_results.py
 python3 pipelines/21_build_design_dataset.py
 python3 pipelines/29_build_benchmark_tiers.py
 python3 pipelines/30_train_tiered_design_models.py --targets remanent_polarization_Pr,double_remanent_polarization_2Pr
+python3 pipelines/33_filter_and_compare_models.py --min-rows 30
 ```
+
+`pipelines/33_filter_and_compare_models.py` 会先生成强相关 Pr/2Pr 建模切片，再用 RandomForest、ExtraTrees、GradientBoosting、Ridge、ElasticNet 和 SVR-RBF 在固定训练/验证集上对比。GNN/图神经网络属于下一阶段图结构模型验证，需要先把设计图谱转为张量数据并接入 PyTorch Geometric 或 DGL。
 
 ## LLM 抽取
 

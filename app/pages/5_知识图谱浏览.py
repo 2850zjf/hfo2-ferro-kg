@@ -170,18 +170,18 @@ st.markdown(
 st.markdown(
     """
     <section class="kg-hero">
-      <div class="kg-kicker">AI GRAPH INTELLIGENCE WORKBENCH</div>
-      <h1 class="kg-title">HfO2-FerroKG 图谱驾驶舱</h1>
+      <div class="kg-kicker">HfO2 文献知识图谱</div>
+      <h1 class="kg-title">HfO2-FerroKG 图谱探索台</h1>
       <p class="kg-subtitle">
-        用知识图谱查看 HfO2/HZO 文献中的材料、工艺、相结构、器件和 Pr/2Pr 性能证据；
-        用设计图谱把样品级事实转成可筛选、可追溯、可建模的材料设计线索。
+        查看 HfO2/HZO 文献中的材料体系、工艺条件、相结构、器件与 Pr/2Pr 性能证据；
+        通过设计图谱把样品级事实整理成可筛选、可追溯、可建模的材料设计线索。
       </p>
       <div class="kg-chip-row">
-        <span class="kg-chip">semantic search</span>
-        <span class="kg-chip">neighborhood focus</span>
-        <span class="kg-chip">evidence trace</span>
-        <span class="kg-chip">sample-property graph</span>
-        <span class="kg-chip">Pr / 2Pr benchmark</span>
+        <span class="kg-chip">语义检索</span>
+        <span class="kg-chip">邻域聚焦</span>
+        <span class="kg-chip">证据链追踪</span>
+        <span class="kg-chip">样品-性能关联</span>
+        <span class="kg-chip">Pr / 2Pr 数据集</span>
       </div>
     </section>
     """,
@@ -220,10 +220,10 @@ def _graph_panel(
         st.markdown(
             f"""
             <div class="kg-panel">
-              <h3>{title} 智能探索层</h3>
+              <h3>{title} 探索视图</h3>
               <div class="kg-note">
-                图谱已按节点类型分层布局。进入画布后可搜索材料、DOI、性能值或 evidence；
-                点击节点后可切换到邻域模式，只保留与当前节点直接关联的证据链。
+                图谱已按节点类型分层布局。进入画布后可搜索材料、DOI、性能值或证据句；
+                点击节点后可切换到邻域视图，只保留与当前节点直接相连的证据链。
               </div>
             </div>
             """,

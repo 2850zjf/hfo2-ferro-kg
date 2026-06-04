@@ -15,10 +15,11 @@ from backend.core.config import PROJECT_ROOT, get_settings
 from backend.services.multi_model_validator import run_multi_model_validation
 
 
-st.set_page_config(page_title="多模型数据验证", layout="wide")
-st.title("多模型数据验证")
+st.set_page_config(page_title="事实一致性复核", layout="wide")
+st.title("事实一致性复核")
 st.caption(
-    "把当前 reviewed_facts 视为 accepted baseline，用多个验证模型检查事实一致性，并展示各模型与基准集的一致率。"
+    "检查抽取事实是否与证据、单位、本体上下文一致。这里不是 Pr/2Pr 预测模型验证；"
+    "真正的材料性能预测验证请在“材料设计工作流”中运行。"
 )
 
 summary_csv = PROJECT_ROOT / "data" / "exports" / "model_validation_summary.csv"
@@ -43,7 +44,7 @@ with st.expander("验证设置", expanded=True):
             value=default_model,
             help="多个模型用英文逗号分隔；本地规则模型会始终运行。",
         )
-    if st.button("运行多模型验证", type="primary"):
+    if st.button("运行事实复核", type="primary"):
         models = [item.strip() for item in llm_models.split(",") if item.strip()]
         with st.spinner("正在验证数据集..."):
             stats = run_multi_model_validation(
@@ -55,7 +56,7 @@ with st.expander("验证设置", expanded=True):
 
 if summary_csv.exists():
     summary = pd.read_csv(summary_csv)
-    st.subheader("模型一致率")
+    st.subheader("复核器一致率")
     chart_df = summary[["model_name", "agreement_accuracy"]].copy()
     chart_df["agreement_accuracy"] = chart_df["agreement_accuracy"] * 100
     st.bar_chart(chart_df, x="model_name", y="agreement_accuracy")
@@ -63,18 +64,18 @@ if summary_csv.exists():
     c1, c2, c3, c4 = st.columns(4)
     best = summary.sort_values("agreement_accuracy", ascending=False).iloc[0]
     c1.metric("最高一致率", f"{best['agreement_accuracy'] * 100:.1f}%", best["model_name"])
-    c2.metric("模型数量", len(summary))
+    c2.metric("复核器数量", len(summary))
     c3.metric("验证事实数", int(summary["total"].max()))
     c4.metric("平均置信度", f"{summary['average_confidence'].mean() * 100:.1f}%")
 
-    st.subheader("模型结果表")
+    st.subheader("复核结果表")
     display = summary.copy()
     display["agreement_accuracy"] = (display["agreement_accuracy"] * 100).round(1)
     display["average_confidence"] = (display["average_confidence"] * 100).round(1)
     st.dataframe(display, use_container_width=True, hide_index=True)
 
     st.download_button(
-        "下载模型准确率汇总 CSV",
+        "下载复核汇总 CSV",
         summary_csv.read_bytes(),
         file_name=summary_csv.name,
         mime="text/csv",
@@ -106,4 +107,4 @@ if summary_csv.exists():
             else:
                 st.write("没有明显问题。")
 else:
-    st.info("还没有验证结果。点击上方“运行多模型验证”生成图示。")
+    st.info("还没有复核结果。点击上方“运行事实复核”生成图示。")
