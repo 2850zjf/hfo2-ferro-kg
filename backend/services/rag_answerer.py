@@ -128,6 +128,40 @@ def _load_json_list(value: str | None) -> list[Any]:
     return data if isinstance(data, list) else []
 
 
+def _text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple, set)):
+        return " / ".join(_text(item) for item in value if _text(item).strip())
+    if isinstance(value, dict):
+        return " / ".join(
+            f"{key}={_text(item)}" for key, item in value.items() if _text(item).strip()
+        )
+    return str(value)
+
+
+def _text_tuple(value: Any) -> tuple[str, ...]:
+    if value in (None, ""):
+        return ()
+    if isinstance(value, str):
+        return (value,) if value.strip() else ()
+    if isinstance(value, dict):
+        text = _text(value).strip()
+        return (text,) if text else ()
+    if isinstance(value, (list, tuple, set)):
+        out: list[str] = []
+        for item in value:
+            if isinstance(item, (list, tuple, set)):
+                out.extend(_text_tuple(item))
+            else:
+                text = _text(item).strip()
+                if text:
+                    out.append(text)
+        return tuple(out)
+    text = _text(value).strip()
+    return (text,) if text else ()
+
+
 def _row_get(row: Any, key: str, default: Any = None) -> Any:
     try:
         value = row[key]
@@ -203,11 +237,11 @@ def _sample_context(sample: dict[str, Any], phase: dict[str, Any]) -> str:
     for label, key, suffix in fields:
         value = sample.get(key)
         if value not in (None, "", []):
-            parts.append(f"{label}={value}{suffix}")
+            parts.append(f"{label}={_text(value)}{suffix}")
     if phase.get("phase_name"):
-        parts.append(f"相={phase['phase_name']}")
+        parts.append(f"相={_text(phase['phase_name'])}")
     if phase.get("space_group"):
-        parts.append(f"空间群={phase['space_group']}")
+        parts.append(f"空间群={_text(phase['space_group'])}")
     return "；".join(parts)
 
 
@@ -293,7 +327,7 @@ def _fact_from_reviewed_row(row: Any) -> FactHit:
         context_quality=ontology_context.get("context_quality") or "reviewed",
         context_score=_safe_float(ontology_context.get("context_score")),
         sample_context=_sample_context(sample, phase if isinstance(phase, dict) else {}),
-        risk_flags=tuple(str(item) for item in (preaudit.get("warnings") or []) if str(item).strip()),
+        risk_flags=_text_tuple(preaudit.get("warnings") or []),
     )
     return fact.__class__(**{**fact_to_record(fact), "benchmark_tier": _tier_for_fact(fact)})
 
@@ -304,7 +338,7 @@ def _fact_from_sample_link_row(row: Any) -> FactHit:
     phase = _load_json(row["phase_json"])
     prop = _load_json(row["property_json"])
     ai_status = _row_get(row, "ai_review_status", "") or ""
-    risk_flags = tuple(str(item) for item in _load_json_list(_row_get(row, "risk_flags_json", "[]")) if str(item).strip())
+    risk_flags = _text_tuple(_load_json_list(_row_get(row, "risk_flags_json", "[]")))
     fact = FactHit(
         fact_id=row["link_id"],
         source="sample_property_links",
@@ -410,15 +444,15 @@ def retrieve_facts(question: str, limit: int = 12, db_path: Path | None = None) 
             continue
         searchable = " ".join(
             [
-                fact.title,
-                fact.doi or "",
-                fact.material,
-                fact.material_family,
-                fact.property_name,
-                fact.unit,
-                fact.sample_context,
-                fact.evidence_text,
-                " ".join(fact.risk_flags),
+                _text(fact.title),
+                _text(fact.doi),
+                _text(fact.material),
+                _text(fact.material_family),
+                _text(fact.property_name),
+                _text(fact.unit),
+                _text(fact.sample_context),
+                _text(fact.evidence_text),
+                " ".join(_text_tuple(fact.risk_flags)),
             ]
         )
         score = len(q_tokens & tokenize(searchable))
@@ -459,7 +493,7 @@ def fact_to_record(fact: FactHit) -> dict[str, Any]:
         "sample_context": fact.sample_context,
         "ai_review_status": fact.ai_review_status,
         "usable_for_model": fact.usable_for_model,
-        "risk_flags": list(fact.risk_flags),
+        "risk_flags": list(_text_tuple(fact.risk_flags)),
         "benchmark_tier": fact.benchmark_tier,
     }
 
@@ -573,7 +607,8 @@ def _format_evidence(fact: FactHit, index: int) -> list[str]:
     page = f"p. {fact.page_number}" if fact.page_number else "页码未识别"
     value = f"{fact.value:g} {fact.unit}".strip() if fact.value is not None else "数值未识别"
     sample = f" | 样品条件：{fact.sample_context}" if fact.sample_context else ""
-    risks = f" | 风险：{', '.join(fact.risk_flags)}" if fact.risk_flags else ""
+    risk_flags = _text_tuple(fact.risk_flags)
+    risks = f" | 风险：{', '.join(risk_flags)}" if risk_flags else ""
     return [
         (
             f"{index}. [{fact.benchmark_tier}] {fact.title} | {doi} | {page} | "

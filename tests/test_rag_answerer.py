@@ -133,3 +133,54 @@ def test_rag_range_answer_reports_evidence_tiers(tmp_path):
     assert "strong_only" in answer
     assert "fact_id：link_1" in answer
     assert "10.1/tier" in answer
+
+
+def test_rag_answer_handles_list_fields(tmp_path):
+    db_path = tmp_path / "rag_lists.sqlite3"
+    init_database(db_path)
+    payload = {
+        "material": {
+            "canonical_name": ["Hf0.5Zr0.5O2", "HZO"],
+            "material_family": "HZO",
+        },
+        "sample": {
+            "device_stack": ["Al2O3", "HZO"],
+            "annealing_atmosphere": ["N2", "O2"],
+        },
+        "property": {
+            "property_name": "double_remanent_polarization_2Pr",
+            "value": 25,
+            "unit": "μC/cm²",
+            "evidence_text": "The HZO film showed 2Pr of 25 μC/cm².",
+        },
+        "preaudit": {"warnings": [["unit_ambiguity"], "sample_property_mismatch"]},
+    }
+    with connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO papers (paper_id, title, doi) VALUES (?, ?, ?)",
+            ("paper_list", "List field paper", "10.1/list"),
+        )
+        conn.execute(
+            """
+            INSERT INTO reviewed_facts (
+                fact_id, paper_id, pdf_id, page_number, fact_type, payload_json, review_status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "fact_list",
+                "paper_list",
+                "pdf_list",
+                3,
+                "ferroelectric_property",
+                json.dumps(payload),
+                "preapproved_machine",
+            ),
+        )
+        conn.commit()
+
+    answer = answer_question("HZO 2Pr 样品条件是什么？", db_path=db_path)
+
+    assert "10.1/list" in answer
+    assert "unit_ambiguity" in answer
+    assert "sample_property_mismatch" in answer
