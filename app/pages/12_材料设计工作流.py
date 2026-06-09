@@ -15,6 +15,7 @@ if str(PROJECT_ROOT_LOCAL) not in sys.path:
 
 from backend.core.config import PROJECT_ROOT
 from backend.services.active_learning import recommend_active_learning_candidates
+from backend.services.computation_planner import plan_computational_feedback_tasks
 from backend.services.design_dataset import build_benchmark_tier_datasets, build_design_dataset
 from backend.services.design_graph import build_design_graph
 from backend.services.design_model import load_design_model_metrics, train_design_models, train_tiered_design_models
@@ -88,7 +89,7 @@ pause = read_llm_pause()
 
 st.title("材料设计工作流")
 st.caption(
-    "目标：从 PDF 证据出发，形成样品级事实、证据推理 RAG、设计图谱、benchmark 数据集、预测模型验证和主动学习候选。"
+    "论文主线：从 PDF 证据出发，形成样品级 KG、Pr/2Pr benchmark、验证集模型评测、证据约束设计建议和计算反馈任务。"
 )
 
 if pause:
@@ -136,8 +137,8 @@ problem_cols = st.columns(4)
 cards = [
     ("样品条件缺失", "只有材料名和 Pr/2Pr 不够。性能值必须绑定厚度、退火、电极、沉积方法、器件、相结构和状态。"),
     ("证据不可追溯", "每个结论都要能回到 DOI、论文标题、页码、chunk 和原文证据句。"),
-    ("图谱还不是设计图谱", "设计图谱要区分可控变量、目标变量、约束变量、机制变量和证据。"),
-    ("预测需要验证", "用 SVR、树模型、线性模型等在训练/验证集上检验 Pr/2Pr 可预测性；GNN 放在图结构扩展阶段。"),
+    ("预测需要验证", "用 SVR、树模型、线性模型等在训练/验证集上检验 Pr/2Pr 可预测性，主报 MAE、RMSE、R2 和容差命中率。"),
+    ("计算闭环缺口", "把高分候选转化为相稳定、氧空位、界面、相场和动力学任务，再把 descriptors 回写 KG 与 benchmark。"),
 ]
 for col, (title, body) in zip(problem_cols, cards):
     with col:
@@ -147,20 +148,20 @@ for col, (title, body) in zip(problem_cols, cards):
 st.subheader("完整工作流")
 workflow = pd.DataFrame(
     [
-        {"阶段": "1 文献解析", "目标": "PDF、表格、图注、正文 chunk", "产物": "parsed_pages / chunks / tables"},
-        {"阶段": "2 LLM 文献卡片", "目标": "论文类型、材料体系、核心样品、关键图表", "产物": "llm_literature_cards"},
-        {"阶段": "3 LLM chunk 语义分层", "目标": "方法、结果、机理、综述引用、理论计算", "产物": "llm_chunk_labels"},
-        {"阶段": "4 全量事实抽取", "目标": "材料、样品、工艺、相、性能、机制、设计规则", "产物": "extraction_candidates / benchmark_extractions"},
-        {"阶段": "5 样品级关联", "目标": "同一性能值绑定材料、厚度、退火、电极、相结构", "产物": "sample_property_links"},
-        {"阶段": "6 LLM 二次审核", "目标": "排查 Pr/2Pr、单位、综述二手值、样品错配", "产物": "ai_fact_audits"},
-        {"阶段": "7 设计图谱", "目标": "可控变量、目标变量、约束变量、机制变量、证据", "产物": "design_graph CSV + HTML"},
-        {"阶段": "8 Benchmark 分层", "目标": "strong_only / strong_partial / all_traceable", "产物": "tiered benchmark CSV"},
+        {"阶段": "1 范围锁定", "目标": "只保留 HfO2/HZO/doped HfO2 主线，弱相关数据非破坏式排除", "产物": "strong relevance queue"},
+        {"阶段": "2 文献解析", "目标": "PDF、表格、图注、正文 chunk", "产物": "parsed_pages / chunks / tables"},
+        {"阶段": "3 本体约束抽取", "目标": "材料、样品、工艺、相、性能、机制、设计规则", "产物": "reviewed_facts / benchmark_extractions"},
+        {"阶段": "4 样品级关联", "目标": "同一性能值绑定材料、厚度、退火、电极、相结构", "产物": "sample_property_links"},
+        {"阶段": "5 AI 审核与 Gold set", "目标": "排查 Pr/2Pr、单位、综述二手值、样品错配", "产物": "ai_fact_audits / manual_annotations"},
+        {"阶段": "6 设计图谱", "目标": "可控变量、目标变量、约束变量、机制变量、证据", "产物": "design_graph CSV + HTML"},
+        {"阶段": "7 Benchmark 分层", "目标": "strong_only / strong_partial / all_traceable", "产物": "tiered benchmark CSV"},
         {
-            "阶段": "9 预测模型验证",
-            "目标": "RandomForest / ExtraTrees / GradientBoosting / Ridge / ElasticNet / SVR；GNN 作为图结构扩展",
+            "阶段": "8 预测模型验证",
+            "目标": "RandomForest / ExtraTrees / GradientBoosting / Ridge / ElasticNet / SVR，统一训练/验证集评估",
             "产物": "validation metrics / model comparison report",
         },
-        {"阶段": "10 主动学习", "目标": "结合预测值、不确定性和证据强度推荐候选工艺组合", "产物": "active_learning_candidates"},
+        {"阶段": "9 设计建议", "目标": "结合预测值、不确定性和证据强度推荐候选材料/工艺组合", "产物": "evidence-constrained candidates"},
+        {"阶段": "10 计算反馈", "目标": "把候选转为 VASP/DFT、氧空位、界面、相场、MD/ML 势任务", "产物": "computational feedback tasks"},
     ]
 )
 st.dataframe(workflow, use_container_width=True, hide_index=True)
@@ -238,7 +239,7 @@ with row3[2]:
         st.success("分层模型训练完成。")
         st.json({"metrics_path": stats.get("metrics_path")})
 with row3[3]:
-    if st.button("生成主动学习候选", use_container_width=True):
+    if st.button("生成设计建议候选", use_container_width=True):
         stats = recommend_active_learning_candidates()
         st.success(f"已生成 {stats.get('candidates', 0)} 个候选。")
 
@@ -255,12 +256,11 @@ with row4[0]:
         ["--min-rows", "30"],
     )
 with row4[1]:
-    st.button(
-        "GNN 验证待接入",
-        disabled=True,
-        use_container_width=True,
-        help="需要把设计图谱张量化，并接入 PyTorch Geometric 或 DGL。当前先用 SVR 和树模型做可复现验证。",
-    )
+    if st.button("规划计算验证任务", use_container_width=True):
+        stats = plan_computational_feedback_tasks()
+        st.success(f"已生成 {stats.get('tasks', 0)} 个计算反馈任务；未启动本机或云端计算。")
+        if stats.get("report_path"):
+            st.caption(f"计划报告：{stats['report_path']}")
 with row4[2]:
     st.page_link("pages/10_事实一致性复核.py", label="事实一致性复核", use_container_width=True)
 with row4[3]:
@@ -270,6 +270,8 @@ st.divider()
 
 dataset_path = PROJECT_ROOT / "data" / "design" / "hfo2_design_dataset.csv"
 candidates_path = PROJECT_ROOT / "data" / "design" / "active_learning_candidates.csv"
+computation_tasks_path = PROJECT_ROOT / "data" / "computation" / "computational_feedback_tasks.csv"
+computation_report_path = PROJECT_ROOT / "data" / "computation" / "computational_feedback_plan.md"
 design_graph_html = PROJECT_ROOT / "data" / "exports" / "hfo2_design_graph.html"
 report_path = PROJECT_ROOT / "data" / "exports" / "hfo2_design_progress_report.md"
 model_compare_csv = PROJECT_ROOT / "models" / "model_comparison" / "strong_relevant_model_comparison.csv"
@@ -277,7 +279,7 @@ model_compare_report = PROJECT_ROOT / "models" / "model_comparison" / "strong_re
 metrics = load_design_model_metrics()
 
 st.subheader("当前产物")
-artifact_cols = st.columns(5)
+artifact_cols = st.columns(6)
 with artifact_cols[0]:
     if dataset_path.exists():
         st.download_button("下载设计数据集 CSV", dataset_path.read_bytes(), dataset_path.name, "text/csv", use_container_width=True)
@@ -285,9 +287,9 @@ with artifact_cols[0]:
         st.button("设计数据集未生成", disabled=True, use_container_width=True)
 with artifact_cols[1]:
     if candidates_path.exists():
-        st.download_button("下载主动学习候选 CSV", candidates_path.read_bytes(), candidates_path.name, "text/csv", use_container_width=True)
+        st.download_button("下载设计建议候选 CSV", candidates_path.read_bytes(), candidates_path.name, "text/csv", use_container_width=True)
     else:
-        st.button("主动学习候选未生成", disabled=True, use_container_width=True)
+        st.button("设计建议候选未生成", disabled=True, use_container_width=True)
 with artifact_cols[2]:
     if design_graph_html.exists():
         st.link_button("打开设计图谱 HTML", design_graph_html.resolve().as_uri(), use_container_width=True)
@@ -309,6 +311,17 @@ with artifact_cols[4]:
         )
     else:
         st.button("模型验证报告未生成", disabled=True, use_container_width=True)
+with artifact_cols[5]:
+    if computation_tasks_path.exists():
+        st.download_button(
+            "下载计算任务 CSV",
+            computation_tasks_path.read_bytes(),
+            computation_tasks_path.name,
+            "text/csv",
+            use_container_width=True,
+        )
+    else:
+        st.button("计算任务未生成", disabled=True, use_container_width=True)
 
 df = _load_csv(dataset_path)
 if not df.empty:
@@ -346,6 +359,14 @@ if not model_compare.empty:
     st.caption(
         "以下结果使用训练集/验证集划分评判。accuracy 指验证集容差命中率；Pr/2Pr 主看 MAE、RMSE、R2 和 within_10uC_cm2。"
     )
+    rename_map = {
+        "model": "model_name",
+        "within_5_uC_cm2_accuracy": "within_5uC_cm2",
+        "within_10_uC_cm2_accuracy": "within_10uC_cm2",
+    }
+    model_compare = model_compare.rename(columns=rename_map)
+    if "dataset_name" not in model_compare:
+        model_compare["dataset_name"] = "strong_relevant"
     display_cols = [
         "dataset_name",
         "target_property",
@@ -375,8 +396,34 @@ else:
 
 candidates = _load_csv(candidates_path)
 if not candidates.empty:
-    st.subheader("主动学习候选")
-    st.caption("排序综合考虑预测性能、模型不确定性、实验可实现性和相似文献证据。")
+    st.subheader("证据约束设计建议")
+    st.caption("排序综合考虑预测性能、模型不确定性、可实现性和相似文献证据。")
     st.dataframe(candidates, use_container_width=True, hide_index=True)
 else:
-    st.info("还没有主动学习候选。训练模型后点击“生成主动学习候选”。")
+    st.info("还没有设计建议候选。训练模型后点击“生成设计建议候选”。")
+
+computation_tasks = _load_csv(computation_tasks_path)
+if not computation_tasks.empty:
+    st.subheader("计算反馈任务")
+    st.caption(
+        "这些任务只做规划，不会在本机或云端自动启动。人工确认结构、参数、费用和队列后，才能接入腾讯云运行。"
+    )
+    c1, c2, c3 = st.columns(3)
+    c1.metric("任务数", len(computation_tasks))
+    c2.metric("任务类型", computation_tasks["task_family"].nunique() if "task_family" in computation_tasks else 0)
+    c3.metric(
+        "安全状态",
+        computation_tasks["safety_status"].mode().iloc[0]
+        if "safety_status" in computation_tasks and not computation_tasks["safety_status"].empty
+        else "planned",
+    )
+    if "task_family" in computation_tasks:
+        family_df = computation_tasks["task_family"].value_counts().reset_index()
+        family_df.columns = ["task_family", "count"]
+        st.bar_chart(family_df, x="task_family", y="count")
+    st.dataframe(computation_tasks.head(120), use_container_width=True, hide_index=True)
+    if computation_report_path.exists():
+        with st.expander("计算反馈计划报告", expanded=False):
+            st.markdown(computation_report_path.read_text(encoding="utf-8"))
+else:
+    st.info("还没有计算反馈任务。生成设计建议候选后点击“规划计算验证任务”。")

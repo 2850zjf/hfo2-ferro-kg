@@ -209,7 +209,7 @@ st.markdown(
         <h1 class="kg-title">HfO2-FerroKG</h1>
         <p class="kg-subtitle">
             HfO2/HZO 铁电材料论文原型工作台：从本地 PDF 证据出发，构建样品级事实关联、
-            分层 benchmark、设计图谱、Pr/2Pr 预测模型验证和证据推理式 RAG。
+            分层 benchmark、设计图谱、Pr/2Pr 预测模型验证、计算反馈任务和证据推理式 RAG。
         </p>
         <div class="kg-chip-row">
             <span class="kg-chip">本体约束抽取</span>
@@ -321,7 +321,7 @@ workflow_items = [
     ("2", "结构化抽取", "材料、工艺、相、性能"),
     ("3", "样品级关联", "性能值绑定样品条件"),
     ("4", "分层 benchmark", "strong / partial / traceable"),
-    ("5", "预测模型验证", "SVR、树模型、GNN 扩展"),
+    ("5", "计算反馈", "VASP、相场、MD 任务规划"),
 ]
 for col, (step, title, body) in zip(workflow_cols, workflow_items):
     with col:

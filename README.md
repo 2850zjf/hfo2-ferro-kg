@@ -6,7 +6,7 @@
 
 > 如何从 HfO2/HZO 文献中构建样品级、证据可追溯、可建模的材料知识图谱？
 
-论文原型主线固定为 HfO2/HZO/doped HfO2，不扩展到 BaTiO3、PZT、BiFeO3 等其他铁电体系。核心贡献包括 ontology-first extraction、sample-property linking、tiered benchmark、evidence-grounded RAG 和可验证的材料性能预测模型。第一性能目标聚焦 `remanent_polarization_Pr` 与 `double_remanent_polarization_2Pr`。
+论文原型主线固定为 HfO2/HZO/doped HfO2，不扩展到 BaTiO3、PZT、BiFeO3 等其他铁电体系。核心贡献包括 ontology-first extraction、sample-property linking、tiered benchmark、evidence-grounded RAG、可验证的材料性能预测模型，以及面向云端计算的 evidence-to-computation feedback。第一性能目标聚焦 `remanent_polarization_Pr` 与 `double_remanent_polarization_2Pr`。
 
 ## 当前状态
 
@@ -34,7 +34,8 @@ PDF
 -> evidence KG / design KG
 -> tiered benchmark
 -> predictive model validation
--> active-learning candidates
+-> evidence-constrained design recommendations
+-> computational feedback task planning
 -> evidence-grounded RAG
 ```
 
@@ -89,9 +90,13 @@ python3 pipelines/21_build_design_dataset.py
 python3 pipelines/29_build_benchmark_tiers.py
 python3 pipelines/30_train_tiered_design_models.py --targets remanent_polarization_Pr,double_remanent_polarization_2Pr
 python3 pipelines/33_filter_and_compare_models.py --min-rows 30
+python3 pipelines/25_recommend_active_learning.py --target double_remanent_polarization_2Pr
+python3 pipelines/34_plan_computational_feedback.py --max-candidates 20 --max-tasks 80
 ```
 
 `pipelines/33_filter_and_compare_models.py` 会先生成强相关 Pr/2Pr 建模切片，再用 RandomForest、ExtraTrees、GradientBoosting、Ridge、ElasticNet 和 SVR-RBF 在固定训练/验证集上对比。GNN/图神经网络属于下一阶段图结构模型验证，需要先把设计图谱转为张量数据并接入 PyTorch Geometric 或 DGL。
+
+`pipelines/34_plan_computational_feedback.py` 只生成计算反馈任务清单，不启动本机或云端计算。它会把设计建议转化为 VASP/DFT、氧空位、界面筛查、相场和 ML potential/MD 等任务，并声明需要输入、预期输出、KG 回写字段和 benchmark 回写字段。
 
 ## LLM 抽取
 

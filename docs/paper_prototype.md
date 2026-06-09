@@ -13,6 +13,7 @@ How can HfO2/HZO ferroelectric literature be converted into a sample-level, evid
 3. Tiered benchmark: 固定输出 `strong_only`、`strong_partial`、`all_traceable` 三层数据集，论文主结果优先使用 `strong_only` 和 `strong_partial`。
 4. Evidence-grounded RAG: RAG 回答必须回到 fact/link id、论文、页码、证据句和样品条件。
 5. Baseline design model: 以 Pr 和 2Pr 为第一目标，报告 strong_only 上的 MAE、RMSE、R2 和相对 baseline improvement。
+6. Computational feedback planning: 把证据约束设计建议转化为 DFT、氧空位、界面、相场和动力学计算任务，并定义 KG/benchmark 回写字段。
 
 ## Method Figure
 
@@ -28,7 +29,11 @@ flowchart TD
     G --> H["Tiered benchmark"]
     G --> I["Evidence KG and design KG"]
     H --> J["Pr/2Pr baseline models"]
-    J --> K["Active-learning candidates"]
+    J --> K["Evidence-constrained design recommendations"]
+    K --> M["Computational feedback task planning"]
+    M --> N["Computed descriptors write back"]
+    N --> I
+    N --> H
     I --> L["Evidence-grounded RAG"]
 ```
 
@@ -65,6 +70,7 @@ Report these tables for the paper prototype:
 3. Pr/2Pr model metrics on `strong_only`: rows, MAE, RMSE, R2, baseline MAE, improvement.
 4. AI audit and risk review: `usable_for_model`, `usable_for_rag_only`, `needs_human_review`, `reject`.
 5. Gold set evaluation: extraction precision/recall/F1, sample-property linking accuracy, Pr/2Pr confusion rate, unit normalization error rate.
+6. Computational feedback plan: task counts by family, required inputs, expected descriptors, KG write-back fields, benchmark write-back fields.
 
 ## Gold Set Evaluation
 
@@ -108,3 +114,4 @@ DASHSCOPE_API_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 - `python3 pipelines/29_build_benchmark_tiers.py` refreshes benchmark tiers.
 - `python3 pipelines/30_train_tiered_design_models.py --targets remanent_polarization_Pr,double_remanent_polarization_2Pr` refreshes primary model metrics.
 - `python3 pipelines/32_evaluate_paper_prototype.py --sample-size 30` creates or evaluates the paper gold set.
+- `python3 pipelines/34_plan_computational_feedback.py --max-candidates 20 --max-tasks 80` creates the computation feedback task plan without launching jobs.

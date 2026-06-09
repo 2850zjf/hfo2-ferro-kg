@@ -49,10 +49,12 @@ def export_design_progress_report(
     usage = token_usage(db_path=db_path)
     dataset_path = PROJECT_ROOT / "data" / "design" / "hfo2_design_dataset.csv"
     candidates_path = PROJECT_ROOT / "data" / "design" / "active_learning_candidates.csv"
+    computation_tasks_path = PROJECT_ROOT / "data" / "computation" / "computational_feedback_tasks.csv"
     tiers_path = PROJECT_ROOT / "data" / "design" / "benchmark_tiers.json"
     tiered_metrics_path = PROJECT_ROOT / "models" / "tiered_design_models" / "tiered_design_model_metrics.json"
     dataset = _load_csv(dataset_path)
     candidates = _load_csv(candidates_path)
+    computation_tasks = _load_csv(computation_tasks_path)
     metrics = load_design_model_metrics()
     tier_stats = json.loads(tiers_path.read_text(encoding="utf-8")) if tiers_path.exists() else {}
     tiered_metrics = (
@@ -148,7 +150,7 @@ def export_design_progress_report(
         "# HfO2-FerroKG 进展报告",
         "",
         "## 当前定位",
-        "本项目正在从文献抽取工具升级为证据推理、设计图谱、benchmark 数据集和主动学习一体化的 HfO2 基铁电材料设计工作台。",
+        "本项目正在从文献抽取工具升级为证据推理、设计图谱、benchmark 数据集、验证集预测评测和计算反馈闭环一体化的 HfO2 基铁电材料设计工作台。",
         "",
         "## 数据规模",
         _table(
@@ -203,20 +205,28 @@ def export_design_progress_report(
         "## Gold set 评测",
         "运行 `python3 pipelines/32_evaluate_paper_prototype.py --sample-size 30` 生成标注模板；填写 `gold_*` 字段后再次运行，输出 extraction F1、样品级关联准确率、Pr/2Pr 混淆率和单位标准化错误率。",
         "",
-        "## 主动学习候选预览",
+        "## 证据约束设计建议预览",
         _table(candidate_rows, ["candidate_id", "target_property", "predicted_value", "uncertainty", "material", "anneal_C", "stack"]),
+        "",
+        "## 计算反馈任务",
+        _table(
+            computation_tasks.head(20).to_dict("records") if not computation_tasks.empty else [],
+            ["task_id", "candidate_id", "task_family", "engine", "priority_score", "material_name", "rationale"],
+        ),
         "",
         "## 下一步",
         "1. 完成样品级关联，并重建设计图谱和 benchmark 分层。",
         "2. 用 LLM 二次审核 partial/weak 事实，提升 strong_only 数据质量。",
         "3. RAG 回答优先使用样品级事实和设计图谱，并强制返回 fact_id、页码、证据句和样品条件。",
-        "4. 用 strong_only 与 strong_partial 训练模型对比，主动学习候选只推荐高性能、高不确定性、可实验实现的组合。",
+        "4. 用 strong_only 与 strong_partial 训练模型对比，设计建议只推荐高性能、高不确定性、有相似证据支撑的组合。",
+        "5. 对高分候选生成 VASP/DFT、氧空位、界面、相场和动力学计算任务，人工确认后再接入云端运行。",
     ]
     target.write_text("\n".join(lines), encoding="utf-8")
     stats = {
         "output_path": str(target),
         "dataset_rows": int(len(dataset)),
         "candidate_rows": int(len(candidates)),
+        "computation_tasks": int(len(computation_tasks)),
         "ai_audits": sum(audit_counts.values()),
     }
     record_pipeline_run("31_export_design_report", "ok", stats, db_path=db_path)

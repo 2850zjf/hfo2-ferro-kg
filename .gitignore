@@ -16,6 +16,7 @@ data/ontology/
 data/benchmark/
 data/figures/
 data/design/
+data/computation/
 data/design_graph/
 data/evaluation/
 data/runtime/

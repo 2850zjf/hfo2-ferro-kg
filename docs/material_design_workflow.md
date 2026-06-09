@@ -70,6 +70,10 @@ HfO2 铁电材料的性能不由单一材料名称决定，而是由材料体系
 
 它可以把文献事实转化为 benchmark，进一步训练和验证预测模型或排序模型，用于提出下一批值得验证的实验组合。
 
+### 对计算反馈
+
+它可以把文献驱动的候选材料和工艺转化为可审查的计算任务，例如相稳定性、氧空位、界面、电极和退火路径验证。计算结果不替代文献证据，而是作为 computed descriptors 回写到知识图谱和 benchmark，帮助下一轮模型筛选更有物理约束。
+
 ### 对数据可信度
 
 它把“AI 抽取”变成可审计流程。机器先抽取和预审核，人再检查高风险事实，避免直接相信模型输出。
@@ -95,8 +99,9 @@ HfO2 铁电材料的性能不由单一材料名称决定，而是由材料体系
 -> 知识图谱
 -> Benchmark 数据集
 -> 预测模型验证
--> 候选工艺推荐
--> 实验反馈回填
+-> 证据约束设计建议
+-> 计算反馈任务规划
+-> 云端计算验证后回写 KG / benchmark
 ```
 
 ## 当前内容优化重点
@@ -149,7 +154,7 @@ HfO2 铁电材料的性能不由单一材料名称决定，而是由材料体系
 - ElasticNet
 - SVR-RBF
 
-主报指标为验证集 MAE、RMSE、R2、within 5 μC/cm²、within 10 μC/cm² 和相对训练集均值 baseline 的 improvement。GNN/图神经网络放在下一阶段，先把设计图谱张量化，再接入 GCN/GAT/GraphSAGE 等图结构模型，并使用同一验证集协议比较。
+主报指标为验证集 MAE、RMSE、R2、within 5 μC/cm²、within 10 μC/cm² 和相对训练集均值 baseline 的 improvement。GNN/图神经网络不作为第一版论文主结果，后续可以在图谱张量化后作为补充模型。
 
 ### 5. 从“预测模型”升级为“受约束材料设计”
 
@@ -162,9 +167,32 @@ HfO2 铁电材料的性能不由单一材料名称决定，而是由材料体系
 - 推荐理由
 - 风险提示
 
+### 6. 从“受约束设计”升级为“计算反馈闭环”
+
+计算闭环放在设计建议之后。第一版先生成计算任务清单，不直接在本机或云端启动任务。
+
+任务类型：
+
+- VASP/DFT 相稳定性：比较 orthorhombic、monoclinic、tetragonal、cubic 相的相对能量。
+- VASP/DFT 氧空位：估算氧空位形成能、迁移能和 wake-up/fatigue/leakage 风险。
+- 界面/电极筛查：评估电极 stack 的氧吸附、界面能和相稳定影响。
+- 相场或 compact switching model：评估厚度、边界条件和畴结构对 Pr/2Pr 的趋势影响。
+- ML potential MD 或动力学 surrogate：评估退火路径、缺陷扩散和相转变风险。
+
+回写字段包括：
+
+- `deltaE_o_m_meV_fu`
+- `deltaE_o_t_meV_fu`
+- `computed_polarization_uC_cm2`
+- `oxygen_vacancy_formation_energy_eV`
+- `oxygen_vacancy_migration_barrier_eV`
+- `interface_energy_proxy`
+- `phase_field_pr_trend`
+- `phase_conversion_risk_score`
+
 ## 最小可发表/可汇报表达
 
-本项目面向 HfO2 基铁电材料的数据驱动设计，针对当前文献数据分散、样品条件与性能参数难以关联、Pr/2Pr 和单位易混淆、缺乏可训练 benchmark 等问题，构建了一个本地 PDF 驱动的知识图谱与 benchmark 工作台。系统从 PDF 中解析正文、表格和图注，抽取材料、工艺、相结构、器件和性能事实，并保留 DOI、页码和证据句。经 AI 预审核和人工抽查后，事实被组织为知识图谱用于可追溯问答，同时转化为样品级 benchmark 用于模型训练和工艺优化。该工作为 HfO2 铁电材料的文献归纳、机制分析和下一步实验设计提供了可验证的数据基础。
+本项目面向 HfO2 基铁电材料的数据驱动设计，针对当前文献数据分散、样品条件与性能参数难以关联、Pr/2Pr 和单位易混淆、缺乏可训练 benchmark 等问题，构建了一个本地 PDF 驱动的知识图谱与 benchmark 工作台。系统从 PDF 中解析正文、表格和图注，抽取材料、工艺、相结构、器件和性能事实，并保留 DOI、页码和证据句。经 AI 预审核和人工抽查后，事实被组织为知识图谱用于可追溯问答，同时转化为样品级 benchmark 用于模型训练和工艺优化。进一步地，系统把文献驱动候选转化为可审查的 DFT、相场和动力学计算任务，使计算 descriptors 能够回写知识图谱并成为下一轮模型筛选特征。该工作为 HfO2 铁电材料的文献归纳、机制分析和下一步材料设计提供了可验证的数据基础。
 
 ## 对应本地命令
 
@@ -172,6 +200,7 @@ HfO2 铁电材料的性能不由单一材料名称决定，而是由材料体系
 python pipelines/21_build_design_dataset.py
 python pipelines/22_train_design_models.py
 python pipelines/33_filter_and_compare_models.py --min-rows 30
+python pipelines/34_plan_computational_feedback.py --max-candidates 20 --max-tasks 80
 ```
 
 也可以在 Streamlit 的“材料设计工作流”页面中点击按钮运行。

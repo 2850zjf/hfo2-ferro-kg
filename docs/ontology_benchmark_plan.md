@@ -73,6 +73,26 @@ Prediction performance is evaluated only on a validation holdout split, not on t
 - Models: RandomForest, ExtraTrees, GradientBoosting, Ridge, ElasticNet, SVR-RBF.
 - Graph models: planned GNN extension after tensorizing the design graph. Candidate models are GCN, GAT, and GraphSAGE; they should be evaluated with the same validation split and reported separately from the current tabular model comparison.
 
+## Computational Feedback Layer
+
+Computational validation is added after evidence-constrained design recommendation. It is not part of the gold truth for extraction and does not replace experimental literature evidence.
+
+The first implementation only plans tasks:
+
+- phase stability with VASP/DFT;
+- oxygen-vacancy energetics and optional migration barriers;
+- electrode/interface screening with slab DFT or surrogate descriptors;
+- phase-field or compact switching models for thickness and boundary effects;
+- ML-potential MD or kinetic surrogates for annealing and defect dynamics.
+
+The planner writes:
+
+- `data/computation/computational_feedback_tasks.csv`
+- `data/computation/computational_feedback_tasks.json`
+- `data/computation/computational_feedback_plan.md`
+
+All tasks are marked `planned_only_no_local_execution` until a human approves cloud submission. Computed descriptors should be written back as additional KG and benchmark features, such as `deltaE_o_m_meV_fu`, `oxygen_vacancy_formation_energy_eV`, `interface_energy_proxy`, and `phase_field_pr_trend`.
+
 ## Gold Set
 
 The gold set should cover 30 papers across:
