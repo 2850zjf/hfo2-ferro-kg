@@ -68,6 +68,16 @@ HfO2/HZO PDF corpus
 
 第一版先生成计算任务清单，不自动提交云端任务。所有任务必须人工确认结构、赝势、泛函、收敛参数、队列和费用后再运行。
 
+第一个可开展的轻量计算是 Materials Project 来源的 HfO2 多相稳定性 smoke test。它只检查计算环境和 HfO2 polymorph relative-energy ranking，不直接声称预测实验 Pr/2Pr。
+
+```bash
+python computations/mp_hfo2_phase_smoke_test/fetch_mp_structures.py \
+  --output-dir data/computation/mp_hfo2_phase_smoke_test \
+  --max-energy-above-hull 0.35
+```
+
+该脚本只从 Materials Project API 获取结构，记录 MP material id 和 symmetry 信息，不手造 POSCAR，不提交 POTCAR。
+
 ## 腾讯云接入边界
 
 安全原则：

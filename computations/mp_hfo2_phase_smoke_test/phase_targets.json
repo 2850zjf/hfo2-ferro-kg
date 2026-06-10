@@ -1,0 +1,26 @@
+{
+  "formula": "HfO2",
+  "description": "HfO2 polymorph targets for a Materials Project sourced VASP smoke test.",
+  "targets": [
+    {
+      "label": "monoclinic",
+      "preferred_crystal_system": "Monoclinic",
+      "preferred_spacegroup_fragments": ["P2_1/c", "P21/c", "P 1 21/c 1"]
+    },
+    {
+      "label": "tetragonal",
+      "preferred_crystal_system": "Tetragonal",
+      "preferred_spacegroup_fragments": ["P4_2/nmc", "P42/nmc", "P 42/n m c"]
+    },
+    {
+      "label": "cubic",
+      "preferred_crystal_system": "Cubic",
+      "preferred_spacegroup_fragments": ["Fm-3m", "Fm-3m"]
+    },
+    {
+      "label": "orthorhombic",
+      "preferred_crystal_system": "Orthorhombic",
+      "preferred_spacegroup_fragments": ["Pca2_1", "Pca21", "Pbc2_1", "Pbca", "Pbcm", "Pmn2_1"]
+    }
+  ]
+}

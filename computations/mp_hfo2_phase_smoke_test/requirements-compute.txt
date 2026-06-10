@@ -1,0 +1,2 @@
+mp-api>=0.43
+pymatgen>=2025.1
