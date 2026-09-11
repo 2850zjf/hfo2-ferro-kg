@@ -1,0 +1,11 @@
+{
+  "node": "1",
+  "instance_type": "S6.4XLARGE32",
+  "image_id": "img-45t2j6r7",
+  "region": "ap-beijing",
+  "spot_paid": false,
+  "public_ip": false,
+  "disk_size": "50",
+  "ntasks_per_node": "16",
+  "cmd": "command -v timeout >/dev/null && exec timeout --signal=TERM --kill-after=60s 30m bash ./run_vasp_two_step.sh"
+}

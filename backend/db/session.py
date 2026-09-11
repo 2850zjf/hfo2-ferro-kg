@@ -10,6 +10,7 @@ from backend.db.init_db import init_database
 def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
     target = Path(db_path) if db_path else get_settings().db_path
     init_database(target)
-    conn = sqlite3.connect(target)
+    conn = sqlite3.connect(target, timeout=60)
+    conn.execute("PRAGMA busy_timeout = 60000")
     conn.row_factory = sqlite3.Row
     return conn

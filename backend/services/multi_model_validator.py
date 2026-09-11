@@ -297,8 +297,12 @@ def _summarize_model(model_name: str, details: list[dict[str, Any]]) -> dict[str
     }
 
 
-def _write_outputs(summary: list[dict[str, Any]], details: list[dict[str, Any]]) -> dict[str, str]:
-    output_dir = PROJECT_ROOT / "data" / "exports"
+def _write_outputs(
+    summary: list[dict[str, Any]],
+    details: list[dict[str, Any]],
+    output_dir: Path | None = None,
+) -> dict[str, str]:
+    output_dir = output_dir or PROJECT_ROOT / "data" / "exports"
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_json = output_dir / "model_validation_summary.json"
     details_json = output_dir / "model_validation_details.jsonl"
@@ -337,6 +341,7 @@ def run_multi_model_validation(
     include_llm: bool = False,
     llm_models: list[str] | None = None,
     db_path: Path | None = None,
+    output_dir: Path | None = None,
 ) -> dict[str, Any]:
     facts = load_dataset_facts(limit=limit, db_path=db_path)
     model_details: dict[str, list[dict[str, Any]]] = {name: [] for name in LOCAL_MODELS}
@@ -362,7 +367,7 @@ def run_multi_model_validation(
 
     details = [row for rows in model_details.values() for row in rows]
     summary = [_summarize_model(model_name, rows) for model_name, rows in model_details.items()]
-    paths = _write_outputs(summary, details)
+    paths = _write_outputs(summary, details, output_dir=output_dir)
     stats = {
         "facts": len(facts),
         "models": len(model_details),

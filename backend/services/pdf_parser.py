@@ -130,6 +130,7 @@ def parse_pending_pdfs(
     limit: int | None = None,
     db_path: Path | None = None,
     force: bool = False,
+    include_excluded: bool = False,
 ) -> dict[str, int]:
     output_path = PROJECT_ROOT / "data" / "parsed_pages" / "parsed_pages.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -151,9 +152,10 @@ def parse_pending_pdfs(
             SELECT pdf_id, paper_id, file_path, is_duplicate, parse_status
             FROM pdf_files
             WHERE (? = 1 OR parse_status IN ('pending', 'manifested', 'manifest_error', 'parse_error'))
+              AND (? = 1 OR COALESCE(parse_status, '') != 'excluded_irrelevant')
             ORDER BY file_name
             """,
-            (int(force),),
+            (int(force), int(include_excluded)),
         ).fetchall()
         if limit is not None:
             rows = rows[:limit]

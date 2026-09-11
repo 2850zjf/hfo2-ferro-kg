@@ -22,6 +22,7 @@ from backend.services.review_service import (
     pdf_viewer_url,
     update_review_status,
 )
+from app.support import render_top_nav
 
 
 def _short_cell(value: object, limit: int = 120) -> str:
@@ -218,7 +219,8 @@ def _self_link_button(label: str, href: str) -> None:
     )
 
 
-st.set_page_config(page_title="抽取结果审核", layout="wide")
+st.set_page_config(page_title="抽取结果审核", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("抽取审核")
 st.title("抽取结果审核")
 st.caption("点击表格中的任意一行即可加载原文、证据、批注和 PDF 打开入口。")
 

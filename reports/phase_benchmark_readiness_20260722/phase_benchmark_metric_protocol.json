@@ -1,0 +1,28 @@
+{
+  "benchmark_version": "phase-competition-benchmark-v0.1",
+  "status": "protocol_only_no_metrics_computed",
+  "primary_task": "sample-level m/o/t multi-label phase outcome",
+  "secondary_task": "evidence-consistency classification after pair adjudication",
+  "auxiliary_targets": [
+    "Pr",
+    "2Pr"
+  ],
+  "split": "locked DOI/paper-group holdout; no row fallback",
+  "phase_metrics": [
+    "macro_f1",
+    "per_phase_precision_recall_f1",
+    "multi_label_exact_match",
+    "jaccard_score",
+    "brier_score_or_calibration_error_when_probabilities_exist"
+  ],
+  "consistency_metrics": [
+    "three_class_confusion_matrix",
+    "macro_f1"
+  ],
+  "prohibitions": [
+    "No metric before a locked validation set exists.",
+    "No threshold tuning on locked validation papers.",
+    "No sample, chunk, figure, supplement, or duplicate PDF from one paper across partitions.",
+    "No Pr/2Pr regression result presented as phase-stability validation."
+  ]
+}

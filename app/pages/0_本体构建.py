@@ -14,9 +14,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.db.init_db import init_database
 from backend.services.ontology_builder import build_ontology, load_ontology_bundle
+from app.support import render_top_nav
 
 
-st.set_page_config(page_title="本体构建", layout="wide")
+st.set_page_config(page_title="本体构建", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("抽取审核")
 st.title("本体构建")
 st.caption("先定义 HfO2-FerroKG 的数据本体，再按本体进行信息抽取和图谱构建。")
 

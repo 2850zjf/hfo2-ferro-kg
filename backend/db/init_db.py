@@ -254,6 +254,7 @@ CREATE TABLE IF NOT EXISTS pdf_visual_assets (
     asset_index INTEGER NOT NULL,
     file_path TEXT,
     caption_text TEXT,
+    caption_asset_id TEXT,
     bbox_json TEXT,
     width INTEGER,
     height INTEGER,
@@ -261,6 +262,180 @@ CREATE TABLE IF NOT EXISTS pdf_visual_assets (
     error_message TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(pdf_id, page_number, asset_type, asset_index)
+);
+
+CREATE TABLE IF NOT EXISTS pdf_asset_links (
+    link_id TEXT PRIMARY KEY,
+    paper_id TEXT,
+    pdf_id TEXT NOT NULL,
+    page_number INTEGER NOT NULL,
+    image_asset_id TEXT NOT NULL,
+    caption_asset_id TEXT NOT NULL,
+    relation_type TEXT NOT NULL DEFAULT 'caption_of',
+    geometry_distance REAL,
+    confidence REAL NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(image_asset_id, caption_asset_id)
+);
+
+CREATE TABLE IF NOT EXISTS pdf_equations (
+    equation_id TEXT PRIMARY KEY,
+    paper_id TEXT,
+    pdf_id TEXT NOT NULL,
+    page_number INTEGER NOT NULL,
+    equation_index INTEGER NOT NULL,
+    equation_label TEXT,
+    raw_text TEXT NOT NULL,
+    normalized_text TEXT NOT NULL,
+    latex_text TEXT,
+    variables_json TEXT NOT NULL DEFAULT '[]',
+    candidate_kind TEXT NOT NULL DEFAULT 'display_equation',
+    equation_role TEXT DEFAULT 'unknown',
+    bbox_json TEXT,
+    image_path TEXT,
+    confidence REAL,
+    extraction_method TEXT NOT NULL,
+    extraction_status TEXT DEFAULT 'candidate',
+    error_message TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(pdf_id, page_number, equation_index)
+);
+
+CREATE TABLE IF NOT EXISTS pdf_equation_scans (
+    pdf_id TEXT PRIMARY KEY,
+    equation_count INTEGER NOT NULL DEFAULT 0,
+    scan_status TEXT NOT NULL,
+    error_message TEXT,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS multimodal_extractions (
+    extraction_id TEXT PRIMARY KEY,
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    paper_id TEXT,
+    pdf_id TEXT NOT NULL,
+    page_number INTEGER NOT NULL,
+    payload_json TEXT NOT NULL,
+    model_name TEXT NOT NULL,
+    ontology_version TEXT NOT NULL,
+    prompt_version TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending_review',
+    confidence REAL,
+    error_message TEXT,
+    prompt_tokens INTEGER,
+    completion_tokens INTEGER,
+    total_tokens INTEGER,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_type, source_id, model_name, ontology_version)
+);
+
+CREATE TABLE IF NOT EXISTS multimodal_extraction_runs (
+    run_id TEXT PRIMARY KEY,
+    extraction_id TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    paper_id TEXT,
+    pdf_id TEXT NOT NULL,
+    page_number INTEGER NOT NULL,
+    payload_json TEXT NOT NULL,
+    model_name TEXT NOT NULL,
+    ontology_version TEXT NOT NULL,
+    prompt_version TEXT NOT NULL,
+    run_kind TEXT NOT NULL,
+    status TEXT NOT NULL,
+    confidence REAL,
+    error_message TEXT,
+    prompt_tokens INTEGER,
+    completion_tokens INTEGER,
+    total_tokens INTEGER,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS multimodal_asset_queue (
+    queue_id TEXT PRIMARY KEY,
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    paper_id TEXT,
+    pdf_id TEXT NOT NULL,
+    page_number INTEGER NOT NULL,
+    file_path TEXT,
+    context_text TEXT NOT NULL,
+    asset_quality_score REAL NOT NULL DEFAULT 0.5,
+    quality_reason TEXT,
+    priority_score REAL NOT NULL,
+    priority_tier TEXT NOT NULL,
+    queue_status TEXT NOT NULL,
+    content_hash TEXT,
+    duplicate_of_source_id TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_type, source_id)
+);
+
+CREATE TABLE IF NOT EXISTS multimodal_evidence (
+    evidence_id TEXT PRIMARY KEY,
+    extraction_id TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    paper_id TEXT,
+    pdf_id TEXT NOT NULL,
+    page_number INTEGER NOT NULL,
+    observation_type TEXT NOT NULL,
+    description TEXT NOT NULL,
+    property_name TEXT,
+    raw_value_text TEXT,
+    value REAL,
+    value_min REAL,
+    value_max REAL,
+    unit TEXT,
+    material_ref TEXT,
+    sample_ref TEXT,
+    series_or_panel TEXT,
+    condition_text TEXT,
+    value_origin TEXT NOT NULL DEFAULT 'unclear',
+    evidence_scope TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    evidence_text TEXT NOT NULL,
+    review_status TEXT NOT NULL DEFAULT 'needs_human_review',
+    benchmark_tier TEXT NOT NULL DEFAULT 'all_traceable',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(extraction_id) REFERENCES multimodal_extractions(extraction_id)
+);
+
+CREATE TABLE IF NOT EXISTS computation_jobs (
+    job_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    candidate_id TEXT,
+    task_family TEXT NOT NULL,
+    engine TEXT NOT NULL,
+    objective TEXT,
+    priority_score REAL,
+    status TEXT NOT NULL DEFAULT 'prepared',
+    execution_mode TEXT NOT NULL DEFAULT 'prepare_only',
+    safety_status TEXT NOT NULL DEFAULT 'prepared_no_execution',
+    work_dir TEXT NOT NULL,
+    input_manifest_json TEXT NOT NULL,
+    cloud_payload_json TEXT,
+    result_json TEXT,
+    error_message TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    submitted_at TEXT,
+    completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS computation_results (
+    result_id TEXT PRIMARY KEY,
+    job_id TEXT NOT NULL,
+    task_id TEXT,
+    result_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    quality_status TEXT NOT NULL,
+    source_path TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(job_id) REFERENCES computation_jobs(job_id)
 );
 """
 
@@ -283,6 +458,30 @@ ON manual_annotations(link_id);
 
 CREATE INDEX IF NOT EXISTS idx_manual_annotations_status
 ON manual_annotations(annotation_status);
+
+CREATE INDEX IF NOT EXISTS idx_computation_jobs_status_family
+ON computation_jobs(status, task_family);
+
+CREATE INDEX IF NOT EXISTS idx_computation_results_job
+ON computation_results(job_id);
+
+CREATE INDEX IF NOT EXISTS idx_pdf_equations_pdf_page
+ON pdf_equations(pdf_id, page_number);
+
+CREATE INDEX IF NOT EXISTS idx_pdf_asset_links_image
+ON pdf_asset_links(image_asset_id, confidence DESC);
+
+CREATE INDEX IF NOT EXISTS idx_multimodal_extractions_source
+ON multimodal_extractions(source_type, source_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_multimodal_extraction_runs_source
+ON multimodal_extraction_runs(source_type, source_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_multimodal_asset_queue_priority
+ON multimodal_asset_queue(queue_status, priority_tier, priority_score DESC);
+
+CREATE INDEX IF NOT EXISTS idx_multimodal_evidence_pdf_page
+ON multimodal_evidence(pdf_id, page_number, observation_type);
 """
 
 
@@ -318,11 +517,23 @@ MIGRATIONS = {
     "pdf_visual_assets": {
         "file_path": "ALTER TABLE pdf_visual_assets ADD COLUMN file_path TEXT",
         "caption_text": "ALTER TABLE pdf_visual_assets ADD COLUMN caption_text TEXT",
+        "caption_asset_id": "ALTER TABLE pdf_visual_assets ADD COLUMN caption_asset_id TEXT",
         "bbox_json": "ALTER TABLE pdf_visual_assets ADD COLUMN bbox_json TEXT",
         "width": "ALTER TABLE pdf_visual_assets ADD COLUMN width INTEGER",
         "height": "ALTER TABLE pdf_visual_assets ADD COLUMN height INTEGER",
         "extraction_status": "ALTER TABLE pdf_visual_assets ADD COLUMN extraction_status TEXT DEFAULT 'ok'",
         "error_message": "ALTER TABLE pdf_visual_assets ADD COLUMN error_message TEXT",
+    },
+    "pdf_equations": {
+        "candidate_kind": "ALTER TABLE pdf_equations ADD COLUMN candidate_kind TEXT NOT NULL DEFAULT 'display_equation'",
+    },
+    "multimodal_asset_queue": {
+        "asset_quality_score": "ALTER TABLE multimodal_asset_queue ADD COLUMN asset_quality_score REAL NOT NULL DEFAULT 0.5",
+        "quality_reason": "ALTER TABLE multimodal_asset_queue ADD COLUMN quality_reason TEXT",
+    },
+    "multimodal_evidence": {
+        "value_origin": "ALTER TABLE multimodal_evidence ADD COLUMN value_origin TEXT NOT NULL DEFAULT 'unclear'",
+        "benchmark_tier": "ALTER TABLE multimodal_evidence ADD COLUMN benchmark_tier TEXT NOT NULL DEFAULT 'all_traceable'",
     },
     "rag_jobs": {
         "use_llm": "ALTER TABLE rag_jobs ADD COLUMN use_llm INTEGER DEFAULT 1",
@@ -455,7 +666,8 @@ def init_database(db_path: str | Path | None = None) -> Path:
     target = Path(db_path) if db_path else get_settings().db_path
     target.parent.mkdir(parents=True, exist_ok=True)
 
-    with sqlite3.connect(target) as conn:
+    with sqlite3.connect(target, timeout=60) as conn:
+        conn.execute("PRAGMA busy_timeout = 60000")
         conn.executescript(SCHEMA_SQL)
         _apply_lightweight_migrations(conn)
         conn.executescript(INDEX_SQL)

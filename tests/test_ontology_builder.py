@@ -17,7 +17,7 @@ def test_build_ontology_writes_bundle_and_database_record(tmp_path):
 
     stats = build_ontology(output_dir=output_dir, db_path=db_path)
 
-    assert stats["version"] == "hfo2-ferrokg-v1"
+    assert stats["version"] == "hfo2-ferrokg-v2.3"
     assert stats["entity_count"] >= 10
     assert stats["relation_count"] >= 10
     assert stats["property_count"] >= 10
@@ -36,12 +36,12 @@ def test_ontology_requires_evidence_and_trace_fields(tmp_path):
     init_database(db_path)
 
     stats = build_ontology(output_dir=output_dir, db_path=db_path, record_run=False)
-    assert stats["version"] == "hfo2-ferrokg-v1"
+    assert stats["version"] == "hfo2-ferrokg-v2.3"
 
     bundle = json.loads((output_dir / "ontology_bundle.json").read_text(encoding="utf-8"))
     context = load_ontology_prompt_context(bundle=bundle)
 
-    assert "ontology_version: hfo2-ferrokg-v1" in context
+    assert "ontology_version: hfo2-ferrokg-v2.3" in context
     assert "evidence_text" in context
     assert "double_remanent_polarization_2Pr" in context
     assert "Never convert 2Pr into Pr" in context

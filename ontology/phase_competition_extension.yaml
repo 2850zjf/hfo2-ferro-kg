@@ -1,0 +1,175 @@
+version: hfo2-phase-competition-v0.1
+name: HfO2/HZO sample-level phase competition and evidence consistency extension
+status: proposed_isolated_extension_not_merged_into_production_ontology
+
+scope:
+  materials: [HfO2, HZO]
+  primary_outcomes: [monoclinic, orthorhombic, tetragonal]
+  primary_tasks:
+    - sample_level_phase_outcome
+    - phase_competition_boundary
+    - evidence_consistency_classification
+  auxiliary_targets: [remanent_polarization_Pr, double_remanent_polarization_2Pr]
+
+classes:
+  PhaseObservation:
+    description: A source-located structural observation for one identified sample and observation scope.
+    primary_key: phase_observation_id
+    fields:
+      sample_ref: {type: string, required: true}
+      paper_group: {type: string, required: true}
+      phase_labels:
+        type: list_enum
+        values: [monoclinic, orthorhombic, tetragonal]
+        required: true
+      observation_scope:
+        type: enum
+        values:
+          - dominant_bulk_average
+          - minority
+          - mixed_unquantified
+          - local_grain
+          - interface_local
+          - orientation_specific
+          - computed_structure
+          - unresolved
+        required: true
+      phase_fraction: {type: string, required: false}
+      characterization_method: {type: string, required: true}
+      spatial_resolution: {type: string, required: false}
+      detection_limit: {type: string, required: false}
+      orientation: {type: string, required: false}
+      source_type:
+        type: enum
+        values: [primary_experiment, primary_computation, secondary_citation, review_summary, unresolved]
+        required: true
+      evidence_ref: {type: string, required: true}
+      adjudication_status:
+        type: enum
+        values: [pending_human_annotation, annotated_single, needs_second_annotator, adjudicated, excluded]
+        required: true
+      uncertainty_notes: {type: string, required: false}
+
+  SampleConditionProfile:
+    description: Result-independent sample and measurement conditions used to determine comparability.
+    primary_key: condition_profile_id
+    fields:
+      sample_ref: {type: string, required: true}
+      material_system: {type: enum, values: [HfO2, HZO], required: true}
+      zr_fraction: {type: number, required: false, min: 0, max: 1}
+      film_thickness_nm: {type: number, required: false, min: 0}
+      deposition_method: {type: string, required: false}
+      substrate: {type: string, required: false}
+      top_electrode: {type: string, required: false}
+      bottom_electrode: {type: string, required: false}
+      device_stack: {type: string, required: false}
+      annealing_method: {type: string, required: false}
+      annealing_temperature_c: {type: number, required: false}
+      annealing_time_s: {type: number, required: false}
+      annealing_atmosphere: {type: string, required: false}
+      strain_state: {type: string, required: false}
+      cycling_state: {type: string, required: false}
+      measurement_temperature: {type: string, required: false}
+      measurement_frequency: {type: string, required: false}
+      electric_field: {type: string, required: false}
+      evidence_refs: {type: "list[string]", required: true}
+
+  SampleComparison:
+    description: A result-blind comparison of two cross-paper sample condition profiles.
+    primary_key: comparison_id
+    fields:
+      observation_a_ref: {type: string, required: true}
+      observation_b_ref: {type: string, required: true}
+      paper_group_a: {type: string, required: true}
+      paper_group_b: {type: string, required: true}
+      nominal_similarity: {type: number, required: true, min: 0, max: 1}
+      comparable_coverage: {type: number, required: true, min: 0, max: 1}
+      matched_conditions: {type: "list[string]", required: false}
+      differing_conditions: {type: "list[string]", required: false}
+      missing_conditions: {type: "list[string]", required: false}
+      phase_outcome_conflict: {type: boolean, required: true}
+      comparison_version: {type: string, required: true}
+
+  EvidenceConsistencyAssessment:
+    description: Human-adjudicated interpretation of a cross-paper phase outcome comparison.
+    primary_key: consistency_assessment_id
+    fields:
+      comparison_ref: {type: string, required: true}
+      classification:
+        type: enum
+        values:
+          - scientific_contradiction_candidate
+          - condition_explained_difference
+          - extraction_review_needed
+        required: true
+      explanation_codes: {type: "list[string]", required: true}
+      evidence_pair_refs: {type: "list[string]", required: true}
+      adjudication_status:
+        type: enum
+        values: [pending, needs_second_annotator, adjudicated, excluded]
+        required: true
+      annotators: {type: "list[string]", required: true}
+      uncertainty_notes: {type: string, required: false}
+
+  BenchmarkPaperPartition:
+    description: Locked DOI/paper grouping used to prevent train-validation leakage.
+    primary_key: paper_group
+    fields:
+      doi: {type: string, required: false}
+      paper_id: {type: string, required: true}
+      partition:
+        type: enum
+        values: [train, locked_validation]
+        required: true
+      lock_version: {type: string, required: true}
+      locked_at: {type: string, required: true}
+      selection_strata: {type: "list[string]", required: true}
+      selection_notes: {type: string, required: false}
+
+relations:
+  HAS_PHASE_OBSERVATION: {from: ThinFilmSample, to: PhaseObservation}
+  HAS_CONDITION_PROFILE: {from: ThinFilmSample, to: SampleConditionProfile}
+  COMPARES_PHASE_OBSERVATIONS: {from: SampleComparison, to: PhaseObservation}
+  ASSESSES_COMPARISON: {from: EvidenceConsistencyAssessment, to: SampleComparison}
+  SUPPORTED_BY_EVIDENCE: {from: PhaseObservation, to: Evidence}
+  ASSIGNED_TO_PARTITION: {from: Paper, to: BenchmarkPaperPartition}
+
+benchmark_contract:
+  group_key_priority: [normalized_doi, stable_paper_id]
+  allowed_gold_source_types: [primary_experiment]
+  required_gold_status: adjudicated
+  row_split_fallback: prohibited
+  primary_phase_labels: [monoclinic, orthorhombic, tetragonal]
+  multi_label_allowed: true
+  minimum_comparable_coverage_for_scientific_contradiction: 0.5
+  missing_condition_semantics: unknown_not_equal
+  metrics:
+    phase_task:
+      - macro_f1
+      - per_phase_precision_recall_f1
+      - multi_label_exact_match
+      - jaccard_score
+      - calibration_error_when_probabilities_exist
+    evidence_consistency_task:
+      - three_class_confusion_matrix
+      - macro_f1
+    auxiliary_pr_2pr:
+      - mae
+      - rmse
+      - r2
+
+computational_mechanism:
+  selected_mechanism: biaxial_strain_effect_on_o_t_m_relative_stability
+  target_descriptors:
+    - deltaE_o_m_meV_per_fu_by_strain
+    - deltaE_t_m_meV_per_fu_by_strain
+    - deltaE_o_t_meV_per_fu_by_strain
+  interpretation_boundary:
+    - Supports relative stability trends under specified zero-K DFT boundary conditions.
+    - Does not validate a specific annealing temperature or time.
+    - Does not directly validate experimental Pr or 2Pr.
+  prohibited_first_stage_extensions:
+    - oxygen_vacancy_mechanism_mixed_into_same_primary_story
+    - arbitrary_Hf_to_Zr_structure_substitution
+    - unregistered_HZO_configuration_selection
+

@@ -1,0 +1,13 @@
+{
+  "schema_version": "aliyun-connectivity-smoke-v0.1",
+  "run_date": "2026-08-24",
+  "provider": "aliyun_dashscope_openai_compatible",
+  "endpoint_host": "dashscope.aliyuncs.com",
+  "model_requested": "qwen3.8-max",
+  "model_returned": "qwen3.8-max",
+  "http_status": "ok",
+  "json_contract_ok": true,
+  "scientific_annotation_performed": false,
+  "api_credentials_written_to_output": false,
+  "interpretation": "Connectivity and model availability only; not a benchmark or annotation-quality result."
+}

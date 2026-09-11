@@ -15,9 +15,11 @@ from backend.core.config import PROJECT_ROOT
 from backend.services.design_graph import build_design_graph
 from backend.services.graph_builder import build_graph
 from backend.services.graph_visualizer import export_graph_html
+from app.support import render_top_nav
 
 
 st.set_page_config(page_title="知识图谱浏览", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("图谱浏览")
 
 st.markdown(
     """
@@ -42,18 +44,24 @@ st.markdown(
           linear-gradient(135deg, #F8F5FD 0%, #F6FAFC 52%, #EFE8E8 100%);
         color: var(--kg-text);
     }
-    header[data-testid="stHeader"] { background: transparent; }
+    header[data-testid="stHeader"], [data-testid="stHeader"], [data-testid="stToolbar"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+    }
     .block-container {
-        max-width: 1680px;
-        padding-top: 1.35rem;
-        padding-left: 1rem;
-        padding-right: 1rem;
+        width: min(1880px, calc(100vw - 56px)) !important;
+        max-width: none !important;
+        padding-top: 0.78rem;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
         padding-bottom: 2rem;
     }
     [data-testid="collapsedControl"] {
-        display: flex;
+        display: none !important;
     }
     [data-testid="stSidebar"] {
+        display: none !important;
         background: rgba(238, 243, 251, 0.92);
         border-right: 1px solid rgba(23, 32, 42, 0.08);
     }
@@ -254,7 +262,16 @@ def _graph_panel(
                 if st.button(f"重建 {title} CSV", use_container_width=True):
                     stats = rebuild_csv()
                     st.success(f"已重建：{stats.get('nodes', 0)} 个节点，{stats.get('edges', 0)} 条关系。")
-            components.html(html_path.read_text(encoding="utf-8"), height=1120, scrolling=False)
+            inline_canvas = st.toggle(
+                f"在当前页加载 {title} 交互画布（较慢）",
+                value=False,
+                key=f"inline_canvas_{title}",
+                help="默认关闭以保证顶部导航和页面切换足够快；需要在本页内操作图谱时再打开。",
+            )
+            if inline_canvas:
+                components.html(html_path.read_text(encoding="utf-8"), height=1120, scrolling=False)
+            else:
+                st.info("已启用轻量模式：图谱大画布不默认嵌入。点击“打开大画布”可在独立窗口查看完整交互图谱。")
         else:
             st.info("还没有生成 HTML 图谱。请点击上方按钮生成。")
 
@@ -267,9 +284,11 @@ def _graph_panel(
             st.write("主要节点类型：", " / ".join(top_types) if top_types else "暂无")
 
         with st.expander("节点 CSV 原始表", expanded=False):
-            st.dataframe(nodes, use_container_width=True)
+            st.caption("为保证页面响应速度，默认只预览前 500 行。完整数据请下载 CSV 或在数据目录中查看。")
+            st.dataframe(nodes.head(500), use_container_width=True)
         with st.expander("关系 CSV 原始表", expanded=False):
-            st.dataframe(edges, use_container_width=True)
+            st.caption("为保证页面响应速度，默认只预览前 500 行。完整数据请下载 CSV 或在数据目录中查看。")
+            st.dataframe(edges.head(500), use_container_width=True)
     else:
         st.info("尚未生成图谱 CSV。请先点击下方重建按钮。")
         if st.button(f"重建 {title} CSV", use_container_width=True):

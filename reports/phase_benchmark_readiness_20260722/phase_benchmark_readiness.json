@@ -1,0 +1,60 @@
+{
+  "status": "not_ready",
+  "metrics_status": "not_computed",
+  "raw_annotation_rows": 1000,
+  "accepted_rows": 0,
+  "accepted_paper_groups": 0,
+  "excluded_rows": 1000,
+  "exclusion_reason_counts": {
+    "invalid_or_unresolved_phase_label": 1000,
+    "invalid_or_unresolved_phase_scope": 1000,
+    "missing_annotator": 1000,
+    "not_adjudicated": 1000,
+    "not_primary_experiment": 1000,
+    "review_sample_conditions_must_be_json_object": 1000
+  },
+  "train_rows": 0,
+  "train_paper_groups": 0,
+  "locked_validation_rows": 0,
+  "locked_validation_paper_groups": 0,
+  "train_phase_group_counts": {
+    "m": 0,
+    "o": 0,
+    "t": 0
+  },
+  "validation_phase_group_counts": {
+    "m": 0,
+    "o": 0,
+    "t": 0
+  },
+  "unmatched_locked_groups": [],
+  "thresholds": {
+    "min_total_paper_groups": 30,
+    "min_train_groups_per_phase": 15,
+    "min_validation_groups_per_phase": 3
+  },
+  "criteria": {
+    "minimum_total_paper_groups": false,
+    "locked_validation_groups_provided": false,
+    "all_locked_groups_resolved": true,
+    "train_minimum_groups_per_phase": false,
+    "validation_minimum_groups_per_phase": false,
+    "zero_paper_group_leakage": true
+  },
+  "blockers": [
+    "minimum_total_paper_groups",
+    "locked_validation_groups_provided",
+    "train_minimum_groups_per_phase",
+    "validation_minimum_groups_per_phase"
+  ],
+  "split_policy": "DOI/paper-group locked; row fallback prohibited",
+  "interpretation_boundary": "This report contains no trained model and no performance metric.",
+  "benchmark_version": "phase-competition-benchmark-v0.1",
+  "annotation_path": "reports/phase_competition_readonly_snapshot_20260722/phase_observation_annotation_queue.csv",
+  "all_rows_path": "reports/phase_benchmark_readiness_20260722/phase_benchmark_all.csv",
+  "train_path": "reports/phase_benchmark_readiness_20260722/phase_benchmark_train.csv",
+  "locked_validation_path": "reports/phase_benchmark_readiness_20260722/phase_benchmark_locked_validation.csv",
+  "exclusions_path": "reports/phase_benchmark_readiness_20260722/phase_benchmark_exclusions.csv",
+  "selection_frame_path": "reports/phase_benchmark_readiness_20260722/locked_validation_selection_frame.csv",
+  "metric_protocol_path": "reports/phase_benchmark_readiness_20260722/phase_benchmark_metric_protocol.json"
+}

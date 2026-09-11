@@ -1,0 +1,10 @@
+job_id,phase,strain_factor,engineering_strain,target_in_plane_length_A,total_energy_eV,formula_units,energy_eV_per_fu,relative_energy_meV_per_fu,max_force_eV_A,in_plane_stress_kB,out_of_plane_stress_kB,electronic_converged,ionic_converged,post_relax_space_group,phase_identity_status,quality_status,notes
+monoclinic__biaxial_m0p0100,monoclinic,0.99,-0.01,5.024480001620209,,4,,,,,,,,,not_run,dry_run_no_result,
+monoclinic__biaxial_0p0000,monoclinic,1.0,0.0,5.075232324868899,,4,,,,,,,,,not_run,dry_run_no_result,
+monoclinic__biaxial_p0p0100,monoclinic,1.01,0.01,5.125984648117588,,4,,,,,,,,,not_run,dry_run_no_result,
+orthorhombic__biaxial_m0p0100,orthorhombic,0.99,-0.01,5.024480001620209,,4,,,,,,,,,not_run,dry_run_no_result,
+orthorhombic__biaxial_0p0000,orthorhombic,1.0,0.0,5.075232324868899,,4,,,,,,,,,not_run,dry_run_no_result,
+orthorhombic__biaxial_p0p0100,orthorhombic,1.01,0.01,5.125984648117588,,4,,,,,,,,,not_run,dry_run_no_result,
+tetragonal__biaxial_m0p0100,tetragonal,0.99,-0.01,5.024480001620209,,4,,,,,,,,,not_run,dry_run_no_result,
+tetragonal__biaxial_0p0000,tetragonal,1.0,0.0,5.075232324868899,,4,,,,,,,,,not_run,dry_run_no_result,
+tetragonal__biaxial_p0p0100,tetragonal,1.01,0.01,5.125984648117588,,4,,,,,,,,,not_run,dry_run_no_result,

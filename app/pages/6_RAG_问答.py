@@ -19,9 +19,11 @@ from backend.services.rag_job_service import (
     start_background_rag_job,
 )
 from backend.services.vector_store import build_lightweight_index
+from app.support import render_top_nav
 
 
-st.set_page_config(page_title="RAG 问答", layout="wide")
+st.set_page_config(page_title="RAG 问答", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("RAG 问答")
 st.title("RAG 问答")
 st.caption(
     "证据推理型 RAG：优先使用样品级关联事实和 benchmark 分层，再调用 LLM 组织答案。"

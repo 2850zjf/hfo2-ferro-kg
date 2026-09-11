@@ -10,7 +10,7 @@ from backend.core.config import PROJECT_ROOT
 
 PAUSE_PATH = PROJECT_ROOT / "data" / "runtime" / "llm_pause.json"
 
-_BUDGET_PATTERNS = [
+_PAUSE_PATTERNS = [
     "insufficient_quota",
     "quota exceeded",
     "quotaexceeded",
@@ -37,12 +37,33 @@ _BUDGET_PATTERNS = [
     "api-key",
 ]
 
+_TRANSIENT_PATTERNS = [
+    "503",
+    "serviceunavailable",
+    "service unavailable",
+    "internalerror.algo",
+    "request timed out",
+    "timed out",
+    "timeout",
+    "connection error",
+    "connectionerror",
+    "connection reset",
+    "temporarily unavailable",
+]
+
 
 def is_llm_budget_error(error_message: str | None) -> bool:
     text = str(error_message or "").lower()
     if not text:
         return False
-    return any(pattern in text for pattern in _BUDGET_PATTERNS)
+    return any(pattern in text for pattern in _PAUSE_PATTERNS)
+
+
+def is_llm_transient_error(error_message: str | None) -> bool:
+    text = str(error_message or "").lower()
+    if not text:
+        return False
+    return any(pattern in text for pattern in _TRANSIENT_PATTERNS)
 
 
 def write_llm_pause(reason: str, context: dict[str, Any] | None = None) -> Path:
@@ -53,7 +74,7 @@ def write_llm_pause(reason: str, context: dict[str, Any] | None = None) -> Path:
         "context": context or {},
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "resume_hint": (
-            "配置新的 API key 或额度恢复后，重新运行同一条 pipeline。"
+            "确认 API key、余额或明确限流状态恢复后，重新运行同一条 pipeline。"
             "已完成的 chunk 会保留，未完成的 chunk 会继续处理。"
         ),
     }

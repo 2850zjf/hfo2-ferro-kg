@@ -1,0 +1,28 @@
+{
+  "preannotation_version": "phase-llm-preannotation-v0.1",
+  "prompt_version": "phase-observation-preannotation-v0.1",
+  "status": "completed",
+  "input_queue_sha256": "2d89b0badb73d7c4edff062a2abc17ea893ff3b41863284288d535c1425a299f",
+  "input_rows": 1000,
+  "eligible_pending_rows": 1000,
+  "attempted_rows": 5,
+  "machine_status_counts": {
+    "suggested": 5
+  },
+  "machine_validation_flag_counts": {
+    "unsupported_condition_quote": 1
+  },
+  "human_gate_fields_modified": 0,
+  "benchmark_eligible_rows_created": 0,
+  "api_credentials_persisted": false,
+  "production_database_accessed": false,
+  "total_usage": {
+    "prompt_tokens": 4395,
+    "completion_tokens": 1309,
+    "total_tokens": 5704
+  },
+  "input_queue": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_observation_annotation_queue.csv",
+  "output_csv": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_llm_preannotation_pilot_20260824/phase_machine_preannotations.csv",
+  "output_jsonl": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_llm_preannotation_pilot_20260824/phase_machine_preannotations.jsonl",
+  "interpretation_boundary": "Machine suggestions are uncalibrated review aids, not adjudicated labels, benchmark truth, model metrics, or scientific conclusions."
+}

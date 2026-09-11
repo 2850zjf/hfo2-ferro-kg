@@ -14,9 +14,11 @@ if str(PROJECT_ROOT) not in sys.path:
 from backend.db.session import connect
 from backend.services.literature_discovery import DEFAULT_QUERIES, discover_literature
 from backend.services.open_access_downloader import download_open_access_pdfs
+from app.support import render_top_nav
 
 
-st.set_page_config(page_title="文献补充", layout="wide")
+st.set_page_config(page_title="文献补充", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("文献处理")
 st.title("文献补充")
 st.caption("只发现开放数据库中的论文候选，不自动下载学校订阅全文；候选确认后再进入 PDF 解析主流程。")
 

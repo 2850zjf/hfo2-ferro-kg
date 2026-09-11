@@ -19,6 +19,11 @@ NUMERIC_FEATURES = [
     "film_thickness_nm",
     "annealing_temperature_c",
     "annealing_time_s",
+    "phase_stability_score",
+    "oxygen_vacancy_risk",
+    "interface_oxygen_affinity",
+    "process_window_score",
+    "evidence_completeness_score",
 ]
 
 CATEGORICAL_FEATURES = [
@@ -27,8 +32,19 @@ CATEGORICAL_FEATURES = [
     "formula",
     "dopant_elements",
     "dopant_concentration",
+    "composition_descriptor",
+    "layer_sequence",
+    "superlattice_period",
     "deposition_method",
     "annealing_atmosphere",
+    "annealing_method",
+    "oxygen_partial_pressure",
+    "oxygen_vacancy_context",
+    "oxygen_reservoir",
+    "interface_layer",
+    "interface_termination",
+    "growth_orientation",
+    "strain_state",
     "top_electrode",
     "bottom_electrode",
     "electrode_stack",
@@ -36,6 +52,9 @@ CATEGORICAL_FEATURES = [
     "device_type",
     "phase_name",
     "space_group",
+    "phase_fraction",
+    "crystal_orientation",
+    "domain_orientation",
     "wake_up_or_endurance_state",
     "source",
     "review_status",
@@ -130,7 +149,7 @@ def train_design_models(
     db_path: Path | None = None,
 ) -> dict[str, Any]:
     from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-    from sklearn.model_selection import train_test_split
+    from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
     df, source_path = _load_or_build_dataset(dataset_path)
     out_dir = output_dir or PROJECT_ROOT / "models" / "design_models"
@@ -167,12 +186,24 @@ def train_design_models(
             )
             continue
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X,
-            y,
-            test_size=holdout,
-            random_state=random_state,
-        )
+        groups = subset.get("paper_id", subset.get("pdf_id", pd.Series(subset.index, index=subset.index)))
+        groups = groups.fillna("").astype(str)
+        if groups.nunique() >= 2:
+            splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+            train_index, test_index = next(splitter.split(X, y, groups))
+            X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+            y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+            split_name = "paper_group_holdout"
+            group_overlap = len(set(groups.iloc[train_index]) & set(groups.iloc[test_index]))
+        else:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X,
+                y,
+                test_size=holdout,
+                random_state=random_state,
+            )
+            split_name = "row_holdout_fallback"
+            group_overlap = None
         pipeline = _make_pipeline(random_state=random_state)
         pipeline.fit(X_train, y_train)
         predictions = pipeline.predict(X_test)
@@ -199,6 +230,8 @@ def train_design_models(
                 "rows": row_count,
                 "train_rows": len(X_train),
                 "test_rows": len(X_test),
+                "split": split_name,
+                "group_overlap": group_overlap,
                 "mae": mae,
                 "rmse": mse**0.5,
                 "r2": r2,

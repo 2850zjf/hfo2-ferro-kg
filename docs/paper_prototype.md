@@ -8,19 +8,19 @@ How can HfO2/HZO ferroelectric literature be converted into a sample-level, evid
 
 ## Core Contributions
 
-1. Ontology-first extraction: 用 HfO2 领域本体约束材料、样品、工艺、相结构、器件和性能抽取。
-2. Sample-property linking: 以 `sample_property_links` 为论文主数据表，把 Pr/2Pr 等性能绑定到厚度、退火、电极、相结构和证据页码。
-3. Tiered benchmark: 固定输出 `strong_only`、`strong_partial`、`all_traceable` 三层数据集，论文主结果优先使用 `strong_only` 和 `strong_partial`。
-4. Evidence-grounded RAG: RAG 回答必须回到 fact/link id、论文、页码、证据句和样品条件。
-5. Baseline design model: 以 Pr 和 2Pr 为第一目标，报告 strong_only 上的 MAE、RMSE、R2 和相对 baseline improvement。
-6. Computational feedback planning: 把证据约束设计建议转化为 DFT、氧空位、界面、相场和动力学计算任务，并定义 KG/benchmark 回写字段。
+1. Ontology-first extraction: 用 HfO2 领域本体约束材料、样品、工艺、相结构、器件、可靠性、机理和计算描述符抽取。
+2. Multimodal evidence alignment: 用页面坐标连接正文、表格、图片、图注和公式，并阻止图中目测值直接进入强 benchmark。
+3. Sample-property linking: 以 `sample_property_links` 为论文主数据表，把性能和可靠性结果绑定到厚度、退火、电极、相结构、状态和证据页码。
+4. Tiered benchmark: 固定输出 `strong_only`、`strong_partial`、`all_traceable` 三层数据集，论文主结果优先使用前两层。
+5. Hybrid evidence RAG: 结构化事实检索结合正文、表格、图注、公式和多模态语义向量，回答必须回到来源和页码。
+6. Validation and computation loop: Pr/2Pr 作为首个可量化验证锚点，同时扩展可靠性、机理与计算描述符，并把候选转化为 DFT/TEFS 任务和结果回写。
 
 ## Method Figure
 
 ```mermaid
 flowchart TD
-    A["Local HfO2/HZO PDFs"] --> B["Page text, tables, captions"]
-    B --> C["Ontology-first schema extraction"]
+    A["Local HfO2/HZO PDFs"] --> B["Text, tables, figures, captions, equations"]
+    B --> C["Ontology-first text and multimodal extraction"]
     C --> D["Reviewed facts"]
     C --> E["Benchmark extractions"]
     D --> F["Sample-property linking"]
@@ -34,20 +34,26 @@ flowchart TD
     M --> N["Computed descriptors write back"]
     N --> I
     N --> H
-    I --> L["Evidence-grounded RAG"]
+    B --> V["Hybrid semantic vector index"]
+    V --> L["Evidence-grounded RAG"]
+    I --> L
 ```
 
 ## Current Baseline
 
 | Metric | Value |
 | --- | ---: |
-| PDF records | 584 |
-| Parsed PDFs | 582 |
-| Parsed pages | 8595 |
-| Tables | 1231 |
-| Document chunks | 22526 |
-| Extraction candidates | 16630 |
-| Reviewed facts | 4153 |
+| PDF records | 1172 |
+| Parsed PDFs | 1120 |
+| Parsed pages | 14560 |
+| Tables | 2178 |
+| Images | 13712 |
+| Geometric figure captions | 8267 |
+| Equation candidates | 11774 |
+| Document chunks | 39417 |
+| High-value chunks | 27681 |
+| publication v2.3 evidence chunks | 25661 |
+| Reviewed facts | 3876 |
 | Benchmark extractions | 21785 |
 | Sample-property links | 20633 |
 | Strong sample-property links | 6133 |
@@ -56,10 +62,12 @@ flowchart TD
 | LLM literature cards | 584 |
 | LLM chunk labels | 17177 |
 | AI fact audits | 4180 |
-| Design dataset rows | 12297 |
-| strong_only rows | 992 |
-| strong_partial rows | 4731 |
-| all_traceable rows | 12168 |
+| Design dataset rows | 18122 |
+| strong_only rows | 2104 |
+| strong_partial rows | 9079 |
+| all_traceable rows | 17913 |
+| PaddleOCR Markdown completed | 0 |
+| Semantic embedding smoke | 10 / 46831 planned documents |
 
 ## Primary Result Tables
 
@@ -110,6 +118,9 @@ DASHSCOPE_API_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 
 - `pytest` passes.
 - `python3 pipelines/10_validate_results.py` produces evidence and anomaly checks.
+- `python3 pipelines/60_audit_corpus_coverage.py` freezes corpus and multimodal coverage counts.
+- `python3 pipelines/52_build_publication_extraction_queue.py` refreshes the v2.3 publication queue.
+- `python3 pipelines/61_build_semantic_vector_index.py` builds the resumable full semantic index after extraction is frozen.
 - `python3 pipelines/21_build_design_dataset.py` refreshes the design dataset.
 - `python3 pipelines/29_build_benchmark_tiers.py` refreshes benchmark tiers.
 - `python3 pipelines/30_train_tiered_design_models.py --targets remanent_polarization_Pr,double_remanent_polarization_2Pr` refreshes primary model metrics.

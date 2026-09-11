@@ -1,0 +1,92 @@
+{
+  "job_id": "tetragonal__biaxial_m0p0100",
+  "phase": "tetragonal",
+  "expected_space_group_number": 137,
+  "expected_space_group_symbol": "P4_2/nmc",
+  "source_sha256": "00f700b91decd07961cbb09b7e1cf96c3f2c2412887b26e454eb135958250ab8",
+  "poscar_relative_path": "jobs/tetragonal/biaxial_m0p0100/POSCAR",
+  "poscar_sha256": "c75a1144d4f69c41e1e1baa453a5103e5d554c5d394d6b23b184134e27345d02",
+  "atoms": 12,
+  "formula_units": 4,
+  "strain_factor": 0.99,
+  "engineering_strain": -0.01,
+  "mapping": {
+    "integer_supercell_matrix": [
+      [
+        1,
+        1,
+        0
+      ],
+      [
+        -1,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        1
+      ]
+    ],
+    "translation_representatives": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        0,
+        0
+      ]
+    ],
+    "source_or_supercell_in_plane_lengths_A": [
+      5.075232324868899,
+      5.075232324868898
+    ],
+    "source_or_supercell_in_plane_gamma_deg": 90.0,
+    "source_to_target_axis_scale": [
+      0.99,
+      0.9900000000000001
+    ],
+    "lattice_row_scaling_matrix": [
+      [
+        0.99,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.9900000000000001,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "target_in_plane_length_A": 5.024480001620209,
+    "target_in_plane_gamma_deg": 90.0,
+    "out_of_plane_vector_policy": "copied unchanged from the source/comparable supercell",
+    "fractional_coordinate_policy": "copied after exact integer-cell remapping; no invented displacement",
+    "minimum_periodic_distance_A": 2.0470000088994875
+  },
+  "constraint_strategy": "fixed_all_lattice_vectors_ionic_relaxation_ISIF_2",
+  "execution_status": "prepared_not_executed",
+  "publication_ready": false,
+  "publication_blockers": [
+    "The manually downloaded crystallographic source DOI/repository record and redistribution licence are not frozen in this package.",
+    "The builder checks source symmetry with phase-specific operation/motif contracts, not spglib. The frozen unrelaxed generated POSCAR hashes passed one separate spglib precheck, but every relaxed output still requires repeat independent SG verification.",
+    "The common (001) orientation is a preregistered pilot choice and is not yet justified as the experimentally selected epitaxial relationship.",
+    "ISIF=2 fixes all lattice vectors. A validated out-of-plane and shear relaxation protocol is required before publication-grade epitaxial energies are claimed.",
+    "The factor-1 reference imposes phase-dependent coherent prestrain on m and o; it is not each phase's zero-stress equilibrium state.",
+    "POTCAR is deliberately absent. PAW dataset identity and hashes must be frozen on the licensed machine and kept identical across all jobs.",
+    "ENCUT, k-point density, smearing, force/stress tolerances, functional, and precision require convergence studies shared across phases.",
+    "Three factors (0.99, 1.00, 1.01) are a smoke-test pilot and are insufficient to fit a robust phase-boundary crossing.",
+    "Every relaxed structure requires phase-identity, minimum-distance, stress, force, electronic, and ionic convergence checks before energy comparison.",
+    "Energies must be normalized to four HfO2 formula units and compared only after identical settings and successful static calculations.",
+    "Zero-kelvin DFT trends cannot validate a specific experimental annealing temperature, annealing time, phase fraction, Pr, or 2Pr.",
+    "The parent TEFS calculation was a method smoke test and was not a publication-grade polymorph benchmark."
+  ]
+}

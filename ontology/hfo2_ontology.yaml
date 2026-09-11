@@ -1,11 +1,12 @@
-version: hfo2-ferrokg-v1
-name: HfO2-FerroKG Data Ontology
+version: hfo2-ferrokg-v2.3
+name: HfO2-FerroKG Multimodal Evidence Ontology
 domain: HfO2-based ferroelectric materials
 scope:
   included:
     - HfO2, HZO, and doped hafnia ferroelectric materials
     - thin-film samples, capacitors, FeFETs, FTJs, and related device stacks
     - material-process-phase-property-evidence facts from local PDF literature
+    - page-grounded tables, figures, equations, and multimodal observations
   excluded:
     - BaTiO3, PZT, BiFeO3, and non-hafnia ferroelectrics unless used only as context
     - unsupported claims without page-level evidence
@@ -21,6 +22,16 @@ source_policy:
     - evidence_text
     - ontology_version
     - extractor_version
+
+  multimodal_required_trace_fields:
+    - paper_id
+    - pdf_id
+    - page_number
+    - source_type
+    - asset_id
+    - bbox_json
+    - model_name
+    - ontology_version
 
 node_classes:
   Paper:
@@ -52,6 +63,93 @@ node_classes:
       parse_quality_score: {type: number, required: false}
       ocr_needed: {type: boolean, required: true}
 
+  TableAsset:
+    description: A structured or image-derived table grounded to one PDF page.
+    primary_key: table_id
+    fields:
+      table_id: {type: string, required: true}
+      paper_id: {type: string, required: true}
+      pdf_id: {type: string, required: true}
+      page_number: {type: integer, required: true}
+      table_index: {type: integer, required: true}
+      caption_text: {type: string, required: false}
+      table_text: {type: string, required: false}
+      row_count: {type: integer, required: false}
+      col_count: {type: integer, required: false}
+      extraction_method: {type: string, required: true}
+      quality_status: {type: string, required: true}
+
+  FigureAsset:
+    description: A figure, panel, micrograph, chart, diffraction pattern, or schematic extracted from a PDF page.
+    primary_key: asset_id
+    fields:
+      asset_id: {type: string, required: true}
+      paper_id: {type: string, required: true}
+      pdf_id: {type: string, required: true}
+      page_number: {type: integer, required: true}
+      figure_label: {type: string, required: false}
+      caption_text: {type: string, required: false}
+      image_path: {type: string, required: true}
+      bbox_json: {type: string, required: false}
+      visual_type:
+        type: enum
+        values: [plot, hysteresis_loop, diffraction_pattern, micrograph, phase_map, device_schematic, process_schematic, calculation_plot, table_image, other, unknown]
+        required: true
+      quality_status: {type: string, required: true}
+
+  Equation:
+    description: A page-grounded mathematical expression preserved as text, crop, and validated LaTeX when available.
+    primary_key: equation_id
+    fields:
+      equation_id: {type: string, required: true}
+      paper_id: {type: string, required: true}
+      pdf_id: {type: string, required: true}
+      page_number: {type: integer, required: true}
+      equation_label: {type: string, required: false}
+      raw_text: {type: string, required: false}
+      latex_text: {type: string, required: false}
+      image_path: {type: string, required: true}
+      bbox_json: {type: string, required: true}
+      candidate_kind:
+        type: enum
+        values: [display_equation, inline_equation]
+        required: true
+      equation_role:
+        type: enum
+        values: [free_energy, constitutive_relation, kinetics, transport, reliability, device_model, normalization, computational_descriptor, other, unknown]
+        required: true
+      variables: {type: "list[string]", required: false}
+      validation_status: {type: string, required: true}
+
+  VisualObservation:
+    description: A model- or human-interpreted observation grounded in a table, figure, or equation asset.
+    primary_key: observation_id
+    fields:
+      observation_id: {type: string, required: true}
+      source_asset_id: {type: string, required: true}
+      observation_type:
+        type: enum
+        values: [numeric_value, trend, comparison, phase_evidence, morphology, device_stack, process_condition, mechanism, computational_result, application, other]
+        required: true
+      description: {type: string, required: true}
+      material_ref: {type: string, required: false}
+      sample_ref: {type: string, required: false}
+      series_or_panel: {type: string, required: false}
+      raw_value_text: {type: string, required: false}
+      value: {type: number, required: false}
+      unit: {type: string, required: false}
+      condition: {type: string, required: false}
+      value_origin:
+        type: enum
+        values: [table_cell, axis_label, caption_text, body_text, visual_estimate, equation_symbol, derived, not_applicable, unclear]
+        required: true
+      evidence_scope:
+        type: enum
+        values: [primary_experiment, primary_computation, cited_secondary, review_summary, unclear]
+        required: true
+      confidence: {type: number, required: true, min: 0, max: 1}
+      evidence_text: {type: string, required: true}
+
   HafniaMaterial:
     description: HfO2-based ferroelectric material or composition family.
     primary_key: material_id
@@ -67,6 +165,9 @@ node_classes:
       dopant_elements: {type: "list[string]", required: false}
       dopant_concentration: {type: string, required: false}
       zr_fraction: {type: number, required: false, min: 0, max: 1}
+      composition_descriptor: {type: string, required: false}
+      layer_sequence: {type: string, required: false}
+      superlattice_period: {type: string, required: false}
       evidence_text: {type: string, required: true}
 
   ThinFilmSample:
@@ -84,6 +185,14 @@ node_classes:
       annealing_temperature_c: {type: number, required: false}
       annealing_time_s: {type: number, required: false}
       annealing_atmosphere: {type: string, required: false}
+      annealing_method: {type: string, required: false}
+      oxygen_partial_pressure: {type: string, required: false}
+      oxygen_vacancy_context: {type: string, required: false}
+      oxygen_reservoir: {type: string, required: false}
+      interface_layer: {type: string, required: false}
+      interface_termination: {type: string, required: false}
+      growth_orientation: {type: string, required: false}
+      strain_state: {type: string, required: false}
       sample_form:
         type: enum
         values: [thin_film, capacitor, FeFET, FTJ, nanolaminate, superlattice, bulk, unknown]
@@ -109,6 +218,24 @@ node_classes:
       annealing_atmosphere: {type: string, required: false}
       evidence_text: {type: string, required: true}
 
+  ProcessStep:
+    description: An ordered deposition, annealing, interface, patterning, or measurement step.
+    primary_key: process_step_id
+    fields:
+      step_order: {type: integer, required: false}
+      step_type:
+        type: enum
+        values: [deposition, annealing, electrode_deposition, patterning, interface_treatment, measurement, other]
+        required: true
+      method: {type: string, required: false}
+      precursors: {type: "list[string]", required: false}
+      temperature_c: {type: number, required: false}
+      time_s: {type: number, required: false}
+      atmosphere: {type: string, required: false}
+      pressure: {type: string, required: false}
+      condition: {type: string, required: false}
+      evidence_text: {type: string, required: true}
+
   PhaseStructure:
     description: Crystal phase, space group, and characterization method.
     primary_key: phase_id
@@ -120,6 +247,7 @@ node_classes:
       space_group: {type: string, required: false}
       phase_fraction: {type: string, required: false}
       crystal_orientation: {type: string, required: false}
+      domain_orientation: {type: string, required: false}
       characterization_method: {type: string, required: false}
       evidence_text: {type: string, required: true}
 
@@ -150,6 +278,9 @@ node_classes:
         values: [capacitor, FeCAP, FeFET, FTJ, FeRAM, memristor, ReFET, unknown]
         required: true
       device_stack: {type: string, required: false}
+      channel_material: {type: string, required: false}
+      gate_stack: {type: string, required: false}
+      area: {type: string, required: false}
       evidence_text: {type: string, required: true}
 
   FerroelectricProperty:
@@ -172,15 +303,42 @@ node_classes:
           - fatigue
           - breakdown_field
           - band_gap
+          - imprint_voltage
+          - dielectric_loss
+          - negative_capacitance
+          - switched_polarization_fraction
+          - polarization_change_DeltaP
+          - switching_time
+          - on_off_ratio
+          - threshold_voltage_shift
+          - subthreshold_swing
+          - grain_size
+          - phase_fraction
+          - oxygen_vacancy_concentration
+          - vacancy_formation_energy
+          - vacancy_migration_barrier
+          - phase_energy_difference
+          - switching_energy_barrier
+          - computed_polarization
+          - interface_energy
+          - other_hafnia_property
         required: true
       raw_property_name: {type: string, required: true}
+      raw_value_text: {type: string, required: false}
       value: {type: number, required: false}
+      value_min: {type: number, required: false}
+      value_max: {type: number, required: false}
+      comparison_operator:
+        type: enum
+        values: [eq, lt, le, gt, ge, approx, range, unknown]
+        required: true
       unit: {type: string, required: false}
       normalized_value: {type: number, required: false}
       normalized_unit: {type: string, required: false}
       measurement_temperature: {type: string, required: false}
       measurement_frequency: {type: string, required: false}
       electric_field: {type: string, required: false}
+      measurement_state: {type: string, required: false}
       cycle_number: {type: number, required: false}
       is_reported_value: {type: boolean, required: true}
       is_derived_value: {type: boolean, required: true}
@@ -188,40 +346,134 @@ node_classes:
       confidence: {type: number, required: true, min: 0, max: 1}
       evidence_text: {type: string, required: true}
 
+  ReliabilityEvent:
+    description: A condition-bound wake-up, fatigue, endurance, retention, imprint, breakdown, recovery, or variability observation.
+    primary_key: reliability_event_id
+    fields:
+      phenomenon:
+        type: enum
+        values: [wake_up, fatigue, endurance, retention, imprint, breakdown, leakage_degradation, variability, recovery, other]
+        required: true
+      metric_name: {type: string, required: false}
+      initial_value: {type: number, required: false}
+      final_value: {type: number, required: false}
+      unit: {type: string, required: false}
+      cycle_count: {type: number, required: false}
+      elapsed_time_s: {type: number, required: false}
+      stress_voltage: {type: string, required: false}
+      electric_field: {type: string, required: false}
+      pulse_width: {type: string, required: false}
+      temperature: {type: string, required: false}
+      trend: {type: string, required: true}
+      failure_mode: {type: string, required: false}
+      evidence_text: {type: string, required: true}
+
+  MechanismClaim:
+    description: An evidence-scoped causal, correlational, hypothetical, or computed mechanism claim.
+    primary_key: mechanism_id
+    fields:
+      mechanism_type: {type: string, required: true}
+      driver: {type: string, required: false}
+      outcome: {type: string, required: true}
+      affected_entity: {type: string, required: false}
+      relation_nature: {type: string, required: true}
+      direction: {type: string, required: true}
+      confidence: {type: number, required: true, min: 0, max: 1}
+      evidence_text: {type: string, required: true}
+
+  ComputationalObservation:
+    description: A computed descriptor with enough method and reference-state provenance to reproduce or compare it.
+    primary_key: computation_observation_id
+    fields:
+      method_family: {type: string, required: true}
+      code_or_model: {type: string, required: false}
+      functional: {type: string, required: false}
+      pseudopotential: {type: string, required: false}
+      structure_or_phase: {type: string, required: false}
+      defect_type: {type: string, required: false}
+      charge_state: {type: string, required: false}
+      strain: {type: string, required: false}
+      electric_field: {type: string, required: false}
+      temperature: {type: string, required: false}
+      descriptor_name: {type: string, required: true}
+      value: {type: number, required: false}
+      unit: {type: string, required: false}
+      reference_state: {type: string, required: false}
+      conclusion: {type: string, required: false}
+      evidence_text: {type: string, required: true}
+
+  ApplicationClaim:
+    description: A device or application use case and its condition-bound figure of merit.
+    primary_key: application_claim_id
+    fields:
+      device_type: {type: string, required: false}
+      application: {type: string, required: true}
+      target_metric: {type: string, required: false}
+      value: {type: number, required: false}
+      unit: {type: string, required: false}
+      operating_condition: {type: string, required: false}
+      evidence_text: {type: string, required: true}
+
   Evidence:
-    description: Text, table, figure caption, metadata, or manual evidence supporting a fact.
+    description: Text or multimodal evidence supporting a fact with a resolvable source locator.
     primary_key: evidence_id
     fields:
       paper_id: {type: string, required: true}
       pdf_id: {type: string, required: true}
       chunk_id: {type: string, required: false}
+      asset_id: {type: string, required: false}
+      bbox_json: {type: string, required: false}
       page_number: {type: integer, required: false}
       evidence_text: {type: string, required: true}
       source_type:
         type: enum
-        values: [text, table, figure_caption, abstract, metadata, manual]
+        values: [text, table, figure, figure_caption, equation, page_image, paddleocr_markdown, abstract, metadata, multimodal, manual]
         required: true
       extraction_method:
         type: enum
-        values: [rules, llm, hybrid, manual]
+        values: [rules, llm, hybrid, pdfplumber, pymupdf, paddleocr_vl, qwen_vl, qwen_ocr, manual]
         required: true
+      model_name: {type: string, required: false}
+      validation_status: {type: string, required: true}
+      is_primary_evidence: {type: boolean, required: true}
       confidence: {type: number, required: true, min: 0, max: 1}
 
 relation_classes:
   HAS_PDF: {from: Paper, to: PDFFile}
+  HAS_TABLE: {from: PDFFile, to: TableAsset}
+  HAS_FIGURE: {from: PDFFile, to: FigureAsset}
+  HAS_EQUATION: {from: PDFFile, to: Equation}
+  HAS_VISUAL_OBSERVATION: {from: FigureAsset, to: VisualObservation}
+  TABULATES_OBSERVATION: {from: TableAsset, to: VisualObservation}
+  DEFINES_OBSERVATION: {from: Equation, to: VisualObservation}
   REPORTS: {from: Paper, to: HafniaMaterial}
   HAS_SAMPLE: {from: HafniaMaterial, to: ThinFilmSample}
   HAS_DOPANT: {from: HafniaMaterial, to: Dopant}
   FABRICATED_BY: {from: ThinFilmSample, to: FabricationProcess}
+  HAS_PROCESS_STEP: {from: ThinFilmSample, to: ProcessStep}
+  NEXT_STEP: {from: ProcessStep, to: ProcessStep}
   HAS_TOP_ELECTRODE: {from: ThinFilmSample, to: Electrode}
   HAS_BOTTOM_ELECTRODE: {from: ThinFilmSample, to: Electrode}
   ON_SUBSTRATE: {from: ThinFilmSample, to: Substrate}
   HAS_PHASE: {from: ThinFilmSample, to: PhaseStructure}
   USED_IN: {from: ThinFilmSample, to: Device}
   HAS_PROPERTY: {from: ThinFilmSample, to: FerroelectricProperty}
+  HAS_RELIABILITY_EVENT: {from: ThinFilmSample, to: ReliabilityEvent}
+  EXPLAINED_BY: {from: ThinFilmSample, to: MechanismClaim}
+  HAS_COMPUTED_DESCRIPTOR: {from: HafniaMaterial, to: ComputationalObservation}
+  TARGETS_APPLICATION: {from: ThinFilmSample, to: ApplicationClaim}
+  MODULATES: {from: FabricationProcess, to: FerroelectricProperty}
+  STABILIZES: {from: MechanismClaim, to: PhaseStructure}
+  DESTABILIZES: {from: MechanismClaim, to: PhaseStructure}
+  VALIDATED_BY: {from: MechanismClaim, to: ComputationalObservation}
+  CONTRADICTS: {from: Evidence, to: Evidence}
   SUPPORTED_BY: {from: FerroelectricProperty, to: Evidence}
   FROM_PAPER: {from: Evidence, to: Paper}
   COMPARED_WITH: {from: FerroelectricProperty, to: FerroelectricProperty}
+  DOCUMENTS_SAMPLE: {from: FigureAsset, to: ThinFilmSample}
+  TABULATES_PROPERTY: {from: TableAsset, to: FerroelectricProperty}
+  DEFINES_DESCRIPTOR: {from: Equation, to: ComputationalObservation}
+  SUPPORTED_BY_VISUAL: {from: MechanismClaim, to: VisualObservation}
 
 controlled_vocabularies:
   deposition_methods: [ALD, sputtering, PLD, CSD, sol-gel, MOCVD, unknown]
@@ -260,6 +512,15 @@ property_normalization:
   memory_window:
     canonical_unit: V
     aliases: [memory window]
+  negative_capacitance:
+    canonical_unit: "μF/cm²"
+    aliases: [negative capacitance, NC capacitance]
+  switched_polarization_fraction:
+    canonical_unit: fraction
+    aliases: [switched polarization fraction, polarization switching fraction]
+  polarization_change_DeltaP:
+    canonical_unit: "μC/cm²"
+    aliases: [polarization change, DeltaP, ΔP]
 
 extraction_contract:
   chunk_selection:
@@ -286,6 +547,9 @@ extraction_contract:
     - Treat values from review articles as secondary until manually verified.
     - Keep raw value, raw unit, normalized value, normalized unit, and evidence.
     - Mark figure-estimated values and ambiguous sample-property links as needs_human_review.
+    - Keep raw table cells, original figure crops, and equation crops even when semantic extraction fails.
+    - Never treat a figure trend, table value, or equation variable as a fact without its asset ID and page number.
+    - Separate primary experiment, primary computation, cited secondary evidence, and review summaries.
 
 review_statuses:
   pending: Candidate created but not yet preaudited.
@@ -299,10 +563,16 @@ workflow_order:
   - 01_build_manifest
   - 02_parse_pdfs
   - 03_extract_tables
+  - 15_extract_visual_assets
+  - 58_link_visual_assets
+  - 55_extract_equation_assets
   - 04_chunk_documents
+  - 56_build_multimodal_queue
+  - 57_extract_multimodal_semantics
   - 05_run_extraction
   - 06_normalize_facts
   - 07_build_graph
-  - 08_build_vector_index
+  - 08_build_hybrid_vector_index
+  - 29_build_benchmark_tiers
   - 09_export_reports
   - 10_validate_results

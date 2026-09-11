@@ -101,6 +101,9 @@ def database_counts(db_path: Path | None = None) -> dict[str, int]:
         "ai_fact_audits": "SELECT COUNT(*) FROM ai_fact_audits WHERE status = 'ok'",
         "ai_usable_for_model": "SELECT COUNT(*) FROM ai_fact_audits WHERE ai_review_status = 'usable_for_model'",
         "ai_needs_review": "SELECT COUNT(*) FROM ai_fact_audits WHERE ai_review_status = 'needs_human_review'",
+        "computation_jobs": "SELECT COUNT(*) FROM computation_jobs",
+        "computation_jobs_prepared": "SELECT COUNT(*) FROM computation_jobs WHERE status = 'prepared'",
+        "computation_results": "SELECT COUNT(*) FROM computation_results",
     }
     with connect(db_path) as conn:
         for key, sql in queries.items():
@@ -342,6 +345,8 @@ def token_usage(
 
 
 def active_pipeline_processes() -> list[dict[str, str | int]]:
+    if os.name != "nt":
+        return _active_pipeline_processes_posix()
     command = """
 Get-CimInstance Win32_Process |
 Where-Object {
@@ -412,6 +417,53 @@ ConvertTo-Json -Compress
     return rows
 
 
+def _active_pipeline_processes_posix() -> list[dict[str, str | int]]:
+    try:
+        result = subprocess.run(
+            ["ps", "-axo", "pid=,lstart=,command="],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=8,
+        )
+    except Exception:
+        return []
+    return _parse_posix_process_output(result.stdout)
+
+
+def _parse_posix_process_output(output: str) -> list[dict[str, str | int]]:
+    rows: list[dict[str, str | int]] = []
+    for line in output.splitlines():
+        parts = line.strip().split(None, 6)
+        if len(parts) < 7:
+            continue
+        try:
+            pid = int(parts[0])
+        except ValueError:
+            continue
+        if pid == os.getpid():
+            continue
+        command_line = parts[6]
+        if not any(pattern in command_line for pattern in WATCH_PATTERNS):
+            continue
+        try:
+            started = datetime.strptime(" ".join(parts[1:6]), "%a %b %d %H:%M:%S %Y")
+            started_at = started.isoformat(timespec="seconds")
+        except ValueError:
+            started_at = ""
+        rows.append(
+            {
+                "pid": pid,
+                "name": Path(command_line.split()[0]).name if command_line.split() else "process",
+                "task": infer_task_name(command_line),
+                "command": command_line,
+                "started_at": started_at,
+            }
+        )
+    return rows
+
+
 def infer_task_name(command_line: str) -> str:
     for pattern in WATCH_PATTERNS:
         if pattern in command_line:
@@ -424,7 +476,7 @@ def latest_logs(limit: int = 8) -> list[dict[str, Any]]:
     if not log_dir.exists():
         return []
     files = sorted(
-        [path for path in log_dir.glob("*.log") if path.is_file()],
+        [path for path in log_dir.rglob("*.log") if path.is_file()],
         key=lambda path: path.stat().st_mtime,
         reverse=True,
     )[:limit]
@@ -434,7 +486,7 @@ def latest_logs(limit: int = 8) -> list[dict[str, Any]]:
             "path": str(path),
             "size": path.stat().st_size,
             "modified": path.stat().st_mtime,
-            "tail": tail_file(path),
+            "tail": _current_run_log_text(tail_file(path)),
             "progress": parse_progress_from_log(path),
             "runtime": parse_runtime_from_log(path),
         }
@@ -455,8 +507,23 @@ def tail_file(path: Path, max_chars: int = 5000) -> str:
         return f"无法读取日志：{exc}"
 
 
+def _current_run_log_text(text: str) -> str:
+    starts = list(STEP_START_RE.finditer(text))
+    if not starts:
+        return text
+    return text[starts[-1].start() :]
+
+
 def parse_progress_from_log(path: Path) -> dict[str, int | str]:
-    text = tail_file(path, max_chars=12000)
+    raw_text = tail_file(path, max_chars=12000)
+    starts = list(STEP_START_RE.finditer(raw_text))
+    text = _current_run_log_text(raw_text)
+    if starts:
+        # A phase log can contain several interrupted/resumed runs. Only parse
+        # progress emitted after the latest start marker so an old run cannot
+        # make a freshly resumed phase look further along than it really is.
+        marker = starts[-1].group(0)
+        text = text[len(marker) :]
     parsers = [
         ("structured_llm", LLM_PROGRESS_RE),
         ("benchmark_llm", BENCHMARK_PROGRESS_RE),
@@ -497,7 +564,14 @@ def _active_step(starts: list[re.Match[str]], ends: dict[str, re.Match[str]]) ->
     return starts[-1]
 
 
-def _progress_total(progress_type: str | None, processed: int) -> int | None:
+def _progress_total(
+    progress_type: str | None,
+    processed: int,
+    log_path: Path | None = None,
+) -> int | None:
+    publication_total = _publication_queue_total(log_path)
+    if progress_type == "structured_llm" and publication_total:
+        return publication_total
     counts = database_counts()
     if progress_type == "structured_llm":
         return counts.get("high_value_chunks")
@@ -516,6 +590,27 @@ def _progress_total(progress_type: str | None, processed: int) -> int | None:
     if progress_type == "visual_assets":
         return counts.get("parsed_pdfs")
     return None
+
+
+def _publication_queue_total(log_path: Path | None) -> int | None:
+    if log_path is None or not log_path.parent.name.startswith("publication_v"):
+        return None
+    status_path = (
+        PROJECT_ROOT
+        / "data"
+        / "runtime"
+        / log_path.parent.name
+        / f"{log_path.stem}.status.json"
+    )
+    try:
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+        queue_path = Path(str(status.get("queue") or ""))
+        if not queue_path.exists():
+            return None
+        with queue_path.open("r", encoding="utf-8-sig") as handle:
+            return max(0, sum(1 for _ in handle) - 1)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
 
 
 def parse_runtime_from_log(
@@ -537,7 +632,7 @@ def parse_runtime_from_log(
         elapsed_seconds = max(0.0, (now - start_time).total_seconds())
         rate = processed / (elapsed_seconds / 60) if processed and elapsed_seconds else 0.0
         eta_seconds = None
-        total = _progress_total(str(progress.get("type")), processed)
+        total = _progress_total(str(progress.get("type")), processed, path)
         if total and processed and rate and processed < total:
             eta_seconds = (total - processed) / (rate / 60)
         return {
@@ -562,7 +657,7 @@ def parse_runtime_from_log(
     eta_seconds = None
     if processed and rate:
         progress_type = progress.get("type")
-        total = _progress_total(str(progress_type), processed)
+        total = _progress_total(str(progress_type), processed, path)
         if total and processed < total:
             eta_seconds = (total - processed) / (rate / 60)
     return {
@@ -586,7 +681,12 @@ def _logs_for_task(task: str) -> list[Path]:
         "26_build_literature_cards.py": ["literature_cards*.out.log", "full_benchmark_pipeline_*.log"],
         "27_label_chunks_semantically.py": ["chunk_labels*.out.log", "full_benchmark_pipeline_*.log"],
         "28_ai_audit_sample_links.py": ["ai_audits*.out.log", "full_benchmark_pipeline_*.log"],
-        "05_run_extraction.py": ["full_qwen_extraction_*.log", "full_benchmark_pipeline_*.log"],
+        "05_run_extraction.py": [
+            "publication_v23/*.log",
+            "publication_v22/*.log",
+            "full_qwen_extraction_*.log",
+            "full_benchmark_pipeline_*.log",
+        ],
         "19_open_benchmark_extraction.py": ["full_benchmark_pipeline_*.log"],
         "run_full_benchmark_pipeline.py": ["full_benchmark_pipeline_*.log", "full_benchmark_wrapper_*.out.log"],
         "run_post_sample_link_pipeline.py": ["post_sample_link_pipeline_*.log"],
@@ -594,6 +694,9 @@ def _logs_for_task(task: str) -> list[Path]:
     files: list[Path] = []
     for pattern in patterns.get(task, ["*.log"]):
         files.extend(path for path in log_dir.glob(pattern) if path.is_file())
+    if task == "05_run_extraction.py":
+        controller_logs = {"all_phases.log", "retry_sweep.log"}
+        files = [path for path in files if path.name not in controller_logs]
     return sorted(set(files), key=lambda path: path.stat().st_mtime, reverse=True)
 
 

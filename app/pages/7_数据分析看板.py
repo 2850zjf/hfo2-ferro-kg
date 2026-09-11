@@ -11,9 +11,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.services.analytics import collect_summary, write_markdown_report
+from app.support import render_top_nav
 
 
-st.set_page_config(page_title="数据分析看板", layout="wide")
+st.set_page_config(page_title="数据分析看板", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("数据看板")
 st.title("数据分析看板")
 
 summary = collect_summary()

@@ -1,0 +1,1719 @@
+{
+  "audit_version": "vasp-raw-output-audit-v0.1",
+  "generated_at": "2026-08-24T09:15:05Z",
+  "source_directory": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke",
+  "source_access_policy": "read_only_no_database_no_environment_file",
+  "energy_authority": "raw_vasprun.xml_and_OUTCAR_only",
+  "summary_policy": "phase_energy_summary.csv_is_cross_check_only_never_authority",
+  "phases_requested": [
+    "monoclinic",
+    "orthorhombic",
+    "tetragonal",
+    "cubic"
+  ],
+  "phases_auditable": 4,
+  "all_requested_phases_auditable": true,
+  "input_consistency": {
+    "vasp_signatures": [
+      "vasp.6.3.0 20Jan22 (build May 03 2022 23:18:19) complex"
+    ],
+    "same_vasp_signature": true,
+    "potcar_title_sets": [
+      [
+        "PAW_PBE Hf_pv 06Sep2000",
+        "PAW_PBE O 08Apr2002"
+      ]
+    ],
+    "same_potcar_titles": true,
+    "encut_values_eV": [
+      520.0
+    ],
+    "same_encut": true,
+    "potcar_binary_hash_checked": false
+  },
+  "summary_cross_check": {
+    "authoritative": false,
+    "purpose": "cross_check_only_raw_OUTCAR_and_vasprun_xml_are_authoritative",
+    "file": {
+      "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/phase_energy_summary.csv",
+      "exists": true,
+      "byte_size": 315,
+      "sha256": "e7613fa008d2d59df75862ed8f71f1f915b09d696f0b379580be6bb7dadb1ceb"
+    },
+    "rows": {
+      "monoclinic": {
+        "phase": "monoclinic",
+        "atoms": "12",
+        "hfo2_units": "4",
+        "total_energy_eV": "-122.07067582",
+        "energy_eV_per_HfO2": "-30.51766896",
+        "relative_meV_per_HfO2": "0.0",
+        "status": "converged"
+      },
+      "orthorhombic": {
+        "phase": "orthorhombic",
+        "atoms": "12",
+        "hfo2_units": "4",
+        "total_energy_eV": "-121.73347381",
+        "energy_eV_per_HfO2": "-30.43336845",
+        "relative_meV_per_HfO2": "84.3",
+        "status": "converged"
+      },
+      "tetragonal": {
+        "phase": "tetragonal",
+        "atoms": "6",
+        "hfo2_units": "2",
+        "total_energy_eV": "-60.70267427",
+        "energy_eV_per_HfO2": "-30.35133714",
+        "relative_meV_per_HfO2": "166.3",
+        "status": "converged"
+      },
+      "cubic": {
+        "phase": "cubic",
+        "atoms": "12",
+        "hfo2_units": "4",
+        "total_energy_eV": "-120.99320225",
+        "energy_eV_per_HfO2": "-30.24830056",
+        "relative_meV_per_HfO2": "269.4",
+        "status": "converged"
+      }
+    },
+    "error": null
+  },
+  "phases": [
+    {
+      "phase": "monoclinic",
+      "source_directory": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic",
+      "files": {
+        "POSCAR": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/POSCAR",
+          "exists": true,
+          "byte_size": 1623,
+          "sha256": "6d04b4410564515b854cd09a4551055552b8fda837d6feeb1efb9b30fc7171f4"
+        },
+        "CONTCAR": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/CONTCAR",
+          "exists": true,
+          "byte_size": 1623,
+          "sha256": "2efef57fd989be257b684e2c3f95b0b94cb0fc380ca31a0b8307c22f6162eef9"
+        },
+        "OUTCAR": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/OUTCAR",
+          "exists": true,
+          "byte_size": 276108,
+          "sha256": "e9ac35207b7627d1f84a45eedce35d10363832401989e9927cd2eaf99c208083"
+        },
+        "vasprun.xml": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/vasprun.xml",
+          "exists": true,
+          "byte_size": 240224,
+          "sha256": "62b51d3e67f933491fc5f1724ec9c3bbdf1810ad20c84c54845334c452830cc2"
+        },
+        "relax.output": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/relax.output",
+          "exists": true,
+          "byte_size": 13953,
+          "sha256": "92da5843c70c93abcfbd7855a23a94916d2d17507e55e255c930e559e08b58f7"
+        },
+        "static.output": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/static.output",
+          "exists": true,
+          "byte_size": 4103,
+          "sha256": "7f85ed8fc06c088eab4eae8f9e4962efa54cd7e6d6281b54dbaa0164ea43ad79"
+        },
+        "INCAR.relax": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/INCAR.relax",
+          "exists": true,
+          "byte_size": 242,
+          "sha256": "28f504b02dde14b7b6104f7fe56c78f1be49b7e116e2a446566924e10d6fce19"
+        },
+        "INCAR.static": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/INCAR.static",
+          "exists": true,
+          "byte_size": 223,
+          "sha256": "e467a43f845c5fcea1ec00d64ee221afa70cf5c89d6b48c12e7ed330480fba8e"
+        },
+        "KPOINTS": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/KPOINTS",
+          "exists": true,
+          "byte_size": 43,
+          "sha256": "f141d9eb4816cfe74466c7bb8ab23c02e13a0033302f4f68a9b35e8b4eb12ea5"
+        }
+      },
+      "parse_errors": {},
+      "structure": {
+        "input": {
+          "comment": "Hf4 O8",
+          "species": [
+            "Hf",
+            "O"
+          ],
+          "counts": [
+            4,
+            8
+          ],
+          "composition": {
+            "Hf": 4,
+            "O": 8
+          },
+          "formula": "Hf4O8",
+          "atom_count": 12,
+          "formula_units_hfo2": 4,
+          "lattice_A": [
+            [
+              0.0,
+              5.137480828935166,
+              0.0051031216424935
+            ],
+            [
+              5.192697851547386,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              -0.8888302947056917,
+              -5.245682969607859
+            ]
+          ],
+          "volume_A3": 139.91755455865464,
+          "volume_A3_per_fu": 34.97938863966366,
+          "coordinate_mode": "direct"
+        },
+        "final": {
+          "comment": "Hf4 O8",
+          "species": [
+            "Hf",
+            "O"
+          ],
+          "counts": [
+            4,
+            8
+          ],
+          "composition": {
+            "Hf": 4,
+            "O": 8
+          },
+          "formula": "Hf4O8",
+          "atom_count": 12,
+          "formula_units_hfo2": 4,
+          "lattice_A": [
+            [
+              0.0,
+              5.137480828935166,
+              0.0051031216424935
+            ],
+            [
+              5.192697851547386,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              -0.8888302947056917,
+              -5.245682969607859
+            ]
+          ],
+          "volume_A3": 139.91755455865464,
+          "volume_A3_per_fu": 34.97938863966366,
+          "coordinate_mode": "direct"
+        },
+        "composition_consistent": true,
+        "symmetry": {
+          "available": true,
+          "checked": true,
+          "spglib_version": "2.7.0",
+          "expected_spacegroup_number": 14,
+          "datasets": [
+            {
+              "symprec": 0.001,
+              "spacegroup_number": 14,
+              "international": "P2_1/c",
+              "hall": "-P 2ybc"
+            },
+            {
+              "symprec": 0.01,
+              "spacegroup_number": 14,
+              "international": "P2_1/c",
+              "hall": "-P 2ybc"
+            }
+          ],
+          "matches_expected": true,
+          "error": null
+        }
+      },
+      "vasp": {
+        "outcar_signature": "vasp.6.3.0 20Jan22 (build May 03 2022 23:18:19) complex",
+        "xml_generator": {
+          "program": "vasp",
+          "version": "6.3.0",
+          "subversion": "20Jan22 (build May 03 2022 23:18:19) complex                          parallel",
+          "platform": "LinuxIFC"
+        },
+        "potcar_titles_from_outcar": [
+          "PAW_PBE Hf_pv 06Sep2000",
+          "PAW_PBE O 08Apr2002"
+        ],
+        "potcar_binary_sha256": null,
+        "encut_eV_from_outcar": 520.0,
+        "nkpts_from_outcar": 80
+      },
+      "energy": {
+        "authority": "vasprun.xml:e_0_energy_then_OUTCAR:energy_sigma_to_zero",
+        "total_energy_eV": -122.07067582,
+        "formula_units_hfo2": 4,
+        "energy_eV_per_fu": -30.517668955,
+        "relative_energy_meV_per_fu": 0.0,
+        "outcar_energy_eV": -122.07067582,
+        "vasprun_energy_eV": -122.07067582,
+        "outcar_vasprun_abs_difference_eV": 0.0
+      },
+      "convergence": {
+        "run_completed": true,
+        "static_run": true,
+        "electronic_converged": true,
+        "ionic_converged": true,
+        "ionic_convergence_note": "derived_only_from_relax.output_required_accuracy_marker; top-level OUTCAR/vasprun.xml are static",
+        "final_max_force_eV_A": 0.014675392295748008,
+        "outcar_vasprun_max_force_abs_difference_eV_A": 4.6948104287861114e-08,
+        "outcar": {
+          "vasp_signature": "vasp.6.3.0 20Jan22 (build May 03 2022 23:18:19) complex",
+          "potcar_titles": [
+            "PAW_PBE Hf_pv 06Sep2000",
+            "PAW_PBE O 08Apr2002"
+          ],
+          "nions": 12,
+          "nsw": 0,
+          "ibrion": -1,
+          "nelm": 60,
+          "encut_eV": 520.0,
+          "nkpts": 80,
+          "toten_eV": -122.07067582,
+          "e0_energy_eV": -122.07067582,
+          "selected_energy_eV": -122.07067582,
+          "final_forces_eV_A": [
+            [
+              0.008887,
+              0.00117,
+              0.00833
+            ],
+            [
+              0.008887,
+              -0.00117,
+              -0.00833
+            ],
+            [
+              -0.008887,
+              -0.00117,
+              -0.00833
+            ],
+            [
+              -0.008887,
+              0.00117,
+              0.00833
+            ],
+            [
+              0.000716,
+              -0.006439,
+              -0.011046
+            ],
+            [
+              0.000716,
+              0.006439,
+              0.011046
+            ],
+            [
+              -0.000716,
+              0.006439,
+              0.011046
+            ],
+            [
+              -0.000716,
+              -0.006439,
+              -0.011046
+            ],
+            [
+              0.008488,
+              0.009487,
+              -0.007302
+            ],
+            [
+              0.008488,
+              -0.009487,
+              0.007302
+            ],
+            [
+              -0.008488,
+              -0.009487,
+              0.007302
+            ],
+            [
+              -0.008488,
+              0.009487,
+              -0.007302
+            ]
+          ],
+          "final_max_force_eV_A": 0.014675439243852296,
+          "run_completed": true,
+          "electronic_converged": true,
+          "ionic_converged": null,
+          "static_run": true,
+          "convergence_markers": {
+            "ediff_reached": true,
+            "ionic_accuracy_reached": false,
+            "general_timing_present": true
+          }
+        },
+        "vasprun": {
+          "generator": {
+            "program": "vasp",
+            "version": "6.3.0",
+            "subversion": "20Jan22 (build May 03 2022 23:18:19) complex                          parallel",
+            "platform": "LinuxIFC"
+          },
+          "calculation_count": 1,
+          "electronic_steps_last_calculation": 18,
+          "nelm": 60,
+          "nsw": 0,
+          "ibrion": -1,
+          "e0_energy_eV": -122.07067582,
+          "toten_eV": -122.07067582,
+          "selected_energy_eV": -122.07067582,
+          "final_forces_eV_A": [
+            [
+              0.00888679,
+              0.00116984,
+              0.00832992
+            ],
+            [
+              0.00888679,
+              -0.00116984,
+              -0.00832992
+            ],
+            [
+              -0.00888679,
+              -0.00116984,
+              -0.00832992
+            ],
+            [
+              -0.00888679,
+              0.00116984,
+              0.00832992
+            ],
+            [
+              0.00071568,
+              -0.0064394,
+              -0.01104596
+            ],
+            [
+              0.00071568,
+              0.0064394,
+              0.01104596
+            ],
+            [
+              -0.00071568,
+              0.0064394,
+              0.01104596
+            ],
+            [
+              -0.00071568,
+              -0.0064394,
+              -0.01104596
+            ],
+            [
+              0.00848769,
+              0.00948702,
+              -0.00730224
+            ],
+            [
+              0.00848769,
+              -0.00948702,
+              0.00730224
+            ],
+            [
+              -0.00848769,
+              -0.00948702,
+              0.00730224
+            ],
+            [
+              -0.00848769,
+              0.00948702,
+              -0.00730224
+            ]
+          ],
+          "final_max_force_eV_A": 0.014675392295748008,
+          "final_stress_kbar": [
+            [
+              -0.02178013,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.66442759,
+              -0.30218939
+            ],
+            [
+              0.0,
+              -0.30216918,
+              0.38702355
+            ]
+          ],
+          "xml_complete": true,
+          "electronic_converged_by_step_count": true,
+          "static_run": true
+        },
+        "relax_output": {
+          "ionic_steps": 12,
+          "last_ionic_step": {
+            "step": 12,
+            "free_energy_eV": -122.07003,
+            "e0_energy_eV": -122.07003
+          },
+          "required_accuracy_marker": true,
+          "ionic_converged": true,
+          "fatal_markers": [],
+          "provenance_limit": "relax_OUTCAR_and_relax_vasprun_xml_were_not_preserved"
+        }
+      },
+      "summary_cross_check": {
+        "authoritative": false,
+        "summary_row": {
+          "phase": "monoclinic",
+          "atoms": "12",
+          "hfo2_units": "4",
+          "total_energy_eV": "-122.07067582",
+          "energy_eV_per_HfO2": "-30.51766896",
+          "relative_meV_per_HfO2": "0.0",
+          "status": "converged"
+        },
+        "summary_total_energy_eV": -122.07067582,
+        "raw_summary_abs_difference_eV": 0.0,
+        "matches_raw_within_tolerance": true
+      },
+      "raw_output_auditable": true,
+      "publication_grade": false,
+      "blockers": [
+        "final_force_above_0p01_publication_target_eV_per_A",
+        "no_biaxial_strain_series",
+        "no_encut_convergence_series",
+        "no_kpoint_density_convergence_series",
+        "potcar_binary_sha256_unavailable",
+        "relax_outcar_and_vasprun_xml_not_preserved"
+      ]
+    },
+    {
+      "phase": "orthorhombic",
+      "source_directory": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic",
+      "files": {
+        "POSCAR": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/POSCAR",
+          "exists": true,
+          "byte_size": 1623,
+          "sha256": "5669966875400ce2ec3576f4c0d41102da7ad96026083c7c0c58dfa700bcbd5a"
+        },
+        "CONTCAR": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/CONTCAR",
+          "exists": true,
+          "byte_size": 1623,
+          "sha256": "4987c18c5a4edec450c47cb80b1fd7651e2f8ee08ee569406ebfb6dae2f46453"
+        },
+        "OUTCAR": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/OUTCAR",
+          "exists": true,
+          "byte_size": 233945,
+          "sha256": "468c2fe18366f5c37e4f16dab4115d1ffbad282dddfe682179edffe3276aa5e7"
+        },
+        "vasprun.xml": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/vasprun.xml",
+          "exists": true,
+          "byte_size": 200888,
+          "sha256": "d6bfb3b75634ba8eee2bd79f1d8b9ae3bd096753bd96b455689ea96ee07bec76"
+        },
+        "relax.output": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/relax.output",
+          "exists": true,
+          "byte_size": 21143,
+          "sha256": "e88a2878830597a9eb9d43693bfe44d1ea0c642b3ac386ae6fc206875da2a718"
+        },
+        "static.output": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/static.output",
+          "exists": true,
+          "byte_size": 4010,
+          "sha256": "b9c2f33f481da07294060d9d7d36ae592ec923e8708bfc577a624877d8409de4"
+        },
+        "INCAR.relax": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/INCAR.relax",
+          "exists": true,
+          "byte_size": 242,
+          "sha256": "28f504b02dde14b7b6104f7fe56c78f1be49b7e116e2a446566924e10d6fce19"
+        },
+        "INCAR.static": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/INCAR.static",
+          "exists": true,
+          "byte_size": 223,
+          "sha256": "e467a43f845c5fcea1ec00d64ee221afa70cf5c89d6b48c12e7ed330480fba8e"
+        },
+        "KPOINTS": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/KPOINTS",
+          "exists": true,
+          "byte_size": 43,
+          "sha256": "f141d9eb4816cfe74466c7bb8ab23c02e13a0033302f4f68a9b35e8b4eb12ea5"
+        }
+      },
+      "parse_errors": {},
+      "structure": {
+        "input": {
+          "comment": "Hf4 O8",
+          "species": [
+            "Hf",
+            "O"
+          ],
+          "counts": [
+            4,
+            8
+          ],
+          "composition": {
+            "Hf": 4,
+            "O": 8
+          },
+          "formula": "Hf4O8",
+          "atom_count": 12,
+          "formula_units_hfo2": 4,
+          "lattice_A": [
+            [
+              5.0470008059245135,
+              0.0,
+              3e-16
+            ],
+            [
+              8e-16,
+              5.078196225752875,
+              3e-16
+            ],
+            [
+              0.0,
+              0.0,
+              5.269641524573228
+            ]
+          ],
+          "volume_A3": 135.05912293650698,
+          "volume_A3_per_fu": 33.764780734126745,
+          "coordinate_mode": "direct"
+        },
+        "final": {
+          "comment": "Hf4 O8",
+          "species": [
+            "Hf",
+            "O"
+          ],
+          "counts": [
+            4,
+            8
+          ],
+          "composition": {
+            "Hf": 4,
+            "O": 8
+          },
+          "formula": "Hf4O8",
+          "atom_count": 12,
+          "formula_units_hfo2": 4,
+          "lattice_A": [
+            [
+              5.0470008059245135,
+              0.0,
+              3e-16
+            ],
+            [
+              8e-16,
+              5.078196225752875,
+              3e-16
+            ],
+            [
+              0.0,
+              0.0,
+              5.269641524573228
+            ]
+          ],
+          "volume_A3": 135.05912293650698,
+          "volume_A3_per_fu": 33.764780734126745,
+          "coordinate_mode": "direct"
+        },
+        "composition_consistent": true,
+        "symmetry": {
+          "available": true,
+          "checked": true,
+          "spglib_version": "2.7.0",
+          "expected_spacegroup_number": 29,
+          "datasets": [
+            {
+              "symprec": 0.001,
+              "spacegroup_number": 29,
+              "international": "Pca2_1",
+              "hall": "P 2c -2ac"
+            },
+            {
+              "symprec": 0.01,
+              "spacegroup_number": 29,
+              "international": "Pca2_1",
+              "hall": "P 2c -2ac"
+            }
+          ],
+          "matches_expected": true,
+          "error": null
+        }
+      },
+      "vasp": {
+        "outcar_signature": "vasp.6.3.0 20Jan22 (build May 03 2022 23:18:19) complex",
+        "xml_generator": {
+          "program": "vasp",
+          "version": "6.3.0",
+          "subversion": "20Jan22 (build May 03 2022 23:18:19) complex                          parallel",
+          "platform": "LinuxIFC"
+        },
+        "potcar_titles_from_outcar": [
+          "PAW_PBE Hf_pv 06Sep2000",
+          "PAW_PBE O 08Apr2002"
+        ],
+        "potcar_binary_sha256": null,
+        "encut_eV_from_outcar": 520.0,
+        "nkpts_from_outcar": 64
+      },
+      "energy": {
+        "authority": "vasprun.xml:e_0_energy_then_OUTCAR:energy_sigma_to_zero",
+        "total_energy_eV": -121.73347381,
+        "formula_units_hfo2": 4,
+        "energy_eV_per_fu": -30.4333684525,
+        "relative_energy_meV_per_fu": 84.30050249999965,
+        "outcar_energy_eV": -121.73347381,
+        "vasprun_energy_eV": -121.73347381,
+        "outcar_vasprun_abs_difference_eV": 0.0
+      },
+      "convergence": {
+        "run_completed": true,
+        "static_run": true,
+        "electronic_converged": true,
+        "ionic_converged": true,
+        "ionic_convergence_note": "derived_only_from_relax.output_required_accuracy_marker; top-level OUTCAR/vasprun.xml are static",
+        "final_max_force_eV_A": 0.01349133719225044,
+        "outcar_vasprun_max_force_abs_difference_eV_A": 1.8420223509528488e-07,
+        "outcar": {
+          "vasp_signature": "vasp.6.3.0 20Jan22 (build May 03 2022 23:18:19) complex",
+          "potcar_titles": [
+            "PAW_PBE Hf_pv 06Sep2000",
+            "PAW_PBE O 08Apr2002"
+          ],
+          "nions": 12,
+          "nsw": 0,
+          "ibrion": -1,
+          "nelm": 60,
+          "encut_eV": 520.0,
+          "nkpts": 64,
+          "toten_eV": -121.73347381,
+          "e0_energy_eV": -121.73347381,
+          "selected_energy_eV": -121.73347381,
+          "final_forces_eV_A": [
+            [
+              -0.011816,
+              0.002813,
+              0.005872
+            ],
+            [
+              -0.011816,
+              0.002813,
+              -0.005872
+            ],
+            [
+              0.011816,
+              0.002813,
+              0.005872
+            ],
+            [
+              0.011816,
+              0.002813,
+              -0.005872
+            ],
+            [
+              -0.004946,
+              0.006378,
+              -0.004812
+            ],
+            [
+              -0.004946,
+              0.006378,
+              0.004812
+            ],
+            [
+              -0.001043,
+              -0.009191,
+              0.008961
+            ],
+            [
+              -0.001043,
+              -0.009191,
+              -0.008961
+            ],
+            [
+              0.001043,
+              -0.009191,
+              -0.008961
+            ],
+            [
+              0.001043,
+              -0.009191,
+              0.008961
+            ],
+            [
+              0.004946,
+              0.006378,
+              -0.004812
+            ],
+            [
+              0.004946,
+              0.006378,
+              0.004812
+            ]
+          ],
+          "final_max_force_eV_A": 0.013491152990015345,
+          "run_completed": true,
+          "electronic_converged": true,
+          "ionic_converged": null,
+          "static_run": true,
+          "convergence_markers": {
+            "ediff_reached": true,
+            "ionic_accuracy_reached": false,
+            "general_timing_present": true
+          }
+        },
+        "vasprun": {
+          "generator": {
+            "program": "vasp",
+            "version": "6.3.0",
+            "subversion": "20Jan22 (build May 03 2022 23:18:19) complex                          parallel",
+            "platform": "LinuxIFC"
+          },
+          "calculation_count": 1,
+          "electronic_steps_last_calculation": 17,
+          "nelm": 60,
+          "nsw": 0,
+          "ibrion": -1,
+          "e0_energy_eV": -121.73347381,
+          "toten_eV": -121.73347381,
+          "selected_energy_eV": -121.73347381,
+          "final_forces_eV_A": [
+            [
+              -0.01181643,
+              0.0028131,
+              0.00587151
+            ],
+            [
+              -0.01181643,
+              0.0028131,
+              -0.00587151
+            ],
+            [
+              0.01181643,
+              0.0028131,
+              0.00587151
+            ],
+            [
+              0.01181643,
+              0.0028131,
+              -0.00587151
+            ],
+            [
+              -0.0049456,
+              0.00637764,
+              -0.00481166
+            ],
+            [
+              -0.0049456,
+              0.00637764,
+              0.00481166
+            ],
+            [
+              -0.00104344,
+              -0.00919074,
+              0.00896129
+            ],
+            [
+              -0.00104344,
+              -0.00919074,
+              -0.00896129
+            ],
+            [
+              0.00104344,
+              -0.00919074,
+              -0.00896129
+            ],
+            [
+              0.00104344,
+              -0.00919074,
+              0.00896129
+            ],
+            [
+              0.0049456,
+              0.00637764,
+              -0.00481166
+            ],
+            [
+              0.0049456,
+              0.00637764,
+              0.00481166
+            ]
+          ],
+          "final_max_force_eV_A": 0.01349133719225044,
+          "final_stress_kbar": [
+            [
+              -0.07422825,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              -0.18339843,
+              -0.0
+            ],
+            [
+              0.0,
+              -0.0,
+              -0.57985315
+            ]
+          ],
+          "xml_complete": true,
+          "electronic_converged_by_step_count": true,
+          "static_run": true
+        },
+        "relax_output": {
+          "ionic_steps": 21,
+          "last_ionic_step": {
+            "step": 21,
+            "free_energy_eV": -121.73209,
+            "e0_energy_eV": -121.73209
+          },
+          "required_accuracy_marker": true,
+          "ionic_converged": true,
+          "fatal_markers": [],
+          "provenance_limit": "relax_OUTCAR_and_relax_vasprun_xml_were_not_preserved"
+        }
+      },
+      "summary_cross_check": {
+        "authoritative": false,
+        "summary_row": {
+          "phase": "orthorhombic",
+          "atoms": "12",
+          "hfo2_units": "4",
+          "total_energy_eV": "-121.73347381",
+          "energy_eV_per_HfO2": "-30.43336845",
+          "relative_meV_per_HfO2": "84.3",
+          "status": "converged"
+        },
+        "summary_total_energy_eV": -121.73347381,
+        "raw_summary_abs_difference_eV": 0.0,
+        "matches_raw_within_tolerance": true
+      },
+      "raw_output_auditable": true,
+      "publication_grade": false,
+      "blockers": [
+        "final_force_above_0p01_publication_target_eV_per_A",
+        "no_biaxial_strain_series",
+        "no_encut_convergence_series",
+        "no_kpoint_density_convergence_series",
+        "potcar_binary_sha256_unavailable",
+        "relax_outcar_and_vasprun_xml_not_preserved"
+      ]
+    },
+    {
+      "phase": "tetragonal",
+      "source_directory": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal",
+      "files": {
+        "POSCAR": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/POSCAR",
+          "exists": true,
+          "byte_size": 963,
+          "sha256": "bb7277478bb07cbfa8258426b499b4cf71b42c40fc4da032201f71fb89fcdecb"
+        },
+        "CONTCAR": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/CONTCAR",
+          "exists": true,
+          "byte_size": 963,
+          "sha256": "00f700b91decd07961cbb09b7e1cf96c3f2c2412887b26e454eb135958250ab8"
+        },
+        "OUTCAR": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/OUTCAR",
+          "exists": true,
+          "byte_size": 123108,
+          "sha256": "b1cd0c4ae6f0eac59e8b4c1512ed988ed4405ef2649d52c6b8ebf67857f9b66d"
+        },
+        "vasprun.xml": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/vasprun.xml",
+          "exists": true,
+          "byte_size": 93264,
+          "sha256": "9cabdbdc9b69e7a2f9a048157b95c37723d2ec7f038b2a17200f61dd0cdcf407"
+        },
+        "relax.output": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/relax.output",
+          "exists": true,
+          "byte_size": 15034,
+          "sha256": "f0ffb87729052b08c1ad9fcff4711f8426df8d9084175fe3626b44ec85011074"
+        },
+        "static.output": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/static.output",
+          "exists": true,
+          "byte_size": 3824,
+          "sha256": "4948214fc664a02cd085793d16beae2dfabd0bbe266208b8d19bd96706c47bff"
+        },
+        "INCAR.relax": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/INCAR.relax",
+          "exists": true,
+          "byte_size": 242,
+          "sha256": "28f504b02dde14b7b6104f7fe56c78f1be49b7e116e2a446566924e10d6fce19"
+        },
+        "INCAR.static": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/INCAR.static",
+          "exists": true,
+          "byte_size": 223,
+          "sha256": "e467a43f845c5fcea1ec00d64ee221afa70cf5c89d6b48c12e7ed330480fba8e"
+        },
+        "KPOINTS": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/KPOINTS",
+          "exists": true,
+          "byte_size": 43,
+          "sha256": "f141d9eb4816cfe74466c7bb8ab23c02e13a0033302f4f68a9b35e8b4eb12ea5"
+        }
+      },
+      "parse_errors": {},
+      "structure": {
+        "input": {
+          "comment": "Hf2 O4",
+          "species": [
+            "Hf",
+            "O"
+          ],
+          "counts": [
+            2,
+            4
+          ],
+          "composition": {
+            "Hf": 2,
+            "O": 4
+          },
+          "formula": "Hf2O4",
+          "atom_count": 6,
+          "formula_units_hfo2": 2,
+          "lattice_A": [
+            [
+              3.5887311930119647,
+              -0.0,
+              2e-16
+            ],
+            [
+              6e-16,
+              3.5887311930119647,
+              2e-16
+            ],
+            [
+              0.0,
+              0.0,
+              5.231544495525822
+            ]
+          ],
+          "volume_A3": 67.37701748576148,
+          "volume_A3_per_fu": 33.68850874288074,
+          "coordinate_mode": "direct"
+        },
+        "final": {
+          "comment": "Hf2 O4",
+          "species": [
+            "Hf",
+            "O"
+          ],
+          "counts": [
+            2,
+            4
+          ],
+          "composition": {
+            "Hf": 2,
+            "O": 4
+          },
+          "formula": "Hf2O4",
+          "atom_count": 6,
+          "formula_units_hfo2": 2,
+          "lattice_A": [
+            [
+              3.5887311930119647,
+              0.0,
+              2e-16
+            ],
+            [
+              6e-16,
+              3.5887311930119647,
+              2e-16
+            ],
+            [
+              0.0,
+              0.0,
+              5.231544495525822
+            ]
+          ],
+          "volume_A3": 67.37701748576148,
+          "volume_A3_per_fu": 33.68850874288074,
+          "coordinate_mode": "direct"
+        },
+        "composition_consistent": true,
+        "symmetry": {
+          "available": true,
+          "checked": true,
+          "spglib_version": "2.7.0",
+          "expected_spacegroup_number": 137,
+          "datasets": [
+            {
+              "symprec": 0.001,
+              "spacegroup_number": 137,
+              "international": "P4_2/nmc",
+              "hall": "P 4n 2n -1n"
+            },
+            {
+              "symprec": 0.01,
+              "spacegroup_number": 137,
+              "international": "P4_2/nmc",
+              "hall": "P 4n 2n -1n"
+            }
+          ],
+          "matches_expected": true,
+          "error": null
+        }
+      },
+      "vasp": {
+        "outcar_signature": "vasp.6.3.0 20Jan22 (build May 03 2022 23:18:19) complex",
+        "xml_generator": {
+          "program": "vasp",
+          "version": "6.3.0",
+          "subversion": "20Jan22 (build May 03 2022 23:18:19) complex                          parallel",
+          "platform": "LinuxIFC"
+        },
+        "potcar_titles_from_outcar": [
+          "PAW_PBE Hf_pv 06Sep2000",
+          "PAW_PBE O 08Apr2002"
+        ],
+        "potcar_binary_sha256": null,
+        "encut_eV_from_outcar": 520.0,
+        "nkpts_from_outcar": 40
+      },
+      "energy": {
+        "authority": "vasprun.xml:e_0_energy_then_OUTCAR:energy_sigma_to_zero",
+        "total_energy_eV": -60.70267427,
+        "formula_units_hfo2": 2,
+        "energy_eV_per_fu": -30.351337135,
+        "relative_energy_meV_per_fu": 166.3318199999999,
+        "outcar_energy_eV": -60.70267427,
+        "vasprun_energy_eV": -60.70267427,
+        "outcar_vasprun_abs_difference_eV": 0.0
+      },
+      "convergence": {
+        "run_completed": true,
+        "static_run": true,
+        "electronic_converged": true,
+        "ionic_converged": true,
+        "ionic_convergence_note": "derived_only_from_relax.output_required_accuracy_marker; top-level OUTCAR/vasprun.xml are static",
+        "final_max_force_eV_A": 0.00798046,
+        "outcar_vasprun_max_force_abs_difference_eV_A": 4.600000000007376e-07,
+        "outcar": {
+          "vasp_signature": "vasp.6.3.0 20Jan22 (build May 03 2022 23:18:19) complex",
+          "potcar_titles": [
+            "PAW_PBE Hf_pv 06Sep2000",
+            "PAW_PBE O 08Apr2002"
+          ],
+          "nions": 6,
+          "nsw": 0,
+          "ibrion": -1,
+          "nelm": 60,
+          "encut_eV": 520.0,
+          "nkpts": 40,
+          "toten_eV": -60.70267427,
+          "e0_energy_eV": -60.70267427,
+          "selected_energy_eV": -60.70267427,
+          "final_forces_eV_A": [
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              -0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.00798
+            ],
+            [
+              -0.0,
+              -0.0,
+              -0.00798
+            ],
+            [
+              -0.0,
+              -0.0,
+              -0.00798
+            ],
+            [
+              0.0,
+              -0.0,
+              0.00798
+            ]
+          ],
+          "final_max_force_eV_A": 0.00798,
+          "run_completed": true,
+          "electronic_converged": true,
+          "ionic_converged": null,
+          "static_run": true,
+          "convergence_markers": {
+            "ediff_reached": true,
+            "ionic_accuracy_reached": false,
+            "general_timing_present": true
+          }
+        },
+        "vasprun": {
+          "generator": {
+            "program": "vasp",
+            "version": "6.3.0",
+            "subversion": "20Jan22 (build May 03 2022 23:18:19) complex                          parallel",
+            "platform": "LinuxIFC"
+          },
+          "calculation_count": 1,
+          "electronic_steps_last_calculation": 15,
+          "nelm": 60,
+          "nsw": 0,
+          "ibrion": -1,
+          "e0_energy_eV": -60.70267427,
+          "toten_eV": -60.70267427,
+          "selected_energy_eV": -60.70267427,
+          "final_forces_eV_A": [
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              -0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.00798046
+            ],
+            [
+              -0.0,
+              -0.0,
+              -0.00798046
+            ],
+            [
+              -0.0,
+              -0.0,
+              -0.00798046
+            ],
+            [
+              0.0,
+              -0.0,
+              0.00798046
+            ]
+          ],
+          "final_max_force_eV_A": 0.00798046,
+          "final_stress_kbar": [
+            [
+              0.38589868,
+              -0.0,
+              -0.0
+            ],
+            [
+              -0.0,
+              0.38589868,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              -0.18805611
+            ]
+          ],
+          "xml_complete": true,
+          "electronic_converged_by_step_count": true,
+          "static_run": true
+        },
+        "relax_output": {
+          "ionic_steps": 14,
+          "last_ionic_step": {
+            "step": 14,
+            "free_energy_eV": -60.702439,
+            "e0_energy_eV": -60.702439
+          },
+          "required_accuracy_marker": true,
+          "ionic_converged": true,
+          "fatal_markers": [],
+          "provenance_limit": "relax_OUTCAR_and_relax_vasprun_xml_were_not_preserved"
+        }
+      },
+      "summary_cross_check": {
+        "authoritative": false,
+        "summary_row": {
+          "phase": "tetragonal",
+          "atoms": "6",
+          "hfo2_units": "2",
+          "total_energy_eV": "-60.70267427",
+          "energy_eV_per_HfO2": "-30.35133714",
+          "relative_meV_per_HfO2": "166.3",
+          "status": "converged"
+        },
+        "summary_total_energy_eV": -60.70267427,
+        "raw_summary_abs_difference_eV": 0.0,
+        "matches_raw_within_tolerance": true
+      },
+      "raw_output_auditable": true,
+      "publication_grade": false,
+      "blockers": [
+        "no_biaxial_strain_series",
+        "no_encut_convergence_series",
+        "no_kpoint_density_convergence_series",
+        "potcar_binary_sha256_unavailable",
+        "relax_outcar_and_vasprun_xml_not_preserved"
+      ]
+    },
+    {
+      "phase": "cubic",
+      "source_directory": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic",
+      "files": {
+        "POSCAR": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/POSCAR",
+          "exists": true,
+          "byte_size": 1623,
+          "sha256": "2e7437efd55baa7deaa83eeea7101dad5768a4bda069aa511dcf4f5916fde86d"
+        },
+        "CONTCAR": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/CONTCAR",
+          "exists": true,
+          "byte_size": 1623,
+          "sha256": "efb7af866daf2fce334ab538ea3d94a13c0e0668fbadfde8d73734b4b5b19c89"
+        },
+        "OUTCAR": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/OUTCAR",
+          "exists": true,
+          "byte_size": 120860,
+          "sha256": "df679f963833823055f00bcfb5c029560acc4dad50dd0cb1a75aa468f95f48fe"
+        },
+        "vasprun.xml": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/vasprun.xml",
+          "exists": true,
+          "byte_size": 92331,
+          "sha256": "9ec75b8883c6f28ca4b054800be6ef5f693d3d089ee0e5c212ecd1ad01869635"
+        },
+        "relax.output": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/relax.output",
+          "exists": true,
+          "byte_size": 7051,
+          "sha256": "1fe41871b0af9363fdfc32e73bb2197476ad64eb91862bd34b14bd96d09fe95f"
+        },
+        "static.output": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/static.output",
+          "exists": true,
+          "byte_size": 3917,
+          "sha256": "472fa25b70a642ba4093e33b92c91cf80e37523b571476c84f02ac075b4e8323"
+        },
+        "INCAR.relax": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/INCAR.relax",
+          "exists": true,
+          "byte_size": 242,
+          "sha256": "28f504b02dde14b7b6104f7fe56c78f1be49b7e116e2a446566924e10d6fce19"
+        },
+        "INCAR.static": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/INCAR.static",
+          "exists": true,
+          "byte_size": 223,
+          "sha256": "e467a43f845c5fcea1ec00d64ee221afa70cf5c89d6b48c12e7ed330480fba8e"
+        },
+        "KPOINTS": {
+          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/KPOINTS",
+          "exists": true,
+          "byte_size": 43,
+          "sha256": "f141d9eb4816cfe74466c7bb8ab23c02e13a0033302f4f68a9b35e8b4eb12ea5"
+        }
+      },
+      "parse_errors": {},
+      "structure": {
+        "input": {
+          "comment": "Hf4 O8",
+          "species": [
+            "Hf",
+            "O"
+          ],
+          "counts": [
+            4,
+            8
+          ],
+          "composition": {
+            "Hf": 4,
+            "O": 8
+          },
+          "formula": "Hf4O8",
+          "atom_count": 12,
+          "formula_units_hfo2": 4,
+          "lattice_A": [
+            [
+              5.072683148397104,
+              0.0,
+              3e-16
+            ],
+            [
+              8e-16,
+              5.072683148397104,
+              3e-16
+            ],
+            [
+              0.0,
+              0.0,
+              5.072683148397104
+            ]
+          ],
+          "volume_A3": 130.53086270414462,
+          "volume_A3_per_fu": 32.632715676036156,
+          "coordinate_mode": "direct"
+        },
+        "final": {
+          "comment": "Hf4 O8",
+          "species": [
+            "Hf",
+            "O"
+          ],
+          "counts": [
+            4,
+            8
+          ],
+          "composition": {
+            "Hf": 4,
+            "O": 8
+          },
+          "formula": "Hf4O8",
+          "atom_count": 12,
+          "formula_units_hfo2": 4,
+          "lattice_A": [
+            [
+              5.072683148397104,
+              0.0,
+              3e-16
+            ],
+            [
+              8e-16,
+              5.072683148397104,
+              3e-16
+            ],
+            [
+              0.0,
+              0.0,
+              5.072683148397104
+            ]
+          ],
+          "volume_A3": 130.53086270414462,
+          "volume_A3_per_fu": 32.632715676036156,
+          "coordinate_mode": "direct"
+        },
+        "composition_consistent": true,
+        "symmetry": {
+          "available": true,
+          "checked": true,
+          "spglib_version": "2.7.0",
+          "expected_spacegroup_number": 225,
+          "datasets": [
+            {
+              "symprec": 0.001,
+              "spacegroup_number": 225,
+              "international": "Fm-3m",
+              "hall": "-F 4 2 3"
+            },
+            {
+              "symprec": 0.01,
+              "spacegroup_number": 225,
+              "international": "Fm-3m",
+              "hall": "-F 4 2 3"
+            }
+          ],
+          "matches_expected": true,
+          "error": null
+        }
+      },
+      "vasp": {
+        "outcar_signature": "vasp.6.3.0 20Jan22 (build May 03 2022 23:18:19) complex",
+        "xml_generator": {
+          "program": "vasp",
+          "version": "6.3.0",
+          "subversion": "20Jan22 (build May 03 2022 23:18:19) complex                          parallel",
+          "platform": "LinuxIFC"
+        },
+        "potcar_titles_from_outcar": [
+          "PAW_PBE Hf_pv 06Sep2000",
+          "PAW_PBE O 08Apr2002"
+        ],
+        "potcar_binary_sha256": null,
+        "encut_eV_from_outcar": 520.0,
+        "nkpts_from_outcar": 20
+      },
+      "energy": {
+        "authority": "vasprun.xml:e_0_energy_then_OUTCAR:energy_sigma_to_zero",
+        "total_energy_eV": -120.99320225,
+        "formula_units_hfo2": 4,
+        "energy_eV_per_fu": -30.2483005625,
+        "relative_energy_meV_per_fu": 269.3683925000023,
+        "outcar_energy_eV": -120.99320225,
+        "vasprun_energy_eV": -120.99320225,
+        "outcar_vasprun_abs_difference_eV": 0.0
+      },
+      "convergence": {
+        "run_completed": true,
+        "static_run": true,
+        "electronic_converged": true,
+        "ionic_converged": true,
+        "ionic_convergence_note": "derived_only_from_relax.output_required_accuracy_marker; top-level OUTCAR/vasprun.xml are static",
+        "final_max_force_eV_A": 0.0,
+        "outcar_vasprun_max_force_abs_difference_eV_A": 0.0,
+        "outcar": {
+          "vasp_signature": "vasp.6.3.0 20Jan22 (build May 03 2022 23:18:19) complex",
+          "potcar_titles": [
+            "PAW_PBE Hf_pv 06Sep2000",
+            "PAW_PBE O 08Apr2002"
+          ],
+          "nions": 12,
+          "nsw": 0,
+          "ibrion": -1,
+          "nelm": 60,
+          "encut_eV": 520.0,
+          "nkpts": 20,
+          "toten_eV": -120.99320225,
+          "e0_energy_eV": -120.99320225,
+          "selected_energy_eV": -120.99320225,
+          "final_forces_eV_A": [
+            [
+              -0.0,
+              -0.0,
+              -0.0
+            ],
+            [
+              -0.0,
+              -0.0,
+              -0.0
+            ],
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              -0.0,
+              0.0
+            ],
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              -0.0,
+              0.0
+            ],
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              -0.0,
+              0.0
+            ],
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ]
+          ],
+          "final_max_force_eV_A": 0.0,
+          "run_completed": true,
+          "electronic_converged": true,
+          "ionic_converged": null,
+          "static_run": true,
+          "convergence_markers": {
+            "ediff_reached": true,
+            "ionic_accuracy_reached": false,
+            "general_timing_present": true
+          }
+        },
+        "vasprun": {
+          "generator": {
+            "program": "vasp",
+            "version": "6.3.0",
+            "subversion": "20Jan22 (build May 03 2022 23:18:19) complex                          parallel",
+            "platform": "LinuxIFC"
+          },
+          "calculation_count": 1,
+          "electronic_steps_last_calculation": 16,
+          "nelm": 60,
+          "nsw": 0,
+          "ibrion": -1,
+          "e0_energy_eV": -120.99320225,
+          "toten_eV": -120.99320225,
+          "selected_energy_eV": -120.99320225,
+          "final_forces_eV_A": [
+            [
+              -0.0,
+              -0.0,
+              -0.0
+            ],
+            [
+              -0.0,
+              -0.0,
+              -0.0
+            ],
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              -0.0,
+              0.0
+            ],
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              -0.0,
+              0.0
+            ],
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ],
+            [
+              0.0,
+              -0.0,
+              0.0
+            ],
+            [
+              -0.0,
+              0.0,
+              -0.0
+            ]
+          ],
+          "final_max_force_eV_A": 0.0,
+          "final_stress_kbar": [
+            [
+              -0.44898276,
+              0.0,
+              0.0
+            ],
+            [
+              -0.0,
+              -0.44898276,
+              -0.0
+            ],
+            [
+              0.0,
+              0.0,
+              -0.44898276
+            ]
+          ],
+          "xml_complete": true,
+          "electronic_converged_by_step_count": true,
+          "static_run": true
+        },
+        "relax_output": {
+          "ionic_steps": 3,
+          "last_ionic_step": {
+            "step": 3,
+            "free_energy_eV": -120.99428,
+            "e0_energy_eV": -120.99428
+          },
+          "required_accuracy_marker": true,
+          "ionic_converged": true,
+          "fatal_markers": [],
+          "provenance_limit": "relax_OUTCAR_and_relax_vasprun_xml_were_not_preserved"
+        }
+      },
+      "summary_cross_check": {
+        "authoritative": false,
+        "summary_row": {
+          "phase": "cubic",
+          "atoms": "12",
+          "hfo2_units": "4",
+          "total_energy_eV": "-120.99320225",
+          "energy_eV_per_HfO2": "-30.24830056",
+          "relative_meV_per_HfO2": "269.4",
+          "status": "converged"
+        },
+        "summary_total_energy_eV": -120.99320225,
+        "raw_summary_abs_difference_eV": 0.0,
+        "matches_raw_within_tolerance": true
+      },
+      "raw_output_auditable": true,
+      "publication_grade": false,
+      "blockers": [
+        "no_biaxial_strain_series",
+        "no_encut_convergence_series",
+        "no_kpoint_density_convergence_series",
+        "potcar_binary_sha256_unavailable",
+        "relax_outcar_and_vasprun_xml_not_preserved"
+      ]
+    }
+  ],
+  "status": "audited_with_publication_blockers",
+  "publication_grade": false,
+  "publication_blockers": [
+    "no_encut_convergence_study",
+    "no_kpoint_density_convergence_study",
+    "no_repeat_calculations_or_numerical_uncertainty",
+    "one_or_more_final_forces_above_0p01_eV_per_A",
+    "potcar_binary_sha256_unavailable",
+    "relax_OUTCAR_and_relax_vasprun_xml_not_preserved",
+    "zero_strain_smoke_test_only_no_biaxial_strain_matrix"
+  ],
+  "interpretation_boundary": "The audited values are zero-strain static smoke-test descriptors parsed from raw files. They do not establish publication-grade phase energetics, biaxial-strain response, a phase boundary, or any experimental annealing/Pr/2Pr claim."
+}

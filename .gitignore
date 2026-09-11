@@ -6,6 +6,8 @@ data/raw_pdfs/
 data/parsed_pages/
 data/chunks/
 data/tables/
+data/equations/
+data/paddleocr/
 data/extraction_candidates/
 data/extraction_queues/
 data/reviewed_facts/
@@ -20,6 +22,7 @@ data/computation/
 data/design_graph/
 data/evaluation/
 data/runtime/
+data/ferrox_runs/
 ontology/benchmark_extension.yaml
 models/
 data/manifest/*.csv
@@ -40,6 +43,7 @@ data/exports/
 *配置.docx
 outputs/
 logs/
+tmp/
 reports/artifact-build-manifest.json
 
 __pycache__/
@@ -52,3 +56,48 @@ venv/
 dist/
 build/
 *.egg-info/
+.DS_Store
+._*
+
+# Third-party downloaded VASP outputs (nal-hfo archive, 189 MB, 152 files).
+# Not ours to redistribute; POTCAR was already excluded at extraction time.
+# The scientific/workflow audit of this archive IS tracked, at
+# reports/external_vasp_archive_audit_20260824/README.md
+external_data/
+
+# pytest temporary directories (distinct from .pytest_cache/)
+.pytest_tmp_*/
+
+# Licensed VASP pseudopotentials. Never commit or redistribute.
+# The nal-hfo extraction already excluded all seven POTCAR members; the
+# generated strain-pilot job dirs carry POTCAR_NOT_INCLUDED.txt placeholders,
+# which ARE meant to be tracked - they document the deliberate omission.
+POTCAR
+POTCAR.*
+POTCAR_*
+!POTCAR_NOT_INCLUDED.txt
+
+# Downloaded literature/data archives. The nal-hfo source .tgz lives outside
+# this repo (D:\Code-X\Ferroelectric knowledgegraph\), so this is defensive.
+*.tgz
+*.tar.gz
+# ... except the hash-frozen TEFS upload bundle. Its SHA-256 is recorded in
+# reports/phase_strain_computation_preflight_20260824/REMOTE_EXECUTION_GATE.md
+# and gates a paid submission, so the artefact must travel with its hash.
+!computations/phase_strain_pilot/tefs_single_job_pilot_v0_1/output/*.tar.gz
+
+# Report artefacts that embed verbatim excerpts from copyrighted papers
+# (phase_evidence_text / evidence_a / evidence_b / machine_supporting_quote /
+# direct_phase_evidence, up to ~800 chars each, thousands of rows, mostly
+# paywalled DOIs). README already bars "解析文本" from the GitHub repo.
+# These are regenerable locally, read-only, with no LLM cost:
+#   python pipelines/64_run_phase_competition_workflow.py \
+#     --db-path <db> --output-dir reports/<new_run>
+# Their summary/*.json siblings carry only counts, hashes and paths and ARE
+# tracked - keep it that way.
+reports/**/phase_observation_annotation_queue.csv
+reports/**/phase_contradiction_candidates.csv
+reports/**/phase_contradiction_candidates.jsonl
+reports/**/paper_group_inventory.csv
+reports/**/phase_machine_preannotations.csv
+reports/**/phase_machine_preannotations.jsonl

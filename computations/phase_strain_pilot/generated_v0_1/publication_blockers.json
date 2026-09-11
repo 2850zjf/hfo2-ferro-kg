@@ -1,0 +1,17 @@
+{
+  "publication_ready": false,
+  "blockers": [
+    "The manually downloaded crystallographic source DOI/repository record and redistribution licence are not frozen in this package.",
+    "The builder checks source symmetry with phase-specific operation/motif contracts, not spglib. The frozen unrelaxed generated POSCAR hashes passed one separate spglib precheck, but every relaxed output still requires repeat independent SG verification.",
+    "The common (001) orientation is a preregistered pilot choice and is not yet justified as the experimentally selected epitaxial relationship.",
+    "ISIF=2 fixes all lattice vectors. A validated out-of-plane and shear relaxation protocol is required before publication-grade epitaxial energies are claimed.",
+    "The factor-1 reference imposes phase-dependent coherent prestrain on m and o; it is not each phase's zero-stress equilibrium state.",
+    "POTCAR is deliberately absent. PAW dataset identity and hashes must be frozen on the licensed machine and kept identical across all jobs.",
+    "ENCUT, k-point density, smearing, force/stress tolerances, functional, and precision require convergence studies shared across phases.",
+    "Three factors (0.99, 1.00, 1.01) are a smoke-test pilot and are insufficient to fit a robust phase-boundary crossing.",
+    "Every relaxed structure requires phase-identity, minimum-distance, stress, force, electronic, and ionic convergence checks before energy comparison.",
+    "Energies must be normalized to four HfO2 formula units and compared only after identical settings and successful static calculations.",
+    "Zero-kelvin DFT trends cannot validate a specific experimental annealing temperature, annealing time, phase fraction, Pr, or 2Pr.",
+    "The parent TEFS calculation was a method smoke test and was not a publication-grade polymorph benchmark."
+  ]
+}

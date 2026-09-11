@@ -16,9 +16,11 @@ from backend.services.chunker import build_chunks
 from backend.services.hfo2_extractor import run_extraction
 from backend.services.llm_extractor import llm_status
 from backend.services.ontology_builder import build_ontology, load_ontology_bundle
+from app.support import render_top_nav
 
 
-st.set_page_config(page_title="HfO2 信息抽取", layout="wide")
+st.set_page_config(page_title="HfO2 信息抽取", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("抽取审核")
 st.title("HfO2 信息抽取")
 st.caption(
     "按 HfO2-FerroKG 本体抽取材料体系、样品工艺、相结构、器件、性能和证据句。"

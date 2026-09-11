@@ -1,0 +1,16 @@
+SYSTEM = HfO2 monoclinic biaxial pilot factor 1.00000 - static
+PREC = Accurate
+ENCUT = 520
+EDIFF = 1E-7
+ISMEAR = 0
+SIGMA = 0.05
+IBRION = -1
+NSW = 0
+ISTART = 0
+ICHARG = 2
+ISYM = 0
+LREAL = .FALSE.
+LASPH = .TRUE.
+ADDGRID = .TRUE.
+LWAVE = .FALSE.
+LCHARG = .FALSE.

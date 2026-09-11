@@ -1,0 +1,1 @@
+POTCAR is intentionally absent. Supply one licensed, identical PAW dataset stack on the compute machine only after method review.
