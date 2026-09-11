@@ -11,13 +11,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from backend.core.config import MAIN_REPO
+
 
 BUILDER_VERSION = "hfo2-biaxial-strain-pilot-v0.1"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_SOURCE_ROOT = Path(
-    "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/"
-    "hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/"
-    "runs/hfo2_phase_smoke"
+# The frozen 2026-06-22 TEFS snapshots live in the main repository's data tree,
+# not in this linked worktree. See backend.core.config._resolve_main_repo.
+DEFAULT_SOURCE_ROOT = (
+    MAIN_REPO
+    / "data"
+    / "computation"
+    / "tefs_hfo2_phase_smoke_20260622"
+    / "runs"
+    / "hfo2_phase_smoke"
 )
 STRAIN_FACTORS = (0.99, 1.0, 1.01)
 TARGET_ATOMS = 12

@@ -10,14 +10,21 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from backend.core.config import MAIN_REPO
+
 
 AUDIT_VERSION = "vasp-raw-output-audit-v0.1"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REPORTS_ROOT = PROJECT_ROOT / "reports"
-DEFAULT_SOURCE_DIR = Path(
-    "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/"
-    "hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/"
-    "runs/hfo2_phase_smoke"
+# Raw VASP outputs are read-only evidence and live in the main repository's data
+# tree, not in this linked worktree. See backend.core.config._resolve_main_repo.
+DEFAULT_SOURCE_DIR = (
+    MAIN_REPO
+    / "data"
+    / "computation"
+    / "tefs_hfo2_phase_smoke_20260622"
+    / "runs"
+    / "hfo2_phase_smoke"
 )
 
 DEFAULT_PHASES = ("monoclinic", "orthorhombic", "tetragonal", "cubic")

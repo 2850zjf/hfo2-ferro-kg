@@ -15,6 +15,51 @@ if load_dotenv is not None:
     load_dotenv(PROJECT_ROOT / ".env")
 
 
+def _resolve_main_repo() -> Path:
+    """Return the repository that actually owns the production ``data/`` tree.
+
+    This project is checked out as a *linked* git worktree whose ``data/`` holds
+    only a stub database and a partial ``computation/`` subtree; the frozen TEFS
+    snapshots and the 1 GB production database live in the main repository.
+
+    A linked worktree's ``.git`` is a file containing ``gitdir: <path>``, whereas
+    a main repository's ``.git`` is a directory. That gitdir pointer is kept
+    relative so it resolves identically on Windows and under WSL - see
+    docs/windows_migration_20260912.md section 6.2.
+
+    Note this deliberately does NOT feed ``Settings.db_path``: leaving that on
+    PROJECT_ROOT is what keeps pytest pointed at the worktree stub instead of the
+    production database.
+    """
+    override = os.getenv("HFO2_FERROKG_MAIN_REPO")
+    if override:
+        return Path(override).expanduser().resolve()
+
+    gitfile = PROJECT_ROOT / ".git"
+    if not gitfile.is_file():
+        return PROJECT_ROOT
+
+    try:
+        lines = gitfile.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return PROJECT_ROOT
+
+    for line in lines:
+        if not line.startswith("gitdir:"):
+            continue
+        target = Path(line.split(":", 1)[1].strip())
+        if not target.is_absolute():
+            target = PROJECT_ROOT / target
+        target = target.resolve()
+        # <main repo>/.git/worktrees/<name>  ->  <main repo>
+        if target.parent.name == "worktrees" and target.parent.parent.name == ".git":
+            return target.parent.parent.parent
+    return PROJECT_ROOT
+
+
+MAIN_REPO = _resolve_main_repo()
+
+
 @dataclass(frozen=True)
 class Settings:
     project_root: Path = PROJECT_ROOT
