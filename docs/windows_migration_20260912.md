@@ -312,6 +312,71 @@ pytest 结果：
 也就是说，Track B 冻结输入的那层保护**从空转变为有效**。
 （`cubic` 目录下也有 CONTCAR，但 `PHASE_SPECS` 无对应条目——应变 pilot 只覆盖 m/o/t。）
 
+### 6.5 主仓保全提交与两条 FerroX 线的分叉
+
+主仓（`D:\Code-X\Ferroelectric knowledgegraph\KG agent\hfo2-ferro-kg`，
+分支 `codex/benchmark-design-workflow`，有 upstream）此前有 56 个已修改 +
+588 个真实未跟踪文件（12.74 MB）。已提交为 `cd1d9bb`（154 文件，+21910/−455），
+**纯保全，未与本分支做任何合并**。
+
+#### 先补的 `.gitignore` 缺口
+
+主仓 `.gitignore` 已逐条忽略约 24 个 `data/` 子目录，但漏了 4 个，
+导致 `git add -A` 会吞进 **464 个文件 / 7.75 MB 的论文内容**：
+
+| 路径 | 规模 | 内容 |
+|---|---|---|
+| `data/literature_intake/**/05_fulltext/by_paper/*/pages/*.md` | 456 文件 / 7.59 MB | 论文**全文**提取 |
+| `data/literature/hzo_{,missing_}high_quality_download_list.{csv,json}` | 4 文件 / 1.24 MB | `abstract_snippet` 列，**301 条出版社摘要原文**，最长 700 字符 |
+| `data/relevance_screening/` | 5 文件 / 1.58 MB | 筛选报告 |
+| `data/unrelated_pdfs/` | 2 文件 / 1.39 MB | 隔离报告 |
+
+补规则前先确认这 4 个路径下**已跟踪文件数为 0**，故规则纯属增量、不会 untrack 任何东西。
+补后未跟踪集从 588 降到 **100 个代码/文档文件 / 0.64 MB**，`data/` 下剩 0。
+其余 12 个 `data/literature/**` 文件经扫描确认只含书目元数据（标题/DOI/URL/SHA-256/文件名），
+无正文，但按"`data/` 不进版本控制"的既有约定一并忽略。
+
+#### 提交前检查
+
+- 154 个待提交文件全部扫描凭据（含 `.pptx`/`.docx` 容器内部）：**0 命中**
+- 含 CRLF 的文件：**0 个**（主仓虽是原生 Windows 开发，`.sh` 实测已是 LF）
+- 暂存总量 1.31 MB，最大单文件 119.7 KB
+
+#### 故意未提交：2 个 pptx 的删除
+
+主仓工作区缺 2 个**已跟踪**文件：
+
+```
+reports/HfO2-FerroKG_强相关筛查与模型验证进展.pptx
+reports/HfO2-FerroKG_论文级工作流与计算闭环汇报.pptx
+```
+
+它们在 HEAD 里有、在本 worktree 磁盘上也有（3 个 pptx 齐全），内容不会丢。
+但**不知道它们为何在主仓消失**，而记录一个没人要求过的删除比让它继续显式可见更糟，
+所以从暂存区撤出，保留为未暂存的 ` D`，留给了解历史的人处理。
+
+#### 未解决的分叉
+
+两条 FerroX 实现并存，**谁都不是谁的超集**：
+
+| 主仓分支 | 本 worktree 分支 |
+|---|---|
+| `backend/services/simulation_runtime.py` | `backend/services/ferrox_runner.py` |
+| `computations/simulation/`（含 `ferrox.lock.json`、`jax_landau_smoke.py`、`requirements-simulation.txt`、`templates/inputs_hzo_mfim`） | `backend/services/ferrox_postprocess.py` |
+| `scripts/setup_simulation_runtime.sh` | `backend/services/ferrox_benchmark.py` |
+| `pipelines/62_check_simulation_runtime.py` | `backend/schemas/ferrox_experiment_schema.py` |
+| `tests/test_simulation_runtime.py` | `app/pages/14_FerroX_相场模拟.py` |
+| `computation_planner.py` 里 engine 改名 `FerroX_AMReX_with_JAX_calibration` + JAX/AMReX 质量门 | `scripts/install_ferrox_wsl.ps1` |
+
+**流水线编号冲突**：`62` 在主仓是 `check_simulation_runtime.py`，
+在本分支是 `analyze_phase_contradictions.py`（本分支另有 63–67）。
+
+另有 12 个文件两边内容实质不同（+356/−45），最大的是
+`backend/services/llm_extractor.py`（162 行）、`app/pages/12_材料设计工作流.py`（89 行）、
+`tests/test_llm_extractor.py`（78 行）。
+
+调和这些需要决定哪套架构胜出、`62` 怎么重编号，属设计决策而非机械合并，**未做**。
+
 ## 7. 尚未完成的迁移项
 
 按影响排序：
@@ -325,10 +390,9 @@ pytest 结果：
    本地提交已是备份，但推送到公开仓前需先决定两件事：
    `reports/**` 中若干 JSON 的路径字段含 macOS 用户名 `jinfengzhang`；
    `locked_validation_selection_frame.csv` ×2 含 480 条论文标题+DOI。
-3. **主仓未提交**：主仓在 `codex/benchmark-design-workflow` 分支上另有
-   约 164 条未提交改动，且其 `.gitignore` 缺少 worktree 那 6 条
-   `reports/**` 版权保护规则（主仓 `reports/` 下目前无任何 `phase_*` 文件，
-   故当前无实际缺口，属防御性缺失）。主仓也没有 `requirements-wsl.lock.txt`。
+3. **主仓与 worktree 分支存在未调和的分叉**（见 §6.5）。主仓已提交保全
+   （`cd1d9bb`），但两条 FerroX 实现与 `pipelines/62` 编号冲突仍未解决，
+   需要你决定架构取舍，不是机械合并能处理的。
 4. **`.env` 未落到 worktree** —— 这是 §6.3 的有意选择，不是遗漏。
    需要真实 LLM 调用时再建。
 5. **`python pipelines/10_validate_results.py` 未运行**（README 建议的另一项验证）。
