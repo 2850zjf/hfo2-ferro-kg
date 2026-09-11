@@ -11,19 +11,26 @@
 # ---------------------------------------------------------------------------
 # WHY THIS FILE EXISTS
 # ---------------------------------------------------------------------------
-# requirements.txt is not a faithful description of any environment that has
-# ever worked. Both copies in this repo are wrong, in different directions:
+# At the time this environment was built, requirements.txt was not a faithful
+# description of any environment that had ever worked. Both copies in this repo
+# were wrong, in different directions:
 #
-#   * the worktree copy declares 12 packages, all ">=" with no upper bound, and
-#     OMITS numpy (imported by 7 files), pillow and requests (imported by 1
-#     file each). It declares networkx, which nothing imports.
-#   * the main-repo copy declares plotly and dashscope, neither of which was
-#     present in the macOS venv.
+#   * the worktree copy declared 12 packages, all ">=" with no upper bound, and
+#     OMITTED numpy (imported by 7 files), pillow and requests (imported by 1
+#     file each). It declared networkx, which nothing imports.
+#   * the main-repo copy declared plotly and dashscope, neither of which was
+#     present in the macOS venv. It also pinned numpy<2.0 while the macOS venv
+#     that was actually in use had numpy 2.4.6.
 #
-# The last known-good environment was the macOS venv at
+# The worktree copy has since been corrected (numpy/pillow/requests/spglib
+# added, networkx removed, optional extras documented). The main-repo copy has
+# not. This lock file remains the authoritative reproduction record regardless:
+# it is what the 197 passing tests actually ran against.
+#
+# The last known-good environment before the migration was the macOS venv at
 #   <main repo>/.venv    (Python 3.12.13, 84 distributions)
-# Installing from requirements.txt today would resolve to newer, untested
-# versions of a stack that includes pandas 3.0 and numpy 2.4 - both
+# Installing from the old requirements.txt would have resolved to newer,
+# untested versions of a stack that includes pandas 3.0 and numpy 2.4 - both
 # major-version breaking releases. So the 16 direct dependencies below were
 # pinned to the versions measured in that macOS venv, and this file records the
 # full resolved set including transitives.

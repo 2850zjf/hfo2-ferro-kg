@@ -1,12 +1,70 @@
+# Runtime dependencies for HfO2-FerroKG.
+#
+# These are loose lower bounds. The reproducible, actually-tested environment is
+# frozen in requirements-wsl.lock.txt (WSL Ubuntu-24.04, Python 3.12, 79 pins,
+# verified by 197 passing tests). Install from the lock file when you need to
+# reproduce a result; install from here when you just need a working checkout.
+#
+# This list is kept in sync with what the code actually imports (checked by AST
+# scan over every .py file in the repo). Optional extras are documented at the
+# bottom and are deliberately NOT installed by default.
+
+# --- document parsing ---
 PyMuPDF>=1.24
 pdfplumber>=0.11
+
+# --- data / numerical ---
+# numpy is imported directly by 7 modules (active_learning, ferrox_postprocess,
+# app/pages/14_FerroX_相场模拟.py, ...). The tested version is 2.4.6; note the
+# main repository's copy of this file pinned numpy<2.0, which contradicted the
+# environment that was actually in use.
 pandas>=2.0
+numpy>=2.0
+scikit-learn>=1.4
 matplotlib>=3.8
+
+# --- schemas / configuration ---
 pydantic>=2.7
 python-dotenv>=1.0
 PyYAML>=6.0
+
+# --- UI ---
 streamlit>=1.35
-networkx>=3.2
-scikit-learn>=1.4
-pytest>=8.0
+pillow>=11.0
+
+# --- LLM access ---
+# DashScope is reached through its OpenAI-compatible endpoint
+# (HFO2_FERROKG_LLM_BASE_URL), so the openai client is what is needed; the
+# dashscope SDK is not imported anywhere.
 openai>=1.0
+requests>=2.32
+
+# --- crystallography ---
+# Independent space-group verification of the frozen VASP starting structures,
+# required by docs/phase_competition_research_protocol.md section 9.
+# backend/services/vasp_raw_audit.py guards this import with
+# try/except ModuleNotFoundError, so the test suite still passes without it -
+# but the symmetry checks then degrade silently to "spglib_not_installed"
+# instead of failing loudly. That is why it is declared here.
+spglib>=2.7
+
+# --- tests ---
+pytest>=8.0
+
+# ---------------------------------------------------------------------------
+# Optional extras, NOT installed by default
+# ---------------------------------------------------------------------------
+# pymatgen, mp-api
+#     Only used by the standalone script
+#     computations/mp_hfo2_phase_smoke_test/fetch_mp_structures.py.
+#     Heavy; install separately if you need Materials Project structures.
+#
+# ase, jax, jaxlib, cmake
+#     The FerroX phase-field stack, used by app/pages/14_FerroX_相场模拟.py.
+#     A separate sub-project with its own installer:
+#     scripts/install_ferrox_wsl.ps1
+#
+# networkx
+#     Was declared here previously but is imported by nothing in the repo.
+#     Removed 2026-09-12. It remains in requirements-wsl.lock.txt because that
+#     file records the environment the 197 tests actually ran against.
