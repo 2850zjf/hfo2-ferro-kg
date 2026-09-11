@@ -268,6 +268,12 @@ def load_ontology_bundle(version: str | None = None, build_if_missing: bool = Tr
 def load_ontology_prompt_context(bundle: dict[str, Any] | None = None) -> str:
     bundle = bundle or load_ontology_bundle(build_if_missing=True)
     ontology = bundle["ontology"]
+    try:
+        from backend.services.physical_constraints import compact_prompt_constraints
+
+        physical_constraints = compact_prompt_constraints()
+    except Exception:
+        physical_constraints = ""
     property_names = ontology["node_classes"]["FerroelectricProperty"]["fields"]["property_name"]["values"]
     relation_lines = [
         f"- {name}: {relation['from']} -> {relation['to']}"
@@ -287,5 +293,6 @@ def load_ontology_prompt_context(bundle: dict[str, Any] | None = None) -> str:
             *relation_lines,
             "Strict extraction rules:",
             *[f"- {rule}" for rule in rules],
+            physical_constraints,
         ]
     )

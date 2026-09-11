@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from backend.core.config import PROJECT_ROOT
@@ -28,9 +30,13 @@ from backend.services.ontology_builder import build_ontology
 from backend.services.pipeline_log import record_pipeline_run
 
 
-EXTRACTOR_VERSION = "rules-preaudit-0.1"
-LLM_EXTRACTOR_VERSION = "llm-structured-preaudit-0.1"
-ONTOLOGY_VERSION = "hfo2-ferrokg-v1"
+EXTRACTOR_VERSION = "rules-preaudit-0.3"
+LLM_EXTRACTOR_VERSION = "llm-evidence-packet-0.3"
+LLM_DEFERRED_EXTRACTOR_VERSION = "llm-deferred-0.3"
+ONTOLOGY_VERSION = "hfo2-ferrokg-v2.3"
+UNRELATED_PDF_PATH_PATTERN = "%/data/unrelated_pdfs/%"
+LLM_RETRY_STATE_PATH = PROJECT_ROOT / "data" / "runtime" / "llm_retry_state.json"
+LLM_CURRENT_CHUNK_PATH = PROJECT_ROOT / "data" / "runtime" / "llm_current_chunk.json"
 
 PROPERTY_PATTERNS = [
     (
@@ -262,18 +268,103 @@ def preaudit_status(result: HfO2ExtractionResult, source: str) -> tuple[str, flo
     warnings = list(result.warnings)
     if source == "rules":
         warnings.append("Rule-based machine preaudit; human review is required before publication use.")
-    if not result.properties:
-        return "needs_human_review", 0.35, warnings + ["No property value extracted."]
+    knowledge_items = [
+        *result.properties,
+        *result.process_steps,
+        *result.reliability_events,
+        *result.mechanisms,
+        *result.computations,
+        *result.applications,
+        *result.relations,
+    ]
+    if not knowledge_items:
+        return "needs_human_review", 0.35, warnings + ["No reviewable knowledge item extracted."]
     if not result.materials:
         return "needs_human_review", 0.45, warnings + ["No explicit material entity extracted."]
-    if any(len(prop.evidence_text.strip()) < 40 for prop in result.properties):
+    if any(len(item.evidence_text.strip()) < 40 for item in knowledge_items):
         return "needs_human_review", 0.5, warnings + ["Evidence sentence is too short for machine preapproval."]
     if any(prop.review_status == "needs_human_review" for prop in result.properties):
         return "needs_human_review", 0.55, warnings
-    if all(prop.evidence_text and prop.unit for prop in result.properties):
+    if result.properties and all(prop.evidence_text and (prop.unit or prop.value is None) for prop in result.properties):
         base_confidence = 0.8 if source == "llm" else 0.68
         return "preapproved_machine", base_confidence, warnings
-    return "needs_human_review", 0.5, warnings + ["Missing unit or evidence."]
+    if source == "llm" and all(item.evidence_text for item in knowledge_items):
+        return "preapproved_machine", 0.72, warnings
+    return "needs_human_review", 0.5, warnings + ["Missing unit, context, or evidence."]
+
+
+def build_reviewed_fact_records(
+    result: HfO2ExtractionResult,
+    candidate_id: str,
+    preaudit: dict,
+    review_status: str,
+) -> list[dict]:
+    material = result.materials[0].model_dump(mode="json") if result.materials else None
+    sample = result.samples[0].model_dump(mode="json") if result.samples else None
+    phases = [phase.model_dump(mode="json") for phase in result.phases]
+    devices = [device.model_dump(mode="json") for device in result.devices]
+    records: list[dict] = []
+
+    for index, prop in enumerate(result.properties):
+        fact_payload = {
+            "material": material,
+            "sample": sample,
+            "property": prop.model_dump(mode="json"),
+            "phases": phases,
+            "devices": devices,
+            "preaudit": preaudit,
+        }
+        fact_payload["ontology_context"] = build_ontology_context(
+            material,
+            sample,
+            fact_payload["property"],
+            phases,
+            devices,
+        )
+        records.append(_fact_record(result, candidate_id, "ferroelectric_property", index, fact_payload, review_status))
+
+    typed_items = [
+        ("process_step", "process_step", result.process_steps),
+        ("reliability_event", "reliability_event", result.reliability_events),
+        ("mechanism_claim", "mechanism", result.mechanisms),
+        ("computational_observation", "computation", result.computations),
+        ("application_claim", "application", result.applications),
+        ("directional_relation", "relation", result.relations),
+    ]
+    for fact_type, payload_key, items in typed_items:
+        for index, item in enumerate(items):
+            fact_payload = {
+                "material": material,
+                "sample": sample,
+                "phases": phases,
+                "devices": devices,
+                payload_key: item.model_dump(mode="json"),
+                "preaudit": preaudit,
+            }
+            records.append(_fact_record(result, candidate_id, fact_type, index, fact_payload, review_status))
+    return records
+
+
+def _fact_record(
+    result: HfO2ExtractionResult,
+    candidate_id: str,
+    fact_type: str,
+    index: int,
+    payload: dict,
+    review_status: str,
+) -> dict:
+    fact_id = f"fact_{uuid.uuid5(uuid.NAMESPACE_URL, candidate_id + fact_type + str(index)).hex[:16]}"
+    return {
+        "fact_id": fact_id,
+        "candidate_id": candidate_id,
+        "paper_id": result.paper_id,
+        "pdf_id": result.pdf_id,
+        "chunk_id": result.chunk_id,
+        "page_number": result.page_number,
+        "fact_type": fact_type,
+        "payload_json": json.dumps(payload, ensure_ascii=False),
+        "review_status": review_status,
+    }
 
 
 def empty_result_payload(
@@ -299,6 +390,12 @@ def empty_result_payload(
         "phases": [],
         "properties": [],
         "devices": [],
+        "process_steps": [],
+        "reliability_events": [],
+        "mechanisms": [],
+        "computations": [],
+        "applications": [],
+        "relations": [],
         "evidences": [],
         "warnings": warnings,
         "preaudit": {
@@ -312,6 +409,189 @@ def empty_result_payload(
     }
 
 
+def _max_llm_chunk_retries() -> int:
+    raw = os.getenv("HFO2_FERROKG_LLM_MAX_CHUNK_RETRIES", "3")
+    try:
+        value = int(raw)
+    except ValueError:
+        return 3
+    return max(0, value)
+
+
+def _read_llm_retry_state() -> dict[str, dict[str, object]]:
+    if not LLM_RETRY_STATE_PATH.exists():
+        return {}
+    try:
+        payload = json.loads(LLM_RETRY_STATE_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    return {str(key): value for key, value in payload.items() if isinstance(value, dict)}
+
+
+def _write_llm_retry_state(state: dict[str, dict[str, object]]) -> None:
+    LLM_RETRY_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LLM_RETRY_STATE_PATH.write_text(
+        json.dumps(state, ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def _record_llm_retry_failure(row, reason: str | None) -> int:
+    chunk_id = row["chunk_id"]
+    state = _read_llm_retry_state()
+    entry = state.get(chunk_id, {})
+    failures = int(entry.get("failures", 0) or 0) + 1
+    entry.update(
+        {
+            "chunk_id": chunk_id,
+            "paper_id": row["paper_id"],
+            "pdf_id": row["pdf_id"],
+            "page_number": row["page_number"],
+            "failures": failures,
+            "last_reason": str(reason or "")[:1000],
+            "last_failed_at": datetime.now().isoformat(timespec="seconds"),
+        }
+    )
+    state[chunk_id] = entry
+    _write_llm_retry_state(state)
+    return failures
+
+
+def _clear_llm_retry_failure(chunk_id: str) -> None:
+    state = _read_llm_retry_state()
+    if chunk_id not in state:
+        return
+    state.pop(chunk_id, None)
+    _write_llm_retry_state(state)
+
+
+def write_llm_current_chunk(row, ontology_version: str, model: str | None) -> Path:
+    LLM_CURRENT_CHUNK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "paper_id": row["paper_id"],
+        "pdf_id": row["pdf_id"],
+        "chunk_id": row["chunk_id"],
+        "page_number": row["page_number"],
+        "ontology_version": ontology_version,
+        "model": model,
+        "pid": os.getpid(),
+        "started_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    LLM_CURRENT_CHUNK_PATH.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return LLM_CURRENT_CHUNK_PATH
+
+
+def clear_llm_current_chunk(chunk_id: str | None = None) -> None:
+    try:
+        if chunk_id and LLM_CURRENT_CHUNK_PATH.exists():
+            payload = json.loads(LLM_CURRENT_CHUNK_PATH.read_text(encoding="utf-8"))
+            if payload.get("chunk_id") != chunk_id:
+                return
+        LLM_CURRENT_CHUNK_PATH.unlink()
+    except FileNotFoundError:
+        return
+    except json.JSONDecodeError:
+        try:
+            LLM_CURRENT_CHUNK_PATH.unlink()
+        except FileNotFoundError:
+            return
+
+
+def llm_deferred_payload(
+    row,
+    ontology_version: str,
+    reason: str | None,
+    failure_count: int,
+    max_retries: int,
+) -> dict:
+    warnings = [
+        "LLM extraction was deferred after repeated transient failures.",
+        "No rule-based fallback was written for this chunk.",
+        "Retry this deferred chunk later after model capacity or network conditions recover.",
+    ]
+    return {
+        "paper_id": row["paper_id"],
+        "pdf_id": row["pdf_id"],
+        "chunk_id": row["chunk_id"],
+        "page_number": row["page_number"],
+        "materials": [],
+        "samples": [],
+        "phases": [],
+        "properties": [],
+        "devices": [],
+        "process_steps": [],
+        "reliability_events": [],
+        "mechanisms": [],
+        "computations": [],
+        "applications": [],
+        "relations": [],
+        "evidences": [],
+        "warnings": warnings,
+        "llm_retry": {
+            "status": "deferred",
+            "failure_count": failure_count,
+            "max_retries": max_retries,
+            "reason": str(reason or "")[:1000],
+            "deferred_at": datetime.now().isoformat(timespec="seconds"),
+        },
+        "preaudit": {
+            "status": "llm_deferred",
+            "confidence": 0.0,
+            "warnings": warnings,
+            "extractor_version": LLM_DEFERRED_EXTRACTOR_VERSION,
+            "extraction_source": "llm_deferred",
+            "ontology_version": ontology_version,
+        },
+    }
+
+
+def insert_llm_deferred_candidate(
+    conn,
+    row,
+    ontology_version: str,
+    reason: str | None,
+    failure_count: int,
+    max_retries: int,
+) -> tuple[str, dict]:
+    payload = llm_deferred_payload(row, ontology_version, reason, failure_count, max_retries)
+    candidate_id = f"cand_deferred_{uuid.uuid5(uuid.NAMESPACE_URL, row['chunk_id'] + ontology_version).hex[:16]}"
+    conn.execute(
+        """
+        INSERT INTO extraction_candidates (
+            candidate_id, paper_id, pdf_id, chunk_id, page_number, payload_json,
+            extractor_version, ontology_version, confidence, status, error_message
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(candidate_id) DO UPDATE SET
+            payload_json = excluded.payload_json,
+            extractor_version = excluded.extractor_version,
+            ontology_version = excluded.ontology_version,
+            confidence = excluded.confidence,
+            status = excluded.status,
+            error_message = excluded.error_message
+        """,
+        (
+            candidate_id,
+            row["paper_id"],
+            row["pdf_id"],
+            row["chunk_id"],
+            row["page_number"],
+            json.dumps(payload, ensure_ascii=False),
+            LLM_DEFERRED_EXTRACTOR_VERSION,
+            ontology_version,
+            0.0,
+            "llm_deferred",
+            str(reason or "")[:2000],
+        ),
+    )
+    return candidate_id, payload
+
+
 def run_extraction(
     limit_chunks: int | None = None,
     db_path: Path | None = None,
@@ -323,6 +603,8 @@ def run_extraction(
     progress_every: int | None = None,
     paper_ids: list[str] | None = None,
     chunk_ids: list[str] | None = None,
+    high_value_only: bool = True,
+    llm_strict: bool = False,
 ) -> dict[str, int]:
     output_path = PROJECT_ROOT / "data" / "extraction_candidates" / "hfo2_candidates.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -337,6 +619,11 @@ def run_extraction(
         "llm_used": 0,
         "llm_skipped": 0,
         "llm_failed": 0,
+        "llm_deferred": 0,
+        "llm_prompt_tokens": 0,
+        "llm_completion_tokens": 0,
+        "llm_total_tokens": 0,
+        "llm_specialist_calls": 0,
         "rules_used": 0,
         "preapproved": 0,
         "needs_human_review": 0,
@@ -345,52 +632,63 @@ def run_extraction(
         "errors": 0,
         "skipped_existing": 0,
         "paused": 0,
+        "high_value_only": int(high_value_only),
+        "llm_strict": int(llm_strict),
     }
     if should_use_llm and not dry_run:
         clear_llm_pause()
 
     with connect(db_path) as conn:
         query = """
-        SELECT chunk_id, paper_id, pdf_id, page_number, text
-        FROM document_chunks
-        WHERE is_high_value = 1
+        SELECT dc.chunk_id, dc.paper_id, dc.pdf_id, dc.page_number, dc.section,
+               dc.chunk_index, dc.text, p.title, p.doi, p.year, p.paper_type,
+               p.is_review,
+               (SELECT prev.text FROM document_chunks prev
+                WHERE prev.pdf_id = dc.pdf_id AND prev.chunk_index = dc.chunk_index - 1
+                LIMIT 1) AS context_before,
+               (SELECT nxt.text FROM document_chunks nxt
+                WHERE nxt.pdf_id = dc.pdf_id AND nxt.chunk_index = dc.chunk_index + 1
+                LIMIT 1) AS context_after
+        FROM document_chunks dc
+        LEFT JOIN pdf_files pf ON pf.pdf_id = dc.pdf_id
+        LEFT JOIN papers p ON p.paper_id = dc.paper_id
+        WHERE (? = 0 OR dc.is_high_value = 1)
+          AND (pf.file_path IS NULL OR pf.file_path NOT LIKE ?)
           AND (? = 1 OR NOT EXISTS (
               SELECT 1
               FROM extraction_candidates ec
-              WHERE ec.chunk_id = document_chunks.chunk_id
+              WHERE ec.chunk_id = dc.chunk_id
                 AND ec.ontology_version = ?
           ))
         """
-        params: list[object] = [int(reset_existing), ontology_version]
+        params: list[object] = [int(high_value_only), UNRELATED_PDF_PATH_PATTERN, int(reset_existing), ontology_version]
         if paper_ids:
             placeholders = ",".join("?" for _ in paper_ids)
-            query += f" AND paper_id IN ({placeholders})"
+            query += f" AND dc.paper_id IN ({placeholders})"
             params.extend(paper_ids)
         if chunk_ids:
             placeholders = ",".join("?" for _ in chunk_ids)
-            query += f" AND chunk_id IN ({placeholders})"
+            query += f" AND dc.chunk_id IN ({placeholders})"
             params.extend(chunk_ids)
-        query += " ORDER BY pdf_id, chunk_index"
+        query += " ORDER BY dc.pdf_id, dc.chunk_index"
         rows = conn.execute(query, params).fetchall()
         if limit_chunks is not None:
             rows = rows[:limit_chunks]
 
         if not dry_run:
             if reset_existing:
-                if paper_ids or chunk_ids:
-                    delete_params: list[object] = []
-                    clauses: list[str] = []
-                    if paper_ids:
-                        placeholders = ",".join("?" for _ in paper_ids)
-                        clauses.append(f"paper_id IN ({placeholders})")
-                        delete_params.extend(paper_ids)
-                    if chunk_ids:
-                        placeholders = ",".join("?" for _ in chunk_ids)
-                        clauses.append(f"chunk_id IN ({placeholders})")
-                        delete_params.extend(chunk_ids)
-                    where_sql = " OR ".join(clauses)
-                    conn.execute(f"DELETE FROM extraction_candidates WHERE {where_sql}", delete_params)
-                    conn.execute(f"DELETE FROM reviewed_facts WHERE {where_sql}", delete_params)
+                selected_chunk_ids = [row["chunk_id"] for row in rows]
+                if paper_ids or chunk_ids or limit_chunks is not None:
+                    if selected_chunk_ids:
+                        placeholders = ",".join("?" for _ in selected_chunk_ids)
+                        conn.execute(
+                            f"DELETE FROM extraction_candidates WHERE chunk_id IN ({placeholders})",
+                            selected_chunk_ids,
+                        )
+                        conn.execute(
+                            f"DELETE FROM reviewed_facts WHERE chunk_id IN ({placeholders})",
+                            selected_chunk_ids,
+                        )
                 else:
                     conn.execute("DELETE FROM extraction_candidates")
                     conn.execute("DELETE FROM reviewed_facts")
@@ -406,16 +704,79 @@ def run_extraction(
                 source = "rules"
                 extractor_version = EXTRACTOR_VERSION
                 llm_error = None
+                llm_usage = None
                 try:
                     if should_use_llm:
-                        outcome = extract_chunk_with_llm(row, model=llm_model)
+                        write_llm_current_chunk(row, ontology_version, llm_model)
+                        try:
+                            outcome = extract_chunk_with_llm(row, model=llm_model)
+                        finally:
+                            clear_llm_current_chunk(row["chunk_id"])
+                        llm_usage = outcome.usage or None
+                        if llm_usage:
+                            stats["llm_prompt_tokens"] += int(llm_usage.get("prompt_tokens") or 0)
+                            stats["llm_completion_tokens"] += int(llm_usage.get("completion_tokens") or 0)
+                            stats["llm_total_tokens"] += int(llm_usage.get("total_tokens") or 0)
+                            stats["llm_specialist_calls"] += int(llm_usage.get("specialist_calls") or 0)
                         if outcome.result is not None:
+                            _clear_llm_retry_failure(row["chunk_id"])
                             result = outcome.result
                             source = "llm"
                             extractor_version = LLM_EXTRACTOR_VERSION
                             stats["llm_used"] += 1
                         else:
                             llm_error = outcome.error_message
+                            if llm_strict and should_use_llm:
+                                if (not outcome.used_llm) or is_llm_budget_error(llm_error):
+                                    stats["llm_failed"] += int(outcome.used_llm)
+                                    stats["llm_skipped"] += int(not outcome.used_llm)
+                                    failure_count = (
+                                        _record_llm_retry_failure(row, llm_error)
+                                        if outcome.used_llm
+                                        else 0
+                                    )
+                                    max_retries = _max_llm_chunk_retries()
+                                    if outcome.used_llm and max_retries and failure_count >= max_retries:
+                                        if not dry_run:
+                                            candidate_id, payload = insert_llm_deferred_candidate(
+                                                conn,
+                                                row,
+                                                ontology_version,
+                                                llm_error,
+                                                failure_count,
+                                                max_retries,
+                                            )
+                                            fh.write(
+                                                json.dumps(
+                                                    {"candidate_id": candidate_id, **payload},
+                                                    ensure_ascii=False,
+                                                )
+                                                + "\n"
+                                            )
+                                            fh.flush()
+                                            if commit_every > 0:
+                                                conn.commit()
+                                        stats["llm_deferred"] += 1
+                                        clear_llm_current_chunk(row["chunk_id"])
+                                        continue
+                                    stats["paused"] = 1
+                                    pause_path = write_llm_pause(
+                                        llm_error or "Strict LLM extraction failed before returning a structured result.",
+                                        {
+                                            "pipeline": "05_run_extraction",
+                                            "strict_llm": True,
+                                            "paper_id": row["paper_id"],
+                                            "pdf_id": row["pdf_id"],
+                                            "chunk_id": row["chunk_id"],
+                                            "page_number": row["page_number"],
+                                            "processed_chunks_in_this_run": stats["chunks"],
+                                        },
+                                    )
+                                    stats["pause_file"] = str(pause_path)
+                                    if not dry_run:
+                                        conn.commit()
+                                    break
+                                raise ValueError(f"Strict LLM extraction produced an unusable response: {llm_error}")
                             if outcome.used_llm and is_llm_budget_error(llm_error):
                                 stats["llm_failed"] += 1
                                 stats["paused"] = 1
@@ -485,12 +846,26 @@ def run_extraction(
                     if progress_every and stats["chunks"] % progress_every == 0:
                         print(
                             "processed={chunks} candidates={candidates} llm_used={llm_used} "
-                            "llm_failed={llm_failed} empty={empty} "
+                            "llm_failed={llm_failed} llm_deferred={llm_deferred} empty={empty} "
                             "empty_recorded={empty_recorded} errors={errors}".format(**stats),
                             flush=True,
                         )
                     continue
-                if not any([result.materials, result.samples, result.phases, result.properties, result.devices]):
+                if not any(
+                    [
+                        result.materials,
+                        result.samples,
+                        result.phases,
+                        result.properties,
+                        result.devices,
+                        result.process_steps,
+                        result.reliability_events,
+                        result.mechanisms,
+                        result.computations,
+                        result.applications,
+                        result.relations,
+                    ]
+                ):
                     stats["empty"] += 1
                     payload = empty_result_payload(
                         row,
@@ -499,6 +874,8 @@ def run_extraction(
                         ontology_version,
                         llm_error=llm_error,
                     )
+                    if llm_usage:
+                        payload["preaudit"]["llm_usage"] = llm_usage
                     candidate_id = f"cand_empty_{uuid.uuid5(uuid.NAMESPACE_URL, row['chunk_id'] + ontology_version).hex[:16]}"
                     if not dry_run:
                         conn.execute(
@@ -536,7 +913,7 @@ def run_extraction(
                     if progress_every and stats["chunks"] % progress_every == 0:
                         print(
                             "processed={chunks} candidates={candidates} llm_used={llm_used} "
-                            "llm_failed={llm_failed} empty={empty} "
+                            "llm_failed={llm_failed} llm_deferred={llm_deferred} empty={empty} "
                             "empty_recorded={empty_recorded} errors={errors}".format(**stats),
                             flush=True,
                         )
@@ -553,6 +930,8 @@ def run_extraction(
                     "extraction_source": source,
                     "ontology_version": ontology_version,
                 }
+                if llm_usage:
+                    payload["preaudit"]["llm_usage"] = llm_usage
                 candidate_id = f"cand_{uuid.uuid5(uuid.NAMESPACE_URL, row['chunk_id'] + json.dumps(payload, sort_keys=True, ensure_ascii=False)).hex[:16]}"
                 if not dry_run:
                     conn.execute(
@@ -576,46 +955,34 @@ def run_extraction(
                             status,
                         ),
                     )
-                if result.properties:
-                    for index, prop in enumerate(result.properties):
-                        fact_payload = {
-                            "material": result.materials[0].model_dump(mode="json") if result.materials else None,
-                            "sample": result.samples[0].model_dump(mode="json") if result.samples else None,
-                            "property": prop.model_dump(mode="json"),
-                            "phases": [phase.model_dump(mode="json") for phase in result.phases],
-                            "devices": [device.model_dump(mode="json") for device in result.devices],
-                            "preaudit": payload["preaudit"],
-                        }
-                        fact_payload["ontology_context"] = build_ontology_context(
-                            fact_payload["material"],
-                            fact_payload["sample"],
-                            fact_payload["property"],
-                            fact_payload["phases"],
-                            fact_payload["devices"],
-                        )
-                        fact_id = f"fact_{uuid.uuid5(uuid.NAMESPACE_URL, candidate_id + str(index)).hex[:16]}"
-                        if not dry_run:
-                            conn.execute(
-                                """
-                                INSERT INTO reviewed_facts (
-                                    fact_id, candidate_id, paper_id, pdf_id, chunk_id, page_number,
-                                    fact_type, payload_json, review_status, reviewer_notes
-                                )
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                """,
-                                (
-                                    fact_id,
-                                    candidate_id,
-                                    result.paper_id,
-                                    result.pdf_id,
-                                    result.chunk_id,
-                                    result.page_number,
-                                    "ferroelectric_property",
-                                    json.dumps(fact_payload, ensure_ascii=False),
-                                    status,
-                                    "Machine pre-audit only. Requires later human review before publication claims.",
-                                ),
+                for fact in build_reviewed_fact_records(result, candidate_id, payload["preaudit"], status):
+                    if not dry_run:
+                        conn.execute(
+                            """
+                            INSERT INTO reviewed_facts (
+                                fact_id, candidate_id, paper_id, pdf_id, chunk_id, page_number,
+                                fact_type, payload_json, review_status, reviewer_notes
                             )
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(fact_id) DO UPDATE SET
+                                payload_json = excluded.payload_json,
+                                review_status = excluded.review_status,
+                                reviewer_notes = excluded.reviewer_notes,
+                                updated_at = CURRENT_TIMESTAMP
+                            """,
+                            (
+                                fact["fact_id"],
+                                fact["candidate_id"],
+                                fact["paper_id"],
+                                fact["pdf_id"],
+                                fact["chunk_id"],
+                                fact["page_number"],
+                                fact["fact_type"],
+                                fact["payload_json"],
+                                fact["review_status"],
+                                "Machine pre-audit only. Requires later human review before publication claims.",
+                            ),
+                        )
                 fh.write(json.dumps({"candidate_id": candidate_id, **payload}, ensure_ascii=False) + "\n")
                 fh.flush()
                 stats["candidates"] += 1
@@ -628,7 +995,7 @@ def run_extraction(
                 if progress_every and stats["chunks"] % progress_every == 0:
                     print(
                         "processed={chunks} candidates={candidates} llm_used={llm_used} "
-                        "llm_failed={llm_failed} empty={empty} "
+                        "llm_failed={llm_failed} llm_deferred={llm_deferred} empty={empty} "
                         "empty_recorded={empty_recorded} errors={errors}".format(**stats),
                         flush=True,
                     )

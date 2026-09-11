@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.services.progress_monitor import monitor_snapshot
+from app.support import render_top_nav
 
 
 MONITOR_HOST = "127.0.0.1"
@@ -75,7 +76,8 @@ def _metric_row(tokens: dict, runtime: dict) -> None:
     cols[4].metric("实时估算", f"{tokens.get('estimated_live_cost', tokens.get('estimated_cost', 0))} {currency}")
 
 
-st.set_page_config(page_title="任务实时监控", layout="wide")
+st.set_page_config(page_title="任务实时监控", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("任务监控")
 st.title("任务实时监控")
 st.caption("这里是主站内嵌监控入口；下方大面板来自独立 8502 监控服务，数字更新时不会刷新整个 Streamlit 页面。")
 

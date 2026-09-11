@@ -40,10 +40,26 @@ def normalize_property_alias(raw_name: str) -> PropertyName | None:
     raw = raw_name.strip().lower()
     if raw == "2pr" or "2pr" in raw or "double remanent" in raw:
         return PropertyName.double_remanent_polarization_2Pr
-    if raw == "pr" or "remanent polarization" in raw:
+    if raw == "pr" or "remanent polarization" in raw or "remnant polarization" in raw:
         return PropertyName.remanent_polarization_Pr
     if raw == "ec" or "coercive" in raw:
         return PropertyName.coercive_field_Ec
+    if raw == "ps" or "saturation polarization" in raw:
+        return PropertyName.saturation_polarization_Ps
+    if "dielectric constant" in raw or raw in {"k", "k-value", "permittivity"}:
+        return PropertyName.dielectric_constant
+    if "negative capacitance" in raw:
+        return PropertyName.negative_capacitance
+    if "switched polarization fraction" in raw or "polarization switching fraction" in raw:
+        return PropertyName.switched_polarization_fraction
+    if "polarization change" in raw or "deltap" in raw or "δp" in raw or "Δp" in raw:
+        return PropertyName.polarization_change_DeltaP
+    if "switching time" in raw or "switching speed" in raw or "pulse width" in raw:
+        return PropertyName.switching_time
+    if "breakdown" in raw:
+        return PropertyName.breakdown_field
+    if "band gap" in raw:
+        return PropertyName.band_gap
     if "memory window" in raw:
         return PropertyName.memory_window
     if "endurance" in raw:

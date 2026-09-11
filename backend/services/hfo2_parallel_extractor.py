@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
@@ -11,15 +12,24 @@ from backend.db.session import connect
 from backend.services.hfo2_extractor import (
     EXTRACTOR_VERSION,
     LLM_EXTRACTOR_VERSION,
+    build_reviewed_fact_records,
     empty_result_payload,
     extract_chunk,
     preaudit_status,
 )
 from backend.services.llm_extractor import extract_chunk_with_llm
-from backend.services.llm_quota_guard import clear_llm_pause, is_llm_budget_error, write_llm_pause
+from backend.services.llm_quota_guard import (
+    clear_llm_pause,
+    is_llm_budget_error,
+    is_llm_transient_error,
+    write_llm_pause,
+)
 from backend.services.ontology_builder import build_ontology
 from backend.services.ontology_context import build_ontology_context
 from backend.services.pipeline_log import record_pipeline_run
+
+
+UNRELATED_PDF_PATH_PATTERN = "%/data/unrelated_pdfs/%"
 
 
 def _candidate_for_result(
@@ -46,37 +56,13 @@ def _candidate_for_result(
     if llm_usage:
         payload["preaudit"]["llm_usage"] = llm_usage
     candidate_id = f"cand_{uuid.uuid5(uuid.NAMESPACE_URL, row['chunk_id'] + json.dumps(payload, sort_keys=True, ensure_ascii=False)).hex[:16]}"
-    facts = []
-    if result.properties:
-        for index, prop in enumerate(result.properties):
-            fact_payload = {
-                "material": result.materials[0].model_dump(mode="json") if result.materials else None,
-                "sample": result.samples[0].model_dump(mode="json") if result.samples else None,
-                "property": prop.model_dump(mode="json"),
-                "phases": [phase.model_dump(mode="json") for phase in result.phases],
-                "devices": [device.model_dump(mode="json") for device in result.devices],
-                "preaudit": payload["preaudit"],
-            }
-            fact_payload["ontology_context"] = build_ontology_context(
-                fact_payload["material"],
-                fact_payload["sample"],
-                fact_payload["property"],
-                fact_payload["phases"],
-                fact_payload["devices"],
-            )
-            fact_id = f"fact_{uuid.uuid5(uuid.NAMESPACE_URL, candidate_id + str(index)).hex[:16]}"
-            facts.append(
-                {
-                    "fact_id": fact_id,
-                    "candidate_id": candidate_id,
-                    "paper_id": result.paper_id,
-                    "pdf_id": result.pdf_id,
-                    "chunk_id": result.chunk_id,
-                    "page_number": result.page_number,
-                    "payload_json": json.dumps(fact_payload, ensure_ascii=False),
-                    "review_status": status,
-                }
-            )
+    facts = build_reviewed_fact_records(result, candidate_id, payload["preaudit"], status)
+    usage_stats = {
+        "llm_prompt_tokens": int((llm_usage or {}).get("prompt_tokens") or 0),
+        "llm_completion_tokens": int((llm_usage or {}).get("completion_tokens") or 0),
+        "llm_total_tokens": int((llm_usage or {}).get("total_tokens") or 0),
+        "llm_specialist_calls": int((llm_usage or {}).get("specialist_calls") or 0),
+    }
     return {
         "candidate_id": candidate_id,
         "paper_id": result.paper_id,
@@ -95,6 +81,7 @@ def _candidate_for_result(
             "candidates": 1,
             "preapproved": int(status == "preapproved_machine"),
             "needs_human_review": int(status != "preapproved_machine"),
+            **usage_stats,
         },
     }
 
@@ -104,6 +91,7 @@ def _process_row(
     should_use_llm: bool,
     llm_model: str | None,
     ontology_version: str,
+    llm_strict: bool = False,
 ) -> dict[str, Any]:
     source = "rules"
     extractor_version = EXTRACTOR_VERSION
@@ -120,6 +108,22 @@ def _process_row(
                 llm_stats = {"llm_used": 1, "llm_failed": 0, "llm_skipped": 0, "rules_used": 0}
             else:
                 llm_error = outcome.error_message
+                if llm_strict and should_use_llm:
+                    if (not outcome.used_llm) or is_llm_budget_error(llm_error):
+                        return {
+                            "kind": "llm_budget_pause",
+                            "paper_id": row["paper_id"],
+                            "pdf_id": row["pdf_id"],
+                            "chunk_id": row["chunk_id"],
+                            "page_number": row["page_number"],
+                            "error_message": llm_error or "Strict LLM extraction failed before returning a structured result.",
+                            "stats": {
+                                "llm_failed": int(outcome.used_llm),
+                                "llm_skipped": int(not outcome.used_llm),
+                                "paused": 1,
+                            },
+                        }
+                    raise ValueError(f"Strict LLM extraction produced an unusable response: {llm_error}")
                 if outcome.used_llm and is_llm_budget_error(llm_error):
                     return {
                         "kind": "llm_budget_pause",
@@ -160,6 +164,7 @@ def _process_row(
         }
         return {
             "kind": "error",
+            "transient_error": is_llm_transient_error(str(exc)),
             "candidate_id": candidate_id,
             "paper_id": row["paper_id"],
             "pdf_id": row["pdf_id"],
@@ -184,7 +189,21 @@ def _process_row(
             },
         }
 
-    if not any([result.materials, result.samples, result.phases, result.properties, result.devices]):
+    if not any(
+        [
+            result.materials,
+            result.samples,
+            result.phases,
+            result.properties,
+            result.devices,
+            result.process_steps,
+            result.reliability_events,
+            result.mechanisms,
+            result.computations,
+            result.applications,
+            result.relations,
+        ]
+    ):
         payload = empty_result_payload(
             row,
             source,
@@ -210,7 +229,18 @@ def _process_row(
             "error_message": None,
             "output_payload": {"candidate_id": candidate_id, **payload},
             "facts": [],
-            "stats": {"empty": 1, "empty_recorded": 1, "candidates": 0, "preapproved": 0, "needs_human_review": 0, **llm_stats},
+            "stats": {
+                "empty": 1,
+                "empty_recorded": 1,
+                "candidates": 0,
+                "preapproved": 0,
+                "needs_human_review": 0,
+                "llm_prompt_tokens": int((llm_usage or {}).get("prompt_tokens") or 0),
+                "llm_completion_tokens": int((llm_usage or {}).get("completion_tokens") or 0),
+                "llm_total_tokens": int((llm_usage or {}).get("total_tokens") or 0),
+                "llm_specialist_calls": int((llm_usage or {}).get("specialist_calls") or 0),
+                **llm_stats,
+            },
         }
 
     item = _candidate_for_result(
@@ -239,6 +269,8 @@ def run_parallel_extraction(
     max_workers: int = 24,
     paper_ids: list[str] | None = None,
     chunk_ids: list[str] | None = None,
+    high_value_only: bool = True,
+    llm_strict: bool = False,
 ) -> dict[str, Any]:
     output_path = PROJECT_ROOT / "data" / "extraction_candidates" / "hfo2_candidates.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -253,6 +285,10 @@ def run_parallel_extraction(
         "llm_used": 0,
         "llm_failed": 0,
         "llm_skipped": 0,
+        "llm_prompt_tokens": 0,
+        "llm_completion_tokens": 0,
+        "llm_total_tokens": 0,
+        "llm_specialist_calls": 0,
         "rules_used": 0,
         "preapproved": 0,
         "needs_human_review": 0,
@@ -262,31 +298,46 @@ def run_parallel_extraction(
         "skipped_existing": 0,
         "max_workers": max_workers,
         "paused": 0,
+        "transient_paused": 0,
+        "transient_error_streak": 0,
+        "high_value_only": int(high_value_only),
+        "llm_strict": int(llm_strict),
     }
     if should_use_llm and not dry_run:
         clear_llm_pause()
 
     with connect(db_path) as conn:
         query = """
-        SELECT chunk_id, paper_id, pdf_id, page_number, text
-        FROM document_chunks
-        WHERE is_high_value = 1
+        SELECT dc.chunk_id, dc.paper_id, dc.pdf_id, dc.page_number, dc.section,
+               dc.chunk_index, dc.text, p.title, p.doi, p.year, p.paper_type,
+               p.is_review,
+               (SELECT prev.text FROM document_chunks prev
+                WHERE prev.pdf_id = dc.pdf_id AND prev.chunk_index = dc.chunk_index - 1
+                LIMIT 1) AS context_before,
+               (SELECT nxt.text FROM document_chunks nxt
+                WHERE nxt.pdf_id = dc.pdf_id AND nxt.chunk_index = dc.chunk_index + 1
+                LIMIT 1) AS context_after
+        FROM document_chunks dc
+        LEFT JOIN pdf_files pf ON pf.pdf_id = dc.pdf_id
+        LEFT JOIN papers p ON p.paper_id = dc.paper_id
+        WHERE (? = 0 OR dc.is_high_value = 1)
+          AND (pf.file_path IS NULL OR pf.file_path NOT LIKE ?)
           AND (? = 1 OR NOT EXISTS (
               SELECT 1 FROM extraction_candidates ec
-              WHERE ec.chunk_id = document_chunks.chunk_id
+              WHERE ec.chunk_id = dc.chunk_id
                 AND ec.ontology_version = ?
           ))
         """
-        params: list[object] = [int(reset_existing), ontology_version]
+        params: list[object] = [int(high_value_only), UNRELATED_PDF_PATH_PATTERN, int(reset_existing), ontology_version]
         if paper_ids:
             placeholders = ",".join("?" for _ in paper_ids)
-            query += f" AND paper_id IN ({placeholders})"
+            query += f" AND dc.paper_id IN ({placeholders})"
             params.extend(paper_ids)
         if chunk_ids:
             placeholders = ",".join("?" for _ in chunk_ids)
-            query += f" AND chunk_id IN ({placeholders})"
+            query += f" AND dc.chunk_id IN ({placeholders})"
             params.extend(chunk_ids)
-        query += " ORDER BY pdf_id, chunk_index"
+        query += " ORDER BY dc.pdf_id, dc.chunk_index"
         rows = conn.execute(query, params).fetchall()
         row_dicts = [dict(row) for row in rows]
         if limit_chunks is not None:
@@ -294,20 +345,18 @@ def run_parallel_extraction(
 
         if not dry_run:
             if reset_existing:
-                if paper_ids or chunk_ids:
-                    delete_params: list[object] = []
-                    clauses: list[str] = []
-                    if paper_ids:
-                        placeholders = ",".join("?" for _ in paper_ids)
-                        clauses.append(f"paper_id IN ({placeholders})")
-                        delete_params.extend(paper_ids)
-                    if chunk_ids:
-                        placeholders = ",".join("?" for _ in chunk_ids)
-                        clauses.append(f"chunk_id IN ({placeholders})")
-                        delete_params.extend(chunk_ids)
-                    where_sql = " OR ".join(clauses)
-                    conn.execute(f"DELETE FROM extraction_candidates WHERE {where_sql}", delete_params)
-                    conn.execute(f"DELETE FROM reviewed_facts WHERE {where_sql}", delete_params)
+                selected_chunk_ids = [row["chunk_id"] for row in row_dicts]
+                if paper_ids or chunk_ids or limit_chunks is not None:
+                    if selected_chunk_ids:
+                        placeholders = ",".join("?" for _ in selected_chunk_ids)
+                        conn.execute(
+                            f"DELETE FROM extraction_candidates WHERE chunk_id IN ({placeholders})",
+                            selected_chunk_ids,
+                        )
+                        conn.execute(
+                            f"DELETE FROM reviewed_facts WHERE chunk_id IN ({placeholders})",
+                            selected_chunk_ids,
+                        )
                 else:
                     conn.execute("DELETE FROM extraction_candidates")
                     conn.execute("DELETE FROM reviewed_facts")
@@ -322,7 +371,16 @@ def run_parallel_extraction(
         def submit_next(pool: ThreadPoolExecutor, index: int):
             if index >= len(row_dicts):
                 return None
-            return pool.submit(_process_row, row_dicts[index], should_use_llm, llm_model, ontology_version)
+            return pool.submit(_process_row, row_dicts[index], should_use_llm, llm_model, ontology_version, llm_strict)
+
+        transient_streak = 0
+        try:
+            transient_threshold = max(
+                2,
+                int(os.getenv("HFO2_FERROKG_TRANSIENT_ERROR_THRESHOLD", "4")),
+            )
+        except ValueError:
+            transient_threshold = 4
 
         with output_path.open(file_mode, encoding="utf-8") as fh, ThreadPoolExecutor(max_workers=max(1, max_workers)) as pool:
             next_index = 0
@@ -341,11 +399,17 @@ def run_parallel_extraction(
                     stats["chunks"] += 1
                     for key, value in item["stats"].items():
                         stats[key] = int(stats.get(key, 0)) + int(value)
+                    if item.get("transient_error"):
+                        transient_streak += 1
+                    else:
+                        transient_streak = 0
+                    stats["transient_error_streak"] = transient_streak
                     if item.get("kind") == "llm_budget_pause":
                         pause_path = write_llm_pause(
                             item.get("error_message") or "LLM quota/authentication/rate-limit error",
                             {
                                 "pipeline": "05_run_extraction",
+                                "strict_llm": bool(llm_strict),
                                 "paper_id": item.get("paper_id"),
                                 "pdf_id": item.get("pdf_id"),
                                 "chunk_id": item.get("chunk_id"),
@@ -411,7 +475,7 @@ def run_parallel_extraction(
                                     fact["pdf_id"],
                                     fact["chunk_id"],
                                     fact["page_number"],
-                                    "ferroelectric_property",
+                                    fact["fact_type"],
                                     fact["payload_json"],
                                     fact["review_status"],
                                     "Machine pre-audit only. Requires later human review before publication claims.",
@@ -428,21 +492,37 @@ def run_parallel_extraction(
                             "empty_recorded={empty_recorded} errors={errors} paused={paused}".format(**stats),
                             flush=True,
                         )
-                    if not stats.get("paused"):
+                    if transient_streak >= transient_threshold:
+                        stats["transient_paused"] = 1
+                        stats["transient_pause_reason"] = str(item.get("error_message") or "")[:1000]
+                        if not dry_run:
+                            conn.commit()
+                        for pending in futures:
+                            pending.cancel()
+                        futures.clear()
+                        print(
+                            "transient_provider_pause="
+                            f"{transient_streak} threshold={transient_threshold} "
+                            f"reason={stats['transient_pause_reason']}",
+                            flush=True,
+                        )
+                        break
+                    if not stats.get("paused") and not stats.get("transient_paused"):
                         future = submit_next(pool, next_index)
                         next_index += 1
                         if future is not None:
                             futures.add(future)
-                if stats.get("paused"):
+                if stats.get("paused") or stats.get("transient_paused"):
                     break
             if not dry_run:
                 conn.commit()
 
     if not dry_run:
-        record_pipeline_run(
-            "05_run_extraction_parallel",
-            "paused" if stats.get("paused") else "ok",
-            stats,
-            db_path=db_path,
-        )
+        if stats.get("paused"):
+            run_status = "paused"
+        elif stats.get("transient_paused"):
+            run_status = "transient_pause"
+        else:
+            run_status = "ok"
+        record_pipeline_run("05_run_extraction_parallel", run_status, stats, db_path=db_path)
     return stats

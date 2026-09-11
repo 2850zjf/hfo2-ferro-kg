@@ -1,6 +1,9 @@
 PyMuPDF>=1.24
 pdfplumber>=0.11
+pypdf>=5.0
+ase>=3.23
 pandas>=2.0
+matplotlib>=3.8
 pydantic>=2.7
 python-dotenv>=1.0
 PyYAML>=6.0

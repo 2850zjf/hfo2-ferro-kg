@@ -13,9 +13,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.core.config import PROJECT_ROOT, get_settings
 from backend.services.multi_model_validator import run_multi_model_validation
+from app.support import render_top_nav
 
 
-st.set_page_config(page_title="事实一致性复核", layout="wide")
+st.set_page_config(page_title="事实一致性复核", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("抽取审核")
 st.title("事实一致性复核")
 st.caption(
     "检查抽取事实是否与证据、单位、本体上下文一致。这里不是 Pr/2Pr 预测模型验证；"

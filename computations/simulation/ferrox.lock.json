@@ -1,0 +1,19 @@
+{
+  "name": "FerroX",
+  "repository": "https://github.com/AMReX-Microelectronics/FerroX.git",
+  "branch": "development",
+  "commit": "ac4606e83318bde632ab1e7d9a18f48f64e48f57",
+  "ferrox_version": "25.01",
+  "amrex_commit": "3b5f539e008b416c51187f13bfa83959b34a5504",
+  "local_build": {
+    "compute": "NOACC",
+    "mpi": false,
+    "precision": "DOUBLE",
+    "embedded_boundary": false,
+    "time_dependent": false,
+    "sundials": false,
+    "build_type": "Release",
+    "parallel_build_jobs": 2
+  },
+  "claim_boundary": "The local build and one-step example are runtime smoke tests, not calibrated HZO scientific results."
+}

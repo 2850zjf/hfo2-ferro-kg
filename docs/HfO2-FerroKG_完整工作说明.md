@@ -1,9 +1,9 @@
 # HfO2-FerroKG 完整工作说明
 
-更新时间：2026-05-27  
-项目路径：`D:\KG agent\hfo2-ferro-kg`  
-当前分支：`codex/benchmark-design-workflow`  
-本地代码状态：以当前 Git 日志为准；本文档记录截至“人工标注界面 + 样品级关联 + RAG 持久任务 + 实时监控”完成后的工作状态。  
+更新时间：2026-07-11
+项目路径：`/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg`
+当前分支：以本地 Git 状态为准
+本地代码状态：publication v2.3 第一阶段正在断点抽取；静态数字使用 2026-07-11 覆盖审计快照。
 
 ## 1. 项目定位
 
@@ -15,7 +15,9 @@ HfO2-FerroKG 是一个面向氧化铪基铁电材料的本地知识图谱与材�
 本地 PDF 文献
 -> 文献登记
 -> PDF 文本、表格、图注解析
+-> 图片和公式资产解析
 -> HfO2 材料事实抽取
+-> 图/表/公式多模态语义抽取
 -> 样品级事实关联
 -> AI 二次审核
 -> 人工标注
@@ -23,6 +25,7 @@ HfO2-FerroKG 是一个面向氧化铪基铁电材料的本地知识图谱与材�
 -> 知识图谱和设计图谱
 -> 证据推理型 RAG
 -> 主动学习和工艺推荐
+-> 自动计算验证与结果回写
 ```
 
 本项目严格围绕 HfO2 / HZO / doped HfO2 铁电材料，不把 BaTiO3、PZT、BiFeO3 等其他铁电体系作为当前主线。
@@ -52,15 +55,19 @@ HfO2-FerroKG 是一个面向氧化铪基铁电材料的本地知识图谱与材�
 
 | 项目 | 数量 |
 |---|---:|
-| PDF 记录 | 584 |
-| 已解析 PDF | 582 |
-| 解析页数 | 8595 |
-| 表格数量 | 1231 |
-| 图注和图片资产 | 14088 |
-| 文档 chunk | 22526 |
-| 高价值 chunk | 16630 |
-| 结构化抽取候选 | 16630 |
-| reviewed facts | 4153 |
+| PDF 记录 | 1172 |
+| 已解析 PDF | 1120 |
+| 重复 / 不相关隔离 | 24 / 28 |
+| 解析页数 | 14560 |
+| 表格数量 | 2178 |
+| 图片资产 | 13712 |
+| 几何匹配图注 | 8267 |
+| 公式候选 | 11774 |
+| 多模态资产队列 | 27664 |
+| 文档 chunk | 39417 |
+| 高价值 chunk | 27681 |
+| publication v2.3 证据块 | 25661 |
+| reviewed facts | 3876 |
 | benchmark 抽取结果 | 21785 |
 | benchmark 有效结果 | 16984 |
 | 样品级关联事实 | 20633 |
@@ -69,13 +76,15 @@ HfO2-FerroKG 是一个面向氧化铪基铁电材料的本地知识图谱与材�
 | weak 样品级事实 | 5288 |
 | LLM 文献卡片 | 584 |
 | chunk 语义标签 | 17140 |
-| AI 二次审核结果 | 4175 |
+| AI 二次审核结果 | 4180 |
 | AI 判定可用于建模 | 448 |
 | AI 判定需要人工复核 | 546 |
-| 实际记录 token | 299145418 |
-| 实时估算 token | 307371912 |
-| 实时估算费用 | 452.0229 CNY |
-| 当前后台状态 | idle |
+| design dataset | 18122 |
+| strong_only / strong_partial / all_traceable | 2104 / 9079 / 17913 |
+| 本地 TF-IDF 索引 | 27681 chunks |
+| 1024 维语义索引 | 10 条烟测通过；全量待构建 |
+| PaddleOCR-VL Markdown | 0 篇完成；历史仅 dry-run |
+| 当前后台状态 | publication v2.3 phase A 运行中 |
 
 说明：
 
@@ -83,6 +92,9 @@ HfO2-FerroKG 是一个面向氧化铪基铁电材料的本地知识图谱与材�
 - `partial` 表示证据可追溯，但样品上下文不完整，适合探索性分析或人工补全。
 - `weak` 表示证据链或上下文较弱，需要人工重点复核。
 - AI 二次审核目前只完成部分样品级事实，后续可继续扩展到全量。
+- `preapproved_machine` 不是人工真值，论文主结果仍需 AI `usable_for_model`、人工确认和 gold set 支撑。
+- PaddleOCR 输出只有同时存在 `done` manifest 和 Markdown 文件时才计为完成。
+- v2.3 抽取期间候选和 reviewed facts 会继续增长，投稿前必须冻结数据库快照并重新生成本表。
 
 ## 4. 技术架构
 
@@ -98,7 +110,7 @@ HfO2-FerroKG 是一个面向氧化铪基铁电材料的本地知识图谱与材�
 | PDF 文本解析 | PyMuPDF |
 | 表格抽取 | pdfplumber |
 | LLM 接入 | OpenAI compatible client，当前接 DashScope / qwen3.7-max |
-| 向量和检索 | 本地轻量索引、关键词检索、结构化事实检索 |
+| 向量和检索 | TF-IDF 离线兜底、text-embedding-v4 1024 维语义索引、结构化事实检索 |
 | 图谱导出 | CSV、HTML 可视化 |
 | 机器学习 | sklearn baseline，tiered benchmark |
 | 测试 | pytest |
@@ -110,9 +122,10 @@ HfO2-FerroKG 是一个面向氧化铪基铁电材料的本地知识图谱与材�
 flowchart TD
     A["PDF files"] --> B["PDF manifest"]
     B --> C["Page text parsing"]
-    C --> D["Tables, figures, captions"]
+    C --> D["Tables, figures, captions, equations"]
     C --> E["Document chunks"]
-    E --> F["LLM extraction"]
+    D --> F0["Multimodal extraction"]
+    E --> F["Ontology-first text extraction"]
     E --> G["Benchmark extraction"]
     F --> H["Reviewed facts"]
     G --> I["Sample-level linking"]
@@ -125,7 +138,11 @@ flowchart TD
     M --> N["Baseline models"]
     N --> O["Active learning candidates"]
     L --> P["Design graph"]
-    P --> Q["Evidence RAG"]
+    F0 --> Q["Hybrid evidence RAG"]
+    P --> Q
+    O --> R["Computation tasks"]
+    R --> S["VASP / TEFS results"]
+    S --> P
 ```
 
 ## 5. 数据安全和边界
@@ -185,7 +202,7 @@ flowchart TD
 
 - 每页独立解析，保留页码。
 - 根据文本长度、空页比例计算解析质量。
-- OCR 当前不自动执行，只标记需要 OCR。
+- PaddleOCR-VL 有可恢复批处理入口，但 2026-07-11 快照中尚无真实 Markdown 输出；没有 token 时不伪报完成。
 
 ### 6.3 表格、图注和图片资产解析
 
@@ -193,20 +210,32 @@ flowchart TD
 
 - `backend/services/table_extractor.py`
 - `backend/services/visual_asset_parser.py`
+- `backend/services/equation_asset_parser.py`
+- `backend/services/visual_asset_linker.py`
+- `backend/services/multimodal_queue.py`
+- `backend/services/multimodal_extractor.py`
 - `pipelines/03_extract_tables.py`
 - `pipelines/15_extract_visual_assets.py`
+- `pipelines/55_extract_equation_assets.py`
+- `pipelines/56_build_multimodal_queue.py`
+- `pipelines/57_extract_multimodal_semantics.py`
+- `pipelines/58_link_visual_assets.py`
 
 完成内容：
 
 1. 从 PDF 中抽取表格。
 2. 从页面中抽取图注和图片资产信息。
-3. 将表格和图注作为后续 LLM 抽取的重要证据来源。
+3. 使用 PDF 坐标将图片和最近图注做几何匹配，不再把同页所有 caption 强塞给每张图。
+4. 提取 display / inline 公式候选及裁剪图，保留 bbox、页码和原始文本。
+5. 图、表、公式统一进入 27664 条多模态队列。
+6. 图和公式由 `qwen3-vl-plus` 处理，表格和正文由 `qwen3.7-max` 处理。
 
 方法：
 
 - 表格使用 pdfplumber。
-- 图片和图注先以页面上下文、caption 和位置为主。
-- 当前暂不做完整多模态图像理解，后续可接入多模态模型。
+- 图片和图注以页面坐标、caption、正文上下文和哈希去重为主。
+- 图中目测值最高进入 `all_traceable`，不会直接进入 strong benchmark。
+- 表格单元格、正文明确值和经验证公式符号才有资格进入更强证据层。
 
 ### 6.4 文档 chunk 切分
 
@@ -523,6 +552,10 @@ benchmark 三层：
 
 - `backend/services/rag_answerer.py`
 - `backend/services/rag_job_service.py`
+- `backend/services/vector_store.py`
+- `backend/services/semantic_vector_store.py`
+- `pipelines/08_build_vector_index.py`
+- `pipelines/61_build_semantic_vector_index.py`
 - `scripts/run_rag_job.py`
 - `app/pages/6_RAG_问答.py`
 
@@ -535,6 +568,9 @@ benchmark 三层：
 5. 范围类问题区分 `strong_only`、`strong_partial`、`all_traceable`。
 6. 如果 LLM 失败，自动退回本地结构化回答。
 7. 问答现在是后台任务，不会因为切换页面而中断。
+8. TF-IDF 覆盖全部高价值正文，作为无 key、超时或语义索引未完成时的离线兜底。
+9. 语义库计划统一索引正文、表格、图注、公式和多模态证据，使用 1024 维 `text-embedding-v4`。
+10. 部分烟测向量不会参与正式 RAG；只有五类来源全量成功后才启用 hybrid 排名。
 
 RAG 的设计原则：
 
@@ -594,6 +630,8 @@ RAG 的设计原则：
 5. 显示真实费用、估算费用、实时估算费用。
 6. 显示最新日志和后台任务。
 7. 没有后台任务时显示 `idle`，不再显示旧任务的剩余时间。
+8. macOS/Linux 使用 `ps` 检测进程，Windows 使用 PowerShell；publication v2.3 子目录日志可被直接识别。
+9. publication 阶段的 ETA 使用当前 phase CSV 总量，不再误用全库 chunk 总量。
 
 当前链接：
 

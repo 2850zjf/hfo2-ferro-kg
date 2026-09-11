@@ -302,7 +302,7 @@ def _build_tasks_for_candidate(row: pd.Series, start_index: int) -> list[dict[st
                 row,
                 start_index + len(tasks),
                 task_family="phase_field_switching",
-                engine="phase_field_or_compact_switching_model",
+                engine="FerroX_AMReX_with_JAX_calibration",
                 objective="Simulate thickness- and boundary-condition-dependent domain switching trend for the candidate.",
                 priority_bonus=0.02,
                 structure_model="thin_film_domain_model",
@@ -312,8 +312,10 @@ def _build_tasks_for_candidate(row: pd.Series, start_index: int) -> list[dict[st
                     "electrode boundary condition",
                     "phase-stability descriptors",
                     "target Pr or 2Pr benchmark value",
+                    "cited and unit-consistent Landau and gradient coefficients",
                 ],
                 expected_outputs=[
+                    "jax_landau_energy_and_gradient_check",
                     "simulated_Pr_or_2Pr_trend",
                     "domain_fraction_proxy",
                     "coercive_field_trend",
@@ -321,6 +323,8 @@ def _build_tasks_for_candidate(row: pd.Series, start_index: int) -> list[dict[st
                 ],
                 method_quality_gate=[
                     "state Landau, gradient, elastic, electrostatic, and boundary-condition assumptions",
+                    "use JAX only for differentiable parameter checks or calibration with explicit units and provenance",
+                    "run FerroX mesh and time-step convergence before interpreting domain evolution",
                     "use thickness and electrode screening conditions consistent with the candidate",
                     "calibrate qualitative trends with available HZO/HfO2 thin-film literature",
                 ],

@@ -9,6 +9,7 @@ def test_tfidf_vector_index_returns_relevant_chunk(tmp_path, monkeypatch):
     db_path = tmp_path / "vector.sqlite3"
     index_path = tmp_path / "tfidf_index.pkl"
     monkeypatch.setattr("backend.services.vector_store.INDEX_PATH", index_path)
+    monkeypatch.setenv("HFO2_FERROKG_VECTOR_MODE", "tfidf")
     init_database(db_path)
     with connect(db_path) as conn:
         conn.execute(

@@ -120,4 +120,6 @@ def test_build_design_dataset_combines_reviewed_and_benchmark_rows(tmp_path):
     }
     assert "evidence_text" in df.columns
     assert "model_target_value" in df.columns
+    assert "physical_consistency_score" in df.columns
+    assert "oxygen_vacancy_risk" in df.columns
     assert df["model_include"].astype(int).sum() == 2

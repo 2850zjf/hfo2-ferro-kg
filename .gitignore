@@ -6,6 +6,8 @@ data/raw_pdfs/
 data/parsed_pages/
 data/chunks/
 data/tables/
+data/equations/
+data/paddleocr/
 data/extraction_candidates/
 data/extraction_queues/
 data/reviewed_facts/
@@ -32,6 +34,12 @@ data/exports/
 *.log
 *.pdf
 *.PDF
+*.rar
+*.mp4
+data/literature_intake/**/01_papers/
+data/literature_intake/**/02_supplementary/
+data/literature_intake/**/03_structures/
+data/literature_intake/**/04_code_and_data/
 *APIkey*
 *apikey*
 *API_KEY*
@@ -52,3 +60,43 @@ venv/
 dist/
 build/
 *.egg-info/
+.DS_Store
+._*
+
+# Third-party downloaded VASP outputs (nal-hfo archive, 189 MB, 152 files).
+# Not ours to redistribute; POTCAR was already excluded at extraction time.
+# The scientific/workflow audit of this archive IS tracked, at
+# reports/external_vasp_archive_audit_20260824/README.md
+external_data/
+
+# pytest temporary directories (distinct from .pytest_cache/)
+.pytest_tmp_*/
+
+# Generated research data. This file already lists ~24 data/ subdirectories
+# individually; these four were missing, which left 588 untracked files
+# (12.74 MB) reachable by `git add -A`. That included 456 files of extracted
+# paper full text under data/literature_intake/**/05_fulltext/ and 301 verbatim
+# publisher abstracts (abstract_snippet, up to 700 chars each) in
+# data/literature/hzo_*_download_list.{csv,json}. README already bars parsed
+# text from the GitHub repo. Nothing under these four paths is currently
+# tracked, so ignoring them is purely additive.
+# The whole-directory rule for literature_intake supersedes the granular
+# **/01_papers/ .. **/04_code_and_data/ rules further up; those are left in
+# place as documentation of the intake layout.
+data/literature/
+data/literature_intake/
+data/relevance_screening/
+data/unrelated_pdfs/
+
+# Downloaded literature/data archives
+*.tgz
+*.tar.gz
+
+# Licensed VASP pseudopotentials. Never commit or redistribute.
+# The nal-hfo extraction already excluded all seven POTCAR members; the
+# generated strain-pilot job dirs carry POTCAR_NOT_INCLUDED.txt placeholders,
+# which ARE meant to be tracked - they document the deliberate omission.
+POTCAR
+POTCAR.*
+POTCAR_*
+!POTCAR_NOT_INCLUDED.txt

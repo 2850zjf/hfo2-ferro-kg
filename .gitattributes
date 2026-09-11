@@ -1,0 +1,110 @@
+# Line-ending and binary policy for HfO2-FerroKG.
+#
+# Why this file exists: this tree was authored on macOS and is now checked out
+# on Windows with core.autocrlf=true and no attributes file. Under that
+# combination any checkout / stash pop / branch switch rewrites LF -> CRLF in
+# the working tree, which silently breaks every bash entry point
+# (scripts/run_publication_v23_*.sh, cloud/*.sh) with `$'\r': command not
+# found`. Those scripts drive paid LLM extraction and paid TEFS submissions.
+#
+# The project runs under WSL and stores WSL-style paths (/mnt/d/...) in the
+# database, so LF everywhere is the intended state, not a compromise.
+
+# Default: normalise text to LF in the repository and on checkout.
+* text=auto eol=lf
+
+# --- Shell entry points: LF is mandatory, not stylistic ---
+*.sh    text eol=lf
+*.bash  text eol=lf
+
+# --- Source, config, docs ---
+*.py    text eol=lf
+*.pyi   text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.rst   text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.toml  text eol=lf
+*.json  text eol=lf
+*.jsonl text eol=lf
+*.csv   text eol=lf
+*.tsv   text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.sql   text eol=lf
+*.cfg   text eol=lf
+*.ini   text eol=lf
+.gitattributes text eol=lf
+.gitignore     text eol=lf
+
+# PowerShell tolerates LF; kept explicit so it is not caught by a future default.
+*.ps1   text eol=lf
+
+# --- VASP inputs/outputs ---
+# Column- and whitespace-sensitive. A stray CR changes the parsed structure.
+POSCAR      text eol=lf
+POSCAR.*    text eol=lf
+CONTCAR     text eol=lf
+CONTCAR.*   text eol=lf
+INCAR       text eol=lf
+INCAR.*     text eol=lf
+KPOINTS     text eol=lf
+KPOINTS.*   text eol=lf
+POTCAR      -text
+POTCAR.*    -text
+
+# --- Hash-frozen artefacts ---
+# The TEFS upload bundle's SHA-256 is recorded in
+# reports/phase_strain_computation_preflight_20260824/REMOTE_EXECUTION_GATE.md
+# and gates a paid submission. Any byte change invalidates the release check.
+*.tar.gz binary
+*.tgz    binary
+
+# --- Binary: never attempt text conversion or diff ---
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.bmp    binary
+*.ico    binary
+*.webp   binary
+*.pdf    binary
+*.docx   binary
+*.xlsx   binary
+*.pptx   binary
+*.sqlite  binary
+*.sqlite3 binary
+*.db     binary
+*.gz     binary
+*.zip    binary
+*.rar    binary
+*.7z     binary
+*.npy    binary
+*.npz    binary
+*.pkl    binary
+*.joblib binary
+*.pt     binary
+*.pth    binary
+*.h5     binary
+*.hdf5   binary
+*.mp4    binary
+*.woff   binary
+*.woff2  binary
+
+# Generated VASP outputs that are large but genuinely textual: diff them as
+# text (useful) but never normalise them, because the raw-output audit records
+# SHA-256 hashes of these exact bytes.
+OUTCAR      -text diff
+OUTCAR.*    -text diff
+vasprun.xml -text diff
+OSZICAR     -text diff
+DOSCAR      -text diff
+CHG         -text
+CHG.*       -text
+CHGCAR      -text
+CHGCAR.*    -text
+WAVECAR     -text
+WAVECAR.*   -text

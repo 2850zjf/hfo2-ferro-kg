@@ -5,6 +5,7 @@ import pandas as pd
 from backend.db.init_db import init_database
 from backend.services.model_comparison import (
     compare_regression_models,
+    cross_validate_regression_models,
     filter_strong_relevance_rows,
 )
 
@@ -105,3 +106,19 @@ def test_filter_and_compare_strong_relevant_rows(tmp_path):
     assert len(trained) >= 4
     assert (tmp_path / "models" / "strong_relevant_model_comparison.csv").exists()
     assert (tmp_path / "models" / "strong_relevant_model_comparison.md").exists()
+
+    cv_stats = cross_validate_regression_models(
+        dataset_path=filtered_path,
+        output_dir=tmp_path / "cv_models",
+        min_rows=12,
+        folds=3,
+        db_path=db_path,
+    )
+    trained_cv = [
+        row
+        for row in cv_stats["summary"]
+        if row["target_property"] == "remanent_polarization_Pr" and row["status"] == "trained"
+    ]
+    assert len(trained_cv) >= 4
+    assert (tmp_path / "cv_models" / "cross_validation_summary.csv").exists()
+    assert (tmp_path / "cv_models" / "cross_validation_report.md").exists()

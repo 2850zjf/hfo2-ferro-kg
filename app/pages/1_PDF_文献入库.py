@@ -10,13 +10,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.support import PROJECT_ROOT
+from app.support import PROJECT_ROOT, render_top_nav
 from backend.core.config import discover_pdf_root
 from backend.db.session import connect
 from backend.services.pdf_manifest import build_manifest
 
 
-st.set_page_config(page_title="PDF 文献入库", layout="wide")
+st.set_page_config(page_title="PDF 文献入库", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("文献处理")
 st.title("PDF 文献入库")
 
 pdf_root = st.text_input("PDF 目录", value=str(discover_pdf_root()))

@@ -14,9 +14,11 @@ from backend.core.config import get_settings
 from backend.db.init_db import init_database, list_tables
 from backend.services.pipeline_log import recent_pipeline_runs
 from backend.services.progress_monitor import monitor_snapshot
+from app.support import render_top_nav
 
 
-st.set_page_config(page_title="HfO2-FerroKG", page_icon="", layout="wide")
+st.set_page_config(page_title="HfO2-FerroKG", page_icon="", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("首页")
 
 
 def _fmt(value: Any) -> str:
@@ -90,8 +92,11 @@ st.markdown(
         --kg-panel: #f7f9fb;
     }
     .block-container {
-        padding-top: 1.2rem;
-        max-width: 1320px;
+        width: min(1880px, calc(100vw - 56px)) !important;
+        max-width: none !important;
+        padding-top: 0.78rem;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
     .kg-hero {
         border: 1px solid var(--kg-border);

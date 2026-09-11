@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from backend.services.hfo2_extractor import evidence_sentence, extract_chunk, preaudit_status
+from backend.services.hfo2_extractor import (
+    evidence_sentence,
+    extract_chunk,
+    llm_deferred_payload,
+    preaudit_status,
+)
 
 
 class Row(dict):
@@ -70,3 +75,28 @@ def test_rules_do_not_attach_parenthetical_2pr_value_to_pr():
     assert [prop.property_name for prop in result.properties] == [
         "double_remanent_polarization_2Pr"
     ]
+
+
+def test_llm_deferred_payload_is_not_a_rule_fallback():
+    row = Row(
+        {
+            "paper_id": "paper_1",
+            "pdf_id": "pdf_1",
+            "chunk_id": "chunk_1",
+            "page_number": 1,
+            "text": "The HZO capacitor showed useful data, but the LLM request timed out.",
+        }
+    )
+
+    payload = llm_deferred_payload(
+        row,
+        ontology_version="hfo2-ferrokg-v1",
+        reason="Request timed out.",
+        failure_count=3,
+        max_retries=3,
+    )
+
+    assert payload["materials"] == []
+    assert payload["properties"] == []
+    assert payload["preaudit"]["status"] == "llm_deferred"
+    assert payload["preaudit"]["extraction_source"] == "llm_deferred"

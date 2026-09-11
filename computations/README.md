@@ -12,3 +12,14 @@ Safety boundary:
 Current starter:
 
 - `mp_hfo2_phase_smoke_test`: fetch HfO2 polymorph structures from Materials Project and prepare VASP phase-stability folders.
+- `simulation`: use JAX for differentiable Landau checks and FerroX/AMReX for phase-field job preparation and tiny runtime smoke tests.
+
+Install and verify the optional simulation runtime:
+
+```bash
+bash scripts/setup_simulation_runtime.sh
+```
+
+The local FerroX build is serial and CPU-only. Large MPI/GPU simulations are
+prepared for a manually confirmed Tencent Cloud environment; the setup script
+does not submit cloud jobs.

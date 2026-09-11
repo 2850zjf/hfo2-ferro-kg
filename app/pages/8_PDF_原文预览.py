@@ -17,6 +17,7 @@ from backend.services.review_service import (
     open_pdf_in_default_browser,
     open_pdf_with_default_app,
 )
+from app.support import render_top_nav
 
 
 def _query_value(name: str) -> str | None:
@@ -62,7 +63,8 @@ def _page_url(pdf_id: str, page_number: int, fact_id: str | None) -> str:
     return f"/PDF_原文预览?{urllib.parse.urlencode(params)}"
 
 
-st.set_page_config(page_title="PDF 原文预览", layout="wide")
+st.set_page_config(page_title="PDF 原文预览", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("文献处理")
 st.title("PDF 原文预览")
 
 pdf_id = _query_value("pdf_id")

@@ -25,6 +25,11 @@ OUTPUT_COLUMNS = [
     "uncertainty",
     "feasibility_score",
     "evidence_score",
+    "physical_consistency_score",
+    "physical_recommendation_allowed",
+    "phase_stability_score",
+    "oxygen_vacancy_risk",
+    "interface_oxygen_affinity",
     "active_learning_score",
     "material_name",
     "material_family",
@@ -43,6 +48,13 @@ OUTPUT_COLUMNS = [
     "device_type",
     "phase_name",
     "space_group",
+    "phase_fraction",
+    "crystal_orientation",
+    "domain_orientation",
+    "oxygen_vacancy_context",
+    "oxygen_reservoir",
+    "interface_layer",
+    "interface_termination",
     "nearest_evidence_json",
     "reason",
 ]
@@ -203,6 +215,13 @@ def _build_candidate_grid(df: pd.DataFrame, max_candidates: int) -> pd.DataFrame
                 "device_type": device,
                 "phase_name": phase,
                 "space_group": choices["space_group"][0] if choices["space_group"] else "",
+                "phase_fraction": "",
+                "crystal_orientation": "",
+                "domain_orientation": "",
+                "oxygen_vacancy_context": "",
+                "oxygen_reservoir": "",
+                "interface_layer": "",
+                "interface_termination": "",
                 "wake_up_or_endurance_state": choices["wake_up_or_endurance_state"][0]
                 if choices["wake_up_or_endurance_state"]
                 else "",
@@ -370,6 +389,19 @@ def recommend_active_learning_candidates(
         units = evidence_df["target_unit"].dropna().astype(str)
         units = units[units != ""]
         prediction_unit = units.mode().iloc[0] if not units.empty else ""
+    candidates["target_property"] = target_property
+    candidates["model_target_value"] = candidates["predicted_value"]
+    candidates["model_target_unit"] = prediction_unit
+
+    from backend.services.physical_constraints import assessment_from_row
+
+    physical_updates = [
+        assessment_from_row(row.to_dict())
+        for _, row in candidates.iterrows()
+    ]
+    if physical_updates:
+        for key in physical_updates[0].keys():
+            candidates[key] = [item.get(key, "") for item in physical_updates]
 
     evidence_scores = []
     nearest_payloads = []
@@ -387,18 +419,20 @@ def recommend_active_learning_candidates(
 
     candidates["pred_norm"] = _minmax(candidates["predicted_value"])
     candidates["uncertainty_norm"] = _minmax(candidates["uncertainty"])
+    candidates["physical_norm"] = _minmax(candidates["physical_consistency_score"])
     candidates["active_learning_score"] = (
-        0.48 * candidates["pred_norm"]
-        + 0.27 * candidates["uncertainty_norm"]
-        + 0.15 * candidates["feasibility_score"]
+        0.42 * candidates["pred_norm"]
+        + 0.23 * candidates["uncertainty_norm"]
+        + 0.13 * candidates["feasibility_score"]
         + 0.10 * candidates["evidence_score"]
+        + 0.12 * candidates["physical_norm"]
     )
-    candidates["target_property"] = target_property
     candidates["prediction_unit"] = prediction_unit
     candidates["reason"] = candidates.apply(
         lambda row: (
             f"high predicted {target_property}, uncertainty={row['uncertainty']:.3g}, "
-            f"feasibility={row['feasibility_score']:.2f}, evidence_support={row['evidence_score']:.2f}"
+            f"feasibility={row['feasibility_score']:.2f}, evidence_support={row['evidence_score']:.2f}, "
+            f"physics={float(row.get('physical_consistency_score') or 0):.2f}"
         ),
         axis=1,
     )

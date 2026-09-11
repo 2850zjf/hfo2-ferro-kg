@@ -1,25 +1,75 @@
-# HfO2 Extraction Prompt
+# HfO2-FerroKG v2.2 Evidence-Packet Extraction
 
-Extract only HfO2-based ferroelectric material facts from the provided chunk.
+You extract evidence-grounded knowledge about HfO2, HZO, doped hafnia, and
+hafnia-based devices. Return one JSON object matching `HfO2ExtractionResult`.
+Use the exact field names. Omit unknown optional fields rather than guessing.
+Never emit a key whose value would be null; compact JSON is required.
 
-Rules:
-- Return one JSON object that matches `HfO2ExtractionResult`.
-- Use exactly the field names below. Do not invent aliases such as `material_name`, `thickness`, or `property`.
-- Keep Pr and 2Pr separate.
-- `double_remanent_polarization_2Pr` is not the same as `remanent_polarization_Pr`.
-- Do not infer values without direct evidence.
-- Preserve original units.
-- Every property must include `evidence_text`.
-- `evidence_text` must be copied from the provided chunk, not paraphrased.
-- Use `warnings` when the chunk appears to be a review, a cited secondary value, a figure-estimated value, or a sample-condition mismatch.
-- If no HfO2 material fact is present, return empty arrays.
-- Mark uncertain or review-like claims in `warnings`.
-- Prefer returning fewer high-confidence facts with complete context over many isolated values.
-- When a property value is reported, also extract the matching sample/process/device context from the same chunk if present.
-- Return at most 6 property records per chunk. Prioritize facts with material, property value, unit, evidence_text, and sample/process/device context.
-- Do not copy the example below. It is only a schema template.
+## Grounding contract
 
-Required JSON shape:
+- Create an item only when its `evidence_text` is copied verbatim from
+  `FOCAL_CHUNK`. Context snippets and paper metadata are only for resolving the
+  sample, material, or document role; they are not evidence.
+- Keep raw names, values, units, conditions, and reference states.
+- For a single numeric observation, put the number in `value`. For an interval,
+  transition, or reported span, preserve the printed expression in
+  `raw_value_text`, set `value_min` and `value_max`, and use
+  `comparison_operator="range"`. Use `approx`, `lt`, `le`, `gt`, or `ge` for
+  qualified values. Do not discard a number because it is not Pr/2Pr.
+- Never merge Pr and 2Pr. Never divide 2Pr by two unless the paper explicitly
+  states that derivation; mark derived values with `is_derived_value=true`.
+- Separate primary experiment, primary computation, review secondary evidence,
+  and cited secondary evidence with `evidence_scope`.
+- Do not promote values summarized by a review into primary experimental truth.
+- Do not convert correlation into causation. Use `relation_nature` and
+  `confidence` to preserve the author's claim strength.
+- If no supported hafnia fact is present, return every array empty.
+
+## What to extract
+
+1. `materials`: composition, Hf/Zr ratio, dopants, concentration, layer or
+   superlattice sequence.
+2. `samples`: sample identity, thickness, deposition, annealing, atmosphere,
+   substrate, electrodes, stack, interface, orientation, strain, grain size.
+3. `process_steps`: ordered deposition, annealing, interface treatment,
+   electrode formation, patterning, and measurement steps.
+4. `phases`: phase, space group, fraction, orientation, grain size, and the
+   characterization method that supports the assignment.
+5. `properties`: Pr, 2Pr, Ec, Ps, leakage, dielectric response, memory window,
+   switching time, device metrics, structural metrics, and computational
+   properties. Preserve the complete measurement protocol when present.
+6. `reliability_events`: wake-up, fatigue, endurance, retention, imprint,
+   breakdown, recovery, variability, initial/final values, cycle/time axis,
+   stress and read conditions, trend, and failure mode.
+7. `mechanisms`: oxygen-vacancy and carrier effects, charge trapping,
+   interface redox or oxygen reservoirs, strain, surface/grain-size effects,
+   domain or phase transitions, electrode clamping, and thermal kinetics.
+8. `computations`: DFT/DFPT/NEB/AIMD/MD/ML-potential/phase-field/Landau/TCAD
+   method provenance plus phase energies, polarization, barriers, defect and
+   interface descriptors. Always preserve the reference state.
+9. `applications`: FeCAP, FeFET, FTJ, FeRAM, memristive and neuromorphic uses
+   with condition-bound figures of merit.
+10. `relations`: explicit directional links such as STABILIZES, DESTABILIZES,
+    INCREASES, DECREASES, TRANSFORMS_TO, PROMOTES, SUPPRESSES, or LIMITS.
+
+## Quality and size limits
+
+- Prefer complete sample-condition-property records over isolated values.
+- Extract comparison arms separately when they have different samples or
+  conditions.
+- Mark figure-estimated, ambiguous, secondary, or sample-mismatched claims in
+  `warnings` and lower confidence.
+- At most 12 properties, 8 process steps, 8 reliability events, 8 mechanisms,
+  8 computations, 6 applications, and 12 relations per focal chunk.
+- Evidence must include enough nearby words to identify the claim, not only a
+  number or short label.
+- Do not duplicate the same quotation in `evidences`; one evidence object may
+  support multiple extracted items.
+- Leave `evidences` as an empty array. Every extracted item already carries its
+  own verbatim `evidence_text`; the local pipeline will deduplicate those quotes
+  into evidence nodes. Keep at most three concise warnings.
+
+## Required JSON keys
 
 ```json
 {
@@ -27,88 +77,22 @@ Required JSON shape:
   "pdf_id": "string",
   "chunk_id": "string",
   "page_number": 1,
-  "materials": [
-    {
-      "raw_name": "Hf0.5Zr0.5O2",
-      "canonical_name": "Hf0.5Zr0.5O2",
-      "formula": "Hf0.5Zr0.5O2",
-      "material_family": "HZO",
-      "base_material": "HfO2",
-      "dopant_elements": ["Zr"],
-      "dopant_concentration": null,
-      "zr_fraction": 0.5,
-      "evidence_text": "copied source sentence"
-    }
-  ],
-  "samples": [
-    {
-      "material_ref": "Hf0.5Zr0.5O2",
-      "film_thickness_nm": 10,
-      "deposition_method": "ALD",
-      "top_electrode": "TiN",
-      "bottom_electrode": "TiN",
-      "substrate": "Si",
-      "annealing_temperature_c": 500,
-      "annealing_time_s": 30,
-      "annealing_atmosphere": "N2",
-      "device_stack": "TiN/HZO/TiN",
-      "sample_form": "capacitor",
-      "evidence_text": "copied source sentence"
-    }
-  ],
-  "phases": [
-    {
-      "material_ref": "Hf0.5Zr0.5O2",
-      "phase_name": "orthorhombic",
-      "space_group": "Pca21",
-      "characterization_method": "XRD",
-      "evidence_text": "copied source sentence"
-    }
-  ],
-  "properties": [
-    {
-      "material_ref": "Hf0.5Zr0.5O2",
-      "property_name": "double_remanent_polarization_2Pr",
-      "raw_property_name": "2Pr",
-      "value": 40,
-      "unit": "μC/cm²",
-      "normalized_value": null,
-      "normalized_unit": null,
-      "measurement_temperature": null,
-      "measurement_frequency": null,
-      "electric_field": null,
-      "device_type": "capacitor",
-      "confidence": 0.85,
-      "evidence_text": "copied source sentence",
-      "is_reported_value": true,
-      "is_derived_value": false,
-      "derivation_rule": null,
-      "review_status": "pending"
-    }
-  ],
-  "devices": [
-    {
-      "device_type": "capacitor",
-      "device_stack": "TiN/HZO/TiN",
-      "evidence_text": "copied source sentence"
-    }
-  ],
-  "evidences": [
-    {
-      "paper_id": "string",
-      "pdf_id": "string",
-      "chunk_id": "string",
-      "page_number": 1,
-      "evidence_text": "copied source sentence",
-      "source_type": "text"
-    }
-  ],
+  "materials": [],
+  "samples": [],
+  "phases": [],
+  "properties": [],
+  "devices": [],
+  "process_steps": [],
+  "reliability_events": [],
+  "mechanisms": [],
+  "computations": [],
+  "applications": [],
+  "relations": [],
+  "evidences": [],
   "warnings": []
 }
 ```
 
-Extraction focus:
-- Material: HfO2, HZO, Hf1-xZrxO2, Hf0.5Zr0.5O2, doped hafnia.
-- Process: ALD, sputtering, PLD, annealing temperature/time/atmosphere, electrodes, substrate.
-- Phase: orthorhombic, Pca21, monoclinic, tetragonal, rhombohedral, amorphous.
-- Property: Pr, 2Pr, Ec, Ps, endurance, retention, leakage, memory window.
+Each non-empty item must use the corresponding schema fields and include
+`evidence_text`. Use `other_hafnia_property` only when no specific property enum
+fits, while preserving `raw_property_name`.

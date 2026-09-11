@@ -19,6 +19,7 @@ from backend.services.manual_annotation_service import (
     save_annotation,
 )
 from backend.services.review_service import open_pdf_in_default_browser, open_pdf_with_default_app
+from app.support import render_top_nav
 
 
 PROPERTY_OPTIONS = [
@@ -133,7 +134,8 @@ def _summary_rows(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
-st.set_page_config(page_title="人工标注", layout="wide")
+st.set_page_config(page_title="人工标注", layout="wide", initial_sidebar_state="collapsed")
+render_top_nav("抽取审核")
 st.title("人工标注")
 st.caption("简单检查一条样品级事实是否正确；需要修改时，直接改字段并保存。默认只保存人工标注，不覆盖原始抽取。")
 

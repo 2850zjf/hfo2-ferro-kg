@@ -3,6 +3,11 @@ properties:
   2Pr: double_remanent_polarization_2Pr
   Ec: coercive_field_Ec
   Ps: saturation_polarization_Ps
+  dielectric constant: dielectric_constant
+  negative capacitance: negative_capacitance
+  switched polarization fraction: switched_polarization_fraction
+  polarization change: polarization_change_DeltaP
+  switching time: switching_time
   memory window: memory_window
   endurance: endurance_cycles
   retention: retention_time

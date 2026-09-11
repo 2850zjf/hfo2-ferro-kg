@@ -1,0 +1,276 @@
+version: hfo2-physics-constraints-v1
+name: HfO2/HZO physics constraints for extraction, modeling, and recommendations
+knowledge_sources:
+  - source_id: hf_o2_ferroelectric_reviews
+    type: review_knowledge
+    scope: HfO2/HZO ferroelectricity, metastable phase stabilization, dopants, oxygen vacancies, interfaces, reliability
+    representative_urls:
+      - https://pmc.ncbi.nlm.nih.gov/articles/PMC10692067/
+      - https://www.nature.com/articles/s41524-024-01352-0
+    ingestion_policy: Summarize physics rules and parameter ranges only; do not copy copyrighted text into the knowledge base.
+    use_in_system: extraction_prompt, fact_audit, design_dataset, recommendation_filter, computation_planner
+  - source_id: landau_devonshire_ferroelectric_theory
+    type: textbook_level_physics
+    scope: free-energy landscape, polarization switching, phase transition, domain energetics
+    ingestion_policy: Encode equations/variables/conceptual constraints as ontology concepts and boundary rules.
+    use_in_system: physics_constraints, graph_schema, computation_task_templates
+  - source_id: electrostatics_and_interface_screening
+    type: textbook_level_physics
+    scope: depolarization field, electrode screening, dead layer, interface charge, leakage and imprint
+    ingestion_policy: Encode as mechanism variables and warning rules for missing electrode/interface evidence.
+    use_in_system: extraction_prompt, sample_property_linking, ai_audit
+  - source_id: defect_chemistry_oxygen_vacancies
+    type: textbook_level_physics
+    scope: oxygen chemical potential, vacancy formation, charge compensation, leakage, fatigue, wake-up
+    ingestion_policy: Encode monotonicity warnings and redox boundary conditions; avoid unsupported causal claims.
+    use_in_system: physics_constraints, computation_planner
+  - source_id: dft_and_berry_phase_polarization
+    type: computational_physics
+    scope: phase stability, Berry-phase polarization, energy differences, convergence, pseudopotentials, k-points
+    representative_urls:
+      - https://www.vasp.at/wiki/Category%3ABerry_phases
+      - https://www.vasp.at/wiki/LCALCPOL
+      - https://link.aps.org/doi/10.1103/PhysRevB.47.1651
+      - https://next-gen.materialsproject.org/api
+    ingestion_policy: Encode calculation quality gates and what computation can or cannot validate.
+    use_in_system: computation_validation, design_recommendation_boundary
+scope:
+  included:
+    - HfO2, Hf1-xZrxO2, Hf0.5Zr0.5O2, doped HfO2, HfO2/ZrO2 nanolaminates and superlattices
+    - thin-film FeCAP, FeFET, FTJ, FeRAM, and ferroelectric memristive stacks when HfO2/HZO is the active ferroelectric
+  excluded:
+    - non-hafnia ferroelectrics except as background comparisons
+    - recommendations without evidence traceability or physically plausible process windows
+
+property_ranges:
+  remanent_polarization_Pr:
+    canonical_unit: uC/cm2
+    hard_min: 0
+    expected_min: 1
+    expected_max: 65
+    hard_max: 100
+    notes: Pr and 2Pr are different targets. Only derive Pr from 2Pr when explicitly flagged.
+  double_remanent_polarization_2Pr:
+    canonical_unit: uC/cm2
+    hard_min: 0
+    expected_min: 2
+    expected_max: 130
+    hard_max: 200
+    notes: 2Pr should be approximately twice Pr only for the same sample and measurement state.
+  coercive_field_Ec:
+    canonical_unit: MV/cm
+    hard_min: 0
+    expected_min: 0.2
+    expected_max: 5
+    hard_max: 10
+  endurance_cycles:
+    canonical_unit: cycles
+    hard_min: 1
+    expected_min: 1000
+    expected_max: 1.0e12
+    hard_max: 1.0e15
+  retention_time:
+    canonical_unit: s
+    hard_min: 1
+    expected_min: 100
+    expected_max: 3.1536e9
+    hard_max: 3.1536e9
+  memory_window:
+    canonical_unit: V
+    hard_min: 0
+    expected_min: 0.05
+    expected_max: 10
+    hard_max: 20
+  leakage_current_density:
+    canonical_unit: A/cm2
+    hard_min: 0
+    expected_min: 1.0e-12
+    expected_max: 10
+    hard_max: 1000
+
+process_windows:
+  film_thickness_nm:
+    hard_min: 0.5
+    expected_min: 1
+    expected_max: 60
+    hard_max: 500
+    notes: HfO2/HZO ferroelectric thin films are usually nanoscale; very thick values require manual evidence.
+  annealing_temperature_c:
+    hard_min: 200
+    expected_min: 300
+    expected_max: 800
+    hard_max: 1100
+  annealing_time_s:
+    hard_min: 0.001
+    expected_min: 0.001
+    expected_max: 7200
+    hard_max: 86400
+  zr_fraction:
+    hard_min: 0
+    expected_min: 0
+    expected_max: 1
+    hard_max: 1
+
+phase_priors:
+  orthorhombic:
+    ferroelectric_phase_score: 0.95
+    stability_note: Polar Pca21-like phase is the common ferroelectric target.
+  rhombohedral:
+    ferroelectric_phase_score: 0.78
+    stability_note: Can be polar under epitaxial strain or special boundary conditions.
+  mixed:
+    ferroelectric_phase_score: 0.65
+    stability_note: Mixed o/t/r content can still produce strong polarization depending on orientation and fraction.
+  tetragonal:
+    ferroelectric_phase_score: 0.45
+    stability_note: Often nonpolar or parent/intermediate; may assist switching or transition pathways.
+  cubic:
+    ferroelectric_phase_score: 0.25
+    stability_note: Usually not the room-temperature polar phase.
+  monoclinic:
+    ferroelectric_phase_score: 0.15
+    stability_note: Stable bulk phase; high Pr claims with only monoclinic evidence need audit.
+  amorphous:
+    ferroelectric_phase_score: 0.10
+    stability_note: Ferroelectric claims require strong electrical and structural evidence.
+  unknown:
+    ferroelectric_phase_score: 0.45
+    stability_note: Missing phase should not block extraction but reduces physical confidence.
+
+electrode_oxygen_affinity:
+  TiN:
+    class: oxygen_scavenging
+    score: 0.70
+  TaN:
+    class: oxygen_scavenging
+    score: 0.65
+  W:
+    class: oxygen_reservoir_or_redox_active
+    score: 0.62
+  WOx:
+    class: oxygen_reservoir
+    score: 0.35
+  WO3:
+    class: oxygen_reservoir
+    score: 0.30
+  Pt:
+    class: inert
+    score: 0.20
+  Ru:
+    class: moderately_redox_active
+    score: 0.45
+  RuO2:
+    class: oxide_electrode
+    score: 0.35
+  ITO:
+    class: oxide_electrode
+    score: 0.38
+  LSMO:
+    class: oxide_electrode
+    score: 0.32
+  Mo:
+    class: redox_active
+    score: 0.58
+
+annealing_atmosphere_oxygen_potential:
+  O2: 0.20
+  oxygen: 0.20
+  air: 0.35
+  N2: 0.55
+  Ar: 0.60
+  forming_gas: 0.78
+  FGA: 0.78
+  vacuum: 0.85
+  H2: 0.90
+  unknown: 0.55
+
+mechanism_rules:
+  oxygen_vacancy:
+    optimal_risk_window: [0.35, 0.70]
+    high_risk_threshold: 0.78
+    low_risk_threshold: 0.20
+    notes:
+      - Oxygen vacancies can stabilize polar/metastable phases but excessive vacancies increase leakage, imprint, wake-up/fatigue, and variability risk.
+  interface:
+    required_for_interface_story:
+      - electrode_stack
+      - top_electrode
+      - bottom_electrode
+      - interface_layer
+      - interface_termination
+    notes:
+      - Electrode and interface fields are not cosmetic metadata; they are mechanism variables for oxygen exchange, screening, charge transfer, and strain.
+  phase_property_consistency:
+    high_polarization_thresholds:
+      remanent_polarization_Pr: 35
+      double_remanent_polarization_2Pr: 70
+    suspicious_low_phase_scores_below: 0.30
+
+boundary_conditions:
+  evidence_traceability:
+    hard_requirements:
+      - DOI or local paper identifier must be traceable.
+      - Page number must be traceable for model/benchmark rows.
+      - Property values require copied evidence text, not paraphrase.
+    warning_rules:
+      - Review-only or cited secondary values cannot be treated as gold truth.
+      - Figure-estimated values require explicit risk flag.
+  polarization_physics:
+    variables:
+      - remanent_polarization_Pr
+      - double_remanent_polarization_2Pr
+      - coercive_field_Ec
+      - measurement_state
+      - cycling_history
+      - leakage_current_density
+    rules:
+      - Pr and 2Pr are separate measured targets unless a paper explicitly defines a conversion.
+      - High polarization requires phase/interface/device evidence; electrical loops alone can be confounded by leakage.
+      - Coercive field and polarization should be interpreted with film thickness and electric-field protocol.
+  phase_stability:
+    variables:
+      - phase_name
+      - space_group
+      - phase_fraction
+      - strain_state
+      - grain_size
+      - dopant_elements
+      - zr_fraction
+    rules:
+      - Orthorhombic or polar rhombohedral evidence increases plausibility of ferroelectric behavior.
+      - Monoclinic/amorphous-only structural evidence plus high Pr or 2Pr requires manual audit.
+      - DFT phase energy supports feasibility but does not directly validate measured Pr/2Pr.
+  interface_and_defects:
+    variables:
+      - top_electrode
+      - bottom_electrode
+      - interface_layer
+      - oxygen_reservoir
+      - oxygen_vacancy_context
+      - annealing_atmosphere
+    rules:
+      - Oxygen vacancies are non-monotonic: too few may fail to stabilize polar phases; too many increase leakage/fatigue/imprint risk.
+      - Electrode oxygen affinity is a mechanism variable and should be extracted whenever reported.
+      - Interface termination or interlayer claims require explicit evidence before becoming design rules.
+  computation_quality:
+    variables:
+      - structure_source
+      - exchange_correlation
+      - pseudopotential
+      - kpoints
+      - energy_cutoff
+      - force_threshold
+      - stress_threshold
+      - convergence_status
+    rules:
+      - Materials Project or published structures are preferred over hand-built starting structures for first validation.
+      - VASP/DFT descriptors should be imported with quality gates, not treated as automatic truth.
+      - Computation feedback validates physical plausibility boundaries, not experimental performance labels.
+
+scoring_weights:
+  property_range: 0.22
+  process_window: 0.16
+  phase_prior: 0.18
+  oxygen_vacancy_balance: 0.16
+  evidence_completeness: 0.18
+  scope_relevance: 0.10

@@ -63,6 +63,7 @@ PROCESS_KEYWORDS = [
     "monoclinic",
     "xrd",
 ]
+UNRELATED_PDF_PATH_PATTERN = "%/data/unrelated_pdfs/%"
 
 
 @dataclass(frozen=True)
@@ -221,12 +222,14 @@ def build_chunks(
             """
             SELECT DISTINCT pp.pdf_id
             FROM parsed_pages pp
+            JOIN pdf_files pf ON pf.pdf_id = pp.pdf_id
             WHERE (? = 1 OR NOT EXISTS (
                 SELECT 1 FROM document_chunks dc WHERE dc.pdf_id = pp.pdf_id
             ))
+              AND pf.file_path NOT LIKE ?
             ORDER BY pp.pdf_id
             """,
-            (int(reset_existing),),
+            (int(reset_existing), UNRELATED_PDF_PATH_PATTERN),
         ).fetchall()
         if limit_pdfs is not None:
             pdf_rows = pdf_rows[:limit_pdfs]
