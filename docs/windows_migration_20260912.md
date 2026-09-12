@@ -460,6 +460,13 @@ worktree: 197 passed, 0 skipped
 主仓    : 1 failed, 128 passed            (26.20 s，守卫不再触发)
 ```
 
+修复 jax 测试后（主仓提交 `cf4bb4b`，1 文件 +78/−1）：
+
+```
+主仓    : 130 passed, 0 failed, 0 error   (28.17 s，exit 0)
+worktree: 197 passed, 0 skipped
+```
+
 两个独立机制同时确认无写入：conftest 守卫不再报错，且隔离脚本自己对
 `data/exports`、`data/extraction_candidates`、`data/ontology`、`data/computation`
 下 **3475 个文件**的指纹比对报 `no watched data/ file changed`。生产库哈希仍一致。
@@ -484,13 +491,35 @@ worktree: 197 passed, 0 skipped
   差异（`hfo2_extractor` 2/4、`computation_validation` 22/8、`computation_workflow` 2/20），
   那些是既有的 FerroX 与 `synthetic_fixture` 分叉，非本次引入。
 
-剩下的 1 个失败是 `test_simulation_runtime.py::test_read_only_probe_preserves_matching_smoke_results`，
-断言 `refreshed["jax"]["smoke_status"] == "ok"` 实得 `"not_run"`。根因是 **JAX/ase 未安装**
-（本次有意排除的 FerroX 栈），探针如实返回
-`{"installed": false, "version": null, "jaxlib_version": null, "smoke_status": "not_run"}`。
-**不是代码缺陷**，但**是测试设计缺陷**：jax 缺失时它无条件断言而非 skip，
-而同项目的 `test_phase_strain_job_builder.py` 就有正确的 `pytest.skip(...)` 范式。
-**未修**：把它变成 skip 是关于覆盖率的决定，不属于隔离修复的范围。
+#### 剩下的那 1 个失败：已修（主仓 `cf4bb4b`）
+
+原失败是 `test_simulation_runtime.py::test_read_only_probe_preserves_matching_smoke_results`，
+断言 `refreshed["jax"]["smoke_status"] == "ok"` 实得 `"not_run"`。
+
+**生产代码是对的，没有改动。** `_carry_forward_smoke` 开头就是：
+
+```python
+if not current.get("installed") or previous.get("smoke_status") in {None, "not_run"}:
+    return
+```
+
+运行时未安装却把旧 smoke 结果当作当前有效，那才是错误行为。**缺陷在测试**：
+它隐含假设 jax 已安装，却没有声明这个前提。
+
+也不能靠往状态文件注入结果来绕：`_jax_status()` 每次都从真实环境重算 `installed`，
+状态文件影响不了那个决定是否 carry forward 的分支。所以改为
+`monkeypatch` 掉 `simulation_runtime._jax_status`，让替身在 `run_smoke=True` 时成功、
+在 `run_smoke=False`（只读探测）时从 `"not_run"` 起步 —— 这样只读结果里的 `"ok"`
+**只可能**来自 `_carry_forward_smoke`，测试才真正验证了它名字所声称的东西，
+且不依赖 FerroX 栈。这也与同一个测试原本处理 ferrox 的方式一致（桩二进制 + 手工注入状态）。
+
+同时新增 `test_read_only_probe_discards_smoke_when_identity_changes` **防止该修法空转**：
+carry-forward 以 `(version, jaxlib_version, python)` 为身份键，新测试先在一个身份下
+记录 smoke，再用不同身份重探，断言旧的 `"ok"` **不会**被带过来、且 `backend` 不存在。
+若 monkeypatch 只是把 `"ok"` 硬写进每个结果，这个测试就会失败。
+
+注意 `simulation_runtime.py` 与 `test_simulation_runtime.py` **只存在于主仓**，
+worktree 两个都没有——这是 FerroX 分叉的一部分（见 §6.5）。
 
 #### 顺带清理：陈旧的 macOS `.pyc`
 
