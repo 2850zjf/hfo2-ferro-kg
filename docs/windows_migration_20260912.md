@@ -446,18 +446,51 @@ reports/HfO2-FerroKG_论文级工作流与计算闭环汇报.pptx
 
 #### 本次运行的实测结论
 
+守卫加入后（主仓提交 `0edd566`）：
+
 ```
 主仓    : 1 failed, 128 passed, 1 error   (error 即守卫触发，列出 10 个文件)
 worktree: 197 passed, 0 skipped
 生产库  : 0e1a0e04fa8b025b326d5e19cb651700e07ba98160c416fda03fa2d4fb912228  前后一致
 ```
 
-主仓那 1 个失败是 `test_simulation_runtime.py::test_read_only_probe_preserves_matching_smoke_results`，
+修复 4 个写入者后（主仓提交 `8b2e6d6`，7 文件 +43/−15）：
+
+```
+主仓    : 1 failed, 128 passed            (26.20 s，守卫不再触发)
+```
+
+两个独立机制同时确认无写入：conftest 守卫不再报错，且隔离脚本自己对
+`data/exports`、`data/extraction_candidates`、`data/ontology`、`data/computation`
+下 **3475 个文件**的指纹比对报 `no watched data/ file changed`。生产库哈希仍一致。
+
+修法是给 4 个服务各加一个覆盖参数（`run_extraction` 的
+`output_path`/`ontology_output_dir`、`_write_outputs` 与 `run_multi_model_validation`
+的 `output_dir`、`import_computation_results` 的 `output_dir`、
+`run_computation_workflow` 的 `runtime_status_path`），再让 3 个测试传 `tmp_path`；
+`test_computation_validation.py` 无需改动。其中：
+
+- `import_computation_results` 是**唯一的默认行为变更**：`report_dir` 从
+  `DEFAULT_JOBS_DIR` 改为 `output_dir or results_path.parent`。改前已核实只有
+  `pipelines/45_import_computation_results.py` 和 `computation_workflow.py` 两个调用方，
+  且**全仓没有任何代码读取** `validation_jobs/*_normalized_results.csv` 或
+  `*_import_report.md`，属终端产物，无下游消费者。
+- `computation_workflow` 的 `runtime_status_path` 不能简单转发：
+  `check_simulation_runtime` 的 `status_path` 是定义时绑定的默认参数，传 `None`
+  会用 `None` 覆盖默认值而非回退，故只在显式给出时才转发。
+  **`simulation_runtime` stage 本身保留** —— worktree 是把整个 stage 连同 import
+  一起删掉的（FerroX 分叉的一部分），照搬会删掉本分支的 FerroX 集成。
+- `multi_model_validator.py` 改后与 worktree 版本**逐字节相同**；另 3 个服务仍有
+  差异（`hfo2_extractor` 2/4、`computation_validation` 22/8、`computation_workflow` 2/20），
+  那些是既有的 FerroX 与 `synthetic_fixture` 分叉，非本次引入。
+
+剩下的 1 个失败是 `test_simulation_runtime.py::test_read_only_probe_preserves_matching_smoke_results`，
 断言 `refreshed["jax"]["smoke_status"] == "ok"` 实得 `"not_run"`。根因是 **JAX/ase 未安装**
 （本次有意排除的 FerroX 栈），探针如实返回
 `{"installed": false, "version": null, "jaxlib_version": null, "smoke_status": "not_run"}`。
 **不是代码缺陷**，但**是测试设计缺陷**：jax 缺失时它无条件断言而非 skip，
 而同项目的 `test_phase_strain_job_builder.py` 就有正确的 `pytest.skip(...)` 范式。
+**未修**：把它变成 skip 是关于覆盖率的决定，不属于隔离修复的范围。
 
 #### 顺带清理：陈旧的 macOS `.pyc`
 
