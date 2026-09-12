@@ -1,7 +1,7 @@
 # HfO2-FerroKG 完整工作说明
 
 更新时间：2026-07-11
-项目路径：`/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg`
+项目路径：以本地 Git 检出位置为准
 当前分支：以本地 Git 状态为准
 本地代码状态：publication v2.3 第一阶段正在断点抽取；静态数字使用 2026-07-11 覆盖审计快照。
 
