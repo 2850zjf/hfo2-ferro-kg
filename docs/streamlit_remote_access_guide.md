@@ -15,7 +15,8 @@
 适合你自己在电脑上调试。
 
 ```bash
-cd "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg"
+# 换成你本地的实际检出路径
+cd "/path/to/hfo2-ferro-kg"
 .venv/bin/python -m streamlit run app/Home.py --server.port 8501 --server.headless true
 ```
 
