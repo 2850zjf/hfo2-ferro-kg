@@ -531,6 +531,7 @@ def import_computation_results(
     results_path: Path,
     job_id: str | None = None,
     db_path: Path | None = None,
+    output_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Import completed computation descriptors from a user-filled CSV."""
 
@@ -548,7 +549,9 @@ def import_computation_results(
         job_id = "manual_import"
 
     normalized = _normalize_phase_results(results)
-    report_dir = DEFAULT_JOBS_DIR
+    # Keep diagnostics next to the caller's input by default.  This prevents tests
+    # and one-off imports from polluting the repository-wide validation directory.
+    report_dir = output_dir or results_path.parent
     report_dir.mkdir(parents=True, exist_ok=True)
     normalized_path = report_dir / f"{job_id}_normalized_results.csv"
     normalized.to_csv(normalized_path, index=False, encoding="utf-8-sig")

@@ -52,7 +52,11 @@ def test_multi_model_validation_reports_agreement_accuracy(tmp_path):
         )
         conn.commit()
 
-    stats = run_multi_model_validation(limit=10, db_path=db_path)
+    stats = run_multi_model_validation(
+        limit=10,
+        db_path=db_path,
+        output_dir=tmp_path / "exports",
+    )
 
     assert stats["facts"] == 1
     assert stats["models"] == 4

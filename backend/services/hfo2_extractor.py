@@ -605,12 +605,20 @@ def run_extraction(
     chunk_ids: list[str] | None = None,
     high_value_only: bool = True,
     llm_strict: bool = False,
+    output_path: Path | None = None,
+    ontology_output_dir: Path | None = None,
 ) -> dict[str, int]:
-    output_path = PROJECT_ROOT / "data" / "extraction_candidates" / "hfo2_candidates.jsonl"
+    output_path = output_path or (
+        PROJECT_ROOT / "data" / "extraction_candidates" / "hfo2_candidates.jsonl"
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     settings = get_settings()
     should_use_llm = settings.use_llm if use_llm is None else use_llm
-    ontology_build = build_ontology(db_path=db_path, record_run=not dry_run)
+    ontology_build = build_ontology(
+        db_path=db_path,
+        record_run=not dry_run,
+        output_dir=ontology_output_dir,
+    )
     ontology_version = ontology_build["version"]
     stats = {
         "ontology_version": ontology_version,

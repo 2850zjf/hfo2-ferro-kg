@@ -280,6 +280,7 @@ def run_computation_workflow(
     import_job_id: str | None = None,
     write_cloud_template: bool = True,
     db_path: Path | None = None,
+    runtime_status_path: Path | None = None,
 ) -> dict[str, Any]:
     """Run the safe automatic computation workflow.
 
@@ -292,10 +293,16 @@ def run_computation_workflow(
     target_jobs_dir = jobs_dir or DEFAULT_JOBS_DIR
     stages: dict[str, Any] = {}
 
-    stages["simulation_runtime"] = check_simulation_runtime(
-        run_jax_smoke=False,
-        run_ferrox_smoke=False,
-    )
+    # check_simulation_runtime binds status_path=DEFAULT_STATUS_PATH as a default
+    # argument, so passing None here would override that default with None rather
+    # than fall back to it. Only forward the override when one was given.
+    runtime_kwargs: dict[str, Any] = {
+        "run_jax_smoke": False,
+        "run_ferrox_smoke": False,
+    }
+    if runtime_status_path is not None:
+        runtime_kwargs["status_path"] = runtime_status_path
+    stages["simulation_runtime"] = check_simulation_runtime(**runtime_kwargs)
 
     plan_stats = plan_computational_feedback_tasks(
         candidates_path=candidates_path,

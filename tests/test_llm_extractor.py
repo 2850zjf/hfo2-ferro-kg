@@ -389,7 +389,7 @@ def test_run_extraction_can_disable_llm(tmp_path):
         )
         conn.commit()
 
-    stats = run_extraction(db_path=db_path, use_llm=False)
+    stats = run_extraction(db_path=db_path, use_llm=False, output_path=tmp_path / "candidates.jsonl", ontology_output_dir=tmp_path / "ontology")
 
     assert stats["rules_used"] == 1
     assert stats["candidates"] == 1
@@ -429,7 +429,7 @@ def test_run_extraction_dry_run_does_not_write(tmp_path):
         )
         conn.commit()
 
-    stats = run_extraction(db_path=db_path, use_llm=False, dry_run=True)
+    stats = run_extraction(db_path=db_path, use_llm=False, dry_run=True, output_path=tmp_path / "candidates.jsonl", ontology_output_dir=tmp_path / "ontology")
 
     with connect(db_path) as conn:
         candidate_count = conn.execute("SELECT COUNT(*) FROM extraction_candidates").fetchone()[0]
@@ -471,7 +471,7 @@ def test_run_extraction_records_empty_results_for_incremental_resume(tmp_path):
         )
         conn.commit()
 
-    stats = run_extraction(db_path=db_path, use_llm=False)
+    stats = run_extraction(db_path=db_path, use_llm=False, output_path=tmp_path / "candidates.jsonl", ontology_output_dir=tmp_path / "ontology")
 
     with connect(db_path) as conn:
         row = conn.execute(
@@ -491,7 +491,7 @@ def test_run_extraction_records_empty_results_for_incremental_resume(tmp_path):
     assert "prevents repeated LLM calls" in row["payload_json"]
     assert reviewed_count == 0
 
-    second_stats = run_extraction(db_path=db_path, use_llm=False, reset_existing=False)
+    second_stats = run_extraction(db_path=db_path, use_llm=False, reset_existing=False, output_path=tmp_path / "candidates.jsonl", ontology_output_dir=tmp_path / "ontology")
 
     assert second_stats["chunks"] == 0
     assert second_stats["skipped_existing"] == 1

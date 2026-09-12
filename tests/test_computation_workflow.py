@@ -93,6 +93,7 @@ def test_run_computation_workflow_safe_mode_prepares_packages(tmp_path):
         max_jobs=1,
         write_cloud_template=False,
         db_path=db_path,
+        runtime_status_path=tmp_path / "runtime_status.json",
     )
 
     assert stats["status"] == "ok"
