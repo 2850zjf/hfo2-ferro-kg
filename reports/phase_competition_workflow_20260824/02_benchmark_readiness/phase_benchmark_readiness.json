@@ -50,11 +50,11 @@
   "split_policy": "DOI/paper-group locked; row fallback prohibited",
   "interpretation_boundary": "This report contains no trained model and no performance metric.",
   "benchmark_version": "phase-competition-benchmark-v0.1",
-  "annotation_path": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_observation_annotation_queue.csv",
-  "all_rows_path": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/phase_benchmark_all.csv",
-  "train_path": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/phase_benchmark_train.csv",
-  "locked_validation_path": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/phase_benchmark_locked_validation.csv",
-  "exclusions_path": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/phase_benchmark_exclusions.csv",
-  "selection_frame_path": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/locked_validation_selection_frame.csv",
-  "metric_protocol_path": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/phase_benchmark_metric_protocol.json"
+  "annotation_path": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_observation_annotation_queue.csv",
+  "all_rows_path": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/phase_benchmark_all.csv",
+  "train_path": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/phase_benchmark_train.csv",
+  "locked_validation_path": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/phase_benchmark_locked_validation.csv",
+  "exclusions_path": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/phase_benchmark_exclusions.csv",
+  "selection_frame_path": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/locked_validation_selection_frame.csv",
+  "metric_protocol_path": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/phase_benchmark_metric_protocol.json"
 }

@@ -25,7 +25,7 @@ HZO、铁电极化、相分数、退火温度或退火时间。
 ## 2. 来源、安全边界和解压核验
 
 - 源文件：
-  `/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/nal-hfo_1753200171_1613132854-dl.tgz`
+  `/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/nal-hfo_1753200171_1613132854-dl.tgz`
 - 大小：194,191,360 bytes
 - SHA-256：
   `03dd8b1814707d3421d0c8a2d1b4906387b6f0a3e76cbb4cdd6565ed34afd6b8`
@@ -38,7 +38,7 @@ HZO、铁电极化、相分数、退火温度或退火时间。
 安全副本位于：
 
 ```text
-/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/
+/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/
 external_data/nal-hfo_no_potcar_20260829/nal-hfo/
 ```
 

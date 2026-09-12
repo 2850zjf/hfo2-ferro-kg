@@ -50,12 +50,12 @@
     "row_limit": null,
     "database_access": "SQLite mode=ro&immutable=1; PRAGMA query_only=ON"
   },
-  "candidate_jsonl": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_contradiction_candidates.jsonl",
-  "candidate_csv": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_contradiction_candidates.csv",
+  "candidate_jsonl": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_contradiction_candidates.jsonl",
+  "candidate_csv": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_contradiction_candidates.csv",
   "split_manifest": null,
   "annotation_queue_rows": 1000,
-  "annotation_queue": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_observation_annotation_queue.csv",
+  "annotation_queue": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_observation_annotation_queue.csv",
   "paper_group_inventory_rows": 480,
-  "paper_group_inventory": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/paper_group_inventory.csv",
+  "paper_group_inventory": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/paper_group_inventory.csv",
   "interpretation_boundary": "Candidates are review queues, not adjudicated scientific contradictions. No candidate is a VASP result or an experimental truth label."
 }

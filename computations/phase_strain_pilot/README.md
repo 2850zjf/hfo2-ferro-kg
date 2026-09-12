@@ -19,7 +19,7 @@
 生成器只读取原工作区以下快照中的 `monoclinic/CONTCAR`、`orthorhombic/CONTCAR` 和 `tetragonal/CONTCAR`：
 
 ```text
-/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/
+/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/
 data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/
 ```
 
@@ -41,9 +41,9 @@ Builder 内部只执行 phase-specific operation/motif contract，不调用或�
 ## 生成
 
 ```bash
-cd "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree"
+cd "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree"
 
-"/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/.venv/bin/python" \
+"/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/.venv/bin/python" \
   pipelines/67_prepare_phase_strain_jobs.py \
   --output-dir computations/phase_strain_pilot/generated_v0_1
 ```

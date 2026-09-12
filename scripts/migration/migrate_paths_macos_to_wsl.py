@@ -43,7 +43,20 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 WORKTREE_ROOT = SCRIPT_DIR.parents[1]
 CODEX_ROOT = SCRIPT_DIR.parents[2]
 
-MAC_PREFIX = "/Users/jinfengzhang/Codex/"
+# The macOS source prefix is redacted from this repository, so the default is a
+# placeholder and the rewrite matches nothing. That is the correct behaviour for
+# an already-migrated database (--dry-run reports 0 rows either way). To run this
+# against another machine, supply the real prefix explicitly:
+#
+#   HFO2_MAC_SOURCE_PREFIX="/Users/<real-user>/Codex/" \
+#       python scripts/migration/migrate_paths_macos_to_wsl.py --dry-run
+MAC_PREFIX = os.environ.get("HFO2_MAC_SOURCE_PREFIX", "/Users/<mac-user>/Codex/")
+
+# Detection pattern for "a macOS home path is still stored here". Deliberately
+# username-independent: it matches any /Users/<name>/... value, so it keeps
+# working after the real prefix is redacted, and it is strictly more general than
+# matching a single account name.
+MAC_PATH_LIKE = "%/Users/%"
 
 # Historical pre-migration Windows location of the project. Not derivable from
 # the current tree, so it stays an explicit constant (override with
@@ -298,7 +311,7 @@ def main() -> int:
     leftover = 0
     for t, c in PLAIN + JSONCOLS:
         n = con.execute('SELECT COUNT(*) FROM "%s" WHERE CAST("%s" AS TEXT) LIKE ?' % (t, c),
-                        ("%jinfengzhang%",)).fetchone()[0]
+                        (MAC_PATH_LIKE,)).fetchone()[0]
         n2 = con.execute('SELECT COUNT(*) FROM "%s" WHERE CAST("%s" AS TEXT) LIKE ?' % (t, c),
                          (args.old_win_prefix + "%",)).fetchone()[0]
         if n or n2:
@@ -320,7 +333,8 @@ def main() -> int:
         print("    %-40s valid=%-5d invalid=%d" % (t + "." + c, ok, bad))
 
     print("  stats_json left untouched (historical log): mac rows =",
-          con.execute("SELECT COUNT(*) FROM pipeline_runs WHERE stats_json LIKE '%jinfengzhang%'").fetchone()[0])
+          con.execute("SELECT COUNT(*) FROM pipeline_runs WHERE stats_json LIKE ?",
+                      (MAC_PATH_LIKE,)).fetchone()[0])
     con.close()
     return 0 if leftover == 0 else 1
 

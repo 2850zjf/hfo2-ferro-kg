@@ -1,7 +1,7 @@
 {
   "audit_version": "vasp-raw-output-audit-v0.1",
   "generated_at": "2026-08-24T09:15:05Z",
-  "source_directory": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke",
+  "source_directory": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke",
   "source_access_policy": "read_only_no_database_no_environment_file",
   "energy_authority": "raw_vasprun.xml_and_OUTCAR_only",
   "summary_policy": "phase_energy_summary.csv_is_cross_check_only_never_authority",
@@ -35,7 +35,7 @@
     "authoritative": false,
     "purpose": "cross_check_only_raw_OUTCAR_and_vasprun_xml_are_authoritative",
     "file": {
-      "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/phase_energy_summary.csv",
+      "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/phase_energy_summary.csv",
       "exists": true,
       "byte_size": 315,
       "sha256": "e7613fa008d2d59df75862ed8f71f1f915b09d696f0b379580be6bb7dadb1ceb"
@@ -83,58 +83,58 @@
   "phases": [
     {
       "phase": "monoclinic",
-      "source_directory": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic",
+      "source_directory": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic",
       "files": {
         "POSCAR": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/POSCAR",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/POSCAR",
           "exists": true,
           "byte_size": 1623,
           "sha256": "6d04b4410564515b854cd09a4551055552b8fda837d6feeb1efb9b30fc7171f4"
         },
         "CONTCAR": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/CONTCAR",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/CONTCAR",
           "exists": true,
           "byte_size": 1623,
           "sha256": "2efef57fd989be257b684e2c3f95b0b94cb0fc380ca31a0b8307c22f6162eef9"
         },
         "OUTCAR": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/OUTCAR",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/OUTCAR",
           "exists": true,
           "byte_size": 276108,
           "sha256": "e9ac35207b7627d1f84a45eedce35d10363832401989e9927cd2eaf99c208083"
         },
         "vasprun.xml": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/vasprun.xml",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/vasprun.xml",
           "exists": true,
           "byte_size": 240224,
           "sha256": "62b51d3e67f933491fc5f1724ec9c3bbdf1810ad20c84c54845334c452830cc2"
         },
         "relax.output": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/relax.output",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/relax.output",
           "exists": true,
           "byte_size": 13953,
           "sha256": "92da5843c70c93abcfbd7855a23a94916d2d17507e55e255c930e559e08b58f7"
         },
         "static.output": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/static.output",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/static.output",
           "exists": true,
           "byte_size": 4103,
           "sha256": "7f85ed8fc06c088eab4eae8f9e4962efa54cd7e6d6281b54dbaa0164ea43ad79"
         },
         "INCAR.relax": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/INCAR.relax",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/INCAR.relax",
           "exists": true,
           "byte_size": 242,
           "sha256": "28f504b02dde14b7b6104f7fe56c78f1be49b7e116e2a446566924e10d6fce19"
         },
         "INCAR.static": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/INCAR.static",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/INCAR.static",
           "exists": true,
           "byte_size": 223,
           "sha256": "e467a43f845c5fcea1ec00d64ee221afa70cf5c89d6b48c12e7ed330480fba8e"
         },
         "KPOINTS": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/KPOINTS",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/KPOINTS",
           "exists": true,
           "byte_size": 43,
           "sha256": "f141d9eb4816cfe74466c7bb8ab23c02e13a0033302f4f68a9b35e8b4eb12ea5"
@@ -504,58 +504,58 @@
     },
     {
       "phase": "orthorhombic",
-      "source_directory": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic",
+      "source_directory": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic",
       "files": {
         "POSCAR": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/POSCAR",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/POSCAR",
           "exists": true,
           "byte_size": 1623,
           "sha256": "5669966875400ce2ec3576f4c0d41102da7ad96026083c7c0c58dfa700bcbd5a"
         },
         "CONTCAR": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/CONTCAR",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/CONTCAR",
           "exists": true,
           "byte_size": 1623,
           "sha256": "4987c18c5a4edec450c47cb80b1fd7651e2f8ee08ee569406ebfb6dae2f46453"
         },
         "OUTCAR": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/OUTCAR",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/OUTCAR",
           "exists": true,
           "byte_size": 233945,
           "sha256": "468c2fe18366f5c37e4f16dab4115d1ffbad282dddfe682179edffe3276aa5e7"
         },
         "vasprun.xml": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/vasprun.xml",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/vasprun.xml",
           "exists": true,
           "byte_size": 200888,
           "sha256": "d6bfb3b75634ba8eee2bd79f1d8b9ae3bd096753bd96b455689ea96ee07bec76"
         },
         "relax.output": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/relax.output",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/relax.output",
           "exists": true,
           "byte_size": 21143,
           "sha256": "e88a2878830597a9eb9d43693bfe44d1ea0c642b3ac386ae6fc206875da2a718"
         },
         "static.output": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/static.output",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/static.output",
           "exists": true,
           "byte_size": 4010,
           "sha256": "b9c2f33f481da07294060d9d7d36ae592ec923e8708bfc577a624877d8409de4"
         },
         "INCAR.relax": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/INCAR.relax",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/INCAR.relax",
           "exists": true,
           "byte_size": 242,
           "sha256": "28f504b02dde14b7b6104f7fe56c78f1be49b7e116e2a446566924e10d6fce19"
         },
         "INCAR.static": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/INCAR.static",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/INCAR.static",
           "exists": true,
           "byte_size": 223,
           "sha256": "e467a43f845c5fcea1ec00d64ee221afa70cf5c89d6b48c12e7ed330480fba8e"
         },
         "KPOINTS": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/KPOINTS",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/KPOINTS",
           "exists": true,
           "byte_size": 43,
           "sha256": "f141d9eb4816cfe74466c7bb8ab23c02e13a0033302f4f68a9b35e8b4eb12ea5"
@@ -925,58 +925,58 @@
     },
     {
       "phase": "tetragonal",
-      "source_directory": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal",
+      "source_directory": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal",
       "files": {
         "POSCAR": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/POSCAR",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/POSCAR",
           "exists": true,
           "byte_size": 963,
           "sha256": "bb7277478bb07cbfa8258426b499b4cf71b42c40fc4da032201f71fb89fcdecb"
         },
         "CONTCAR": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/CONTCAR",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/CONTCAR",
           "exists": true,
           "byte_size": 963,
           "sha256": "00f700b91decd07961cbb09b7e1cf96c3f2c2412887b26e454eb135958250ab8"
         },
         "OUTCAR": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/OUTCAR",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/OUTCAR",
           "exists": true,
           "byte_size": 123108,
           "sha256": "b1cd0c4ae6f0eac59e8b4c1512ed988ed4405ef2649d52c6b8ebf67857f9b66d"
         },
         "vasprun.xml": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/vasprun.xml",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/vasprun.xml",
           "exists": true,
           "byte_size": 93264,
           "sha256": "9cabdbdc9b69e7a2f9a048157b95c37723d2ec7f038b2a17200f61dd0cdcf407"
         },
         "relax.output": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/relax.output",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/relax.output",
           "exists": true,
           "byte_size": 15034,
           "sha256": "f0ffb87729052b08c1ad9fcff4711f8426df8d9084175fe3626b44ec85011074"
         },
         "static.output": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/static.output",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/static.output",
           "exists": true,
           "byte_size": 3824,
           "sha256": "4948214fc664a02cd085793d16beae2dfabd0bbe266208b8d19bd96706c47bff"
         },
         "INCAR.relax": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/INCAR.relax",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/INCAR.relax",
           "exists": true,
           "byte_size": 242,
           "sha256": "28f504b02dde14b7b6104f7fe56c78f1be49b7e116e2a446566924e10d6fce19"
         },
         "INCAR.static": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/INCAR.static",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/INCAR.static",
           "exists": true,
           "byte_size": 223,
           "sha256": "e467a43f845c5fcea1ec00d64ee221afa70cf5c89d6b48c12e7ed330480fba8e"
         },
         "KPOINTS": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/KPOINTS",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/KPOINTS",
           "exists": true,
           "byte_size": 43,
           "sha256": "f141d9eb4816cfe74466c7bb8ab23c02e13a0033302f4f68a9b35e8b4eb12ea5"
@@ -1285,58 +1285,58 @@
     },
     {
       "phase": "cubic",
-      "source_directory": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic",
+      "source_directory": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic",
       "files": {
         "POSCAR": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/POSCAR",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/POSCAR",
           "exists": true,
           "byte_size": 1623,
           "sha256": "2e7437efd55baa7deaa83eeea7101dad5768a4bda069aa511dcf4f5916fde86d"
         },
         "CONTCAR": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/CONTCAR",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/CONTCAR",
           "exists": true,
           "byte_size": 1623,
           "sha256": "efb7af866daf2fce334ab538ea3d94a13c0e0668fbadfde8d73734b4b5b19c89"
         },
         "OUTCAR": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/OUTCAR",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/OUTCAR",
           "exists": true,
           "byte_size": 120860,
           "sha256": "df679f963833823055f00bcfb5c029560acc4dad50dd0cb1a75aa468f95f48fe"
         },
         "vasprun.xml": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/vasprun.xml",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/vasprun.xml",
           "exists": true,
           "byte_size": 92331,
           "sha256": "9ec75b8883c6f28ca4b054800be6ef5f693d3d089ee0e5c212ecd1ad01869635"
         },
         "relax.output": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/relax.output",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/relax.output",
           "exists": true,
           "byte_size": 7051,
           "sha256": "1fe41871b0af9363fdfc32e73bb2197476ad64eb91862bd34b14bd96d09fe95f"
         },
         "static.output": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/static.output",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/static.output",
           "exists": true,
           "byte_size": 3917,
           "sha256": "472fa25b70a642ba4093e33b92c91cf80e37523b571476c84f02ac075b4e8323"
         },
         "INCAR.relax": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/INCAR.relax",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/INCAR.relax",
           "exists": true,
           "byte_size": 242,
           "sha256": "28f504b02dde14b7b6104f7fe56c78f1be49b7e116e2a446566924e10d6fce19"
         },
         "INCAR.static": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/INCAR.static",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/INCAR.static",
           "exists": true,
           "byte_size": 223,
           "sha256": "e467a43f845c5fcea1ec00d64ee221afa70cf5c89d6b48c12e7ed330480fba8e"
         },
         "KPOINTS": {
-          "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/KPOINTS",
+          "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/cubic/KPOINTS",
           "exists": true,
           "byte_size": 43,
           "sha256": "f141d9eb4816cfe74466c7bb8ab23c02e13a0033302f4f68a9b35e8b4eb12ea5"

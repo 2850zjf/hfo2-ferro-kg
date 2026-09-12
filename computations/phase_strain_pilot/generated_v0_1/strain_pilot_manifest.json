@@ -9,11 +9,11 @@
   "dotenv_read": false,
   "potcar_included": false,
   "publication_ready": false,
-  "source_root": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke",
+  "source_root": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke",
   "source_structures": {
     "monoclinic": {
       "phase": "monoclinic",
-      "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/CONTCAR",
+      "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/monoclinic/CONTCAR",
       "expected_sha256": "2efef57fd989be257b684e2c3f95b0b94cb0fc380ca31a0b8307c22f6162eef9",
       "expected_space_group_number": 14,
       "expected_space_group_symbol": "P2_1/c",
@@ -43,7 +43,7 @@
     },
     "orthorhombic": {
       "phase": "orthorhombic",
-      "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/CONTCAR",
+      "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/orthorhombic/CONTCAR",
       "expected_sha256": "4987c18c5a4edec450c47cb80b1fd7651e2f8ee08ee569406ebfb6dae2f46453",
       "expected_space_group_number": 29,
       "expected_space_group_symbol": "Pca2_1",
@@ -73,7 +73,7 @@
     },
     "tetragonal": {
       "phase": "tetragonal",
-      "path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/CONTCAR",
+      "path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke/tetragonal/CONTCAR",
       "expected_sha256": "00f700b91decd07961cbb09b7e1cf96c3f2c2412887b26e454eb135958250ab8",
       "expected_space_group_number": 137,
       "expected_space_group_symbol": "P4_2/nmc",

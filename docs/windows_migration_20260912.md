@@ -29,13 +29,13 @@ worktree `D:\Code-X\hfo2-phase-competition-worktree` 下的
 ## 2. 路径映射规则
 
 ```
-/Users/jinfengzhang/Codex/     ->  /mnt/d/Code-X/
+/Users/<mac-user>/Codex/     ->  /mnt/d/Code-X/
 D:\KG agent\hfo2-ferro-kg\     ->  /mnt/d/Code-X/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/
 ```
 
 第二条同时把剩余的反斜杠归一化为正斜杠。
 
-迁移前已验证：全部 52,861 行 macOS 路径共享 `/Users/jinfengzhang/Codex/`
+迁移前已验证：全部 52,861 行 macOS 路径共享 `/Users/<mac-user>/Codex/`
 单一前缀，**0 行例外**；112 个指向 `D:\KG agent\` 的 open_access PDF
 在新副本 `data/raw_pdfs/open_access/`（132 个文件，超集）中**全部存在**。
 
@@ -117,7 +117,7 @@ message, created_at`），里面的 `output_csv` / `report_path` / `output_path`
 - `backend/services/phase_strain_job_builder.py` — `DEFAULT_SOURCE_ROOT`
 
 两者原本都指向
-`/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke`。
+`/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke`。
 后果是实测的：`tests/test_phase_strain_job_builder.py` 有 4 个测试因找不到冻结
 CONTCAR 而跳过，Track B 的哈希与空间群校验层空转。
 
@@ -525,7 +525,7 @@ worktree 两个都没有——这是 FerroX 分叉的一部分（见 §6.5）。
 
 两仓共 715 个项目 `.pyc`（主仓 342、worktree 373），其中主仓 107 个、worktree 112 个
 **内嵌 macOS 绝对路径**。因为 `cp -p` 保留了 mtime 且文件大小未变，Python 判定缓存有效
-并直接加载，导致 pytest 回溯显示 `/Users/jinfengzhang/Codex/...` 且源码行为 `???`。
+并直接加载，导致 pytest 回溯显示 `/Users/<mac-user>/Codex/...` 且源码行为 `???`。
 已全部删除（`__pycache__` 是纯派生缓存，已被 gitignore，会自动重建）。mac 的 `.venv`
 未受影响（其 10,720 个 `.pyc` 保留）。
 
@@ -546,7 +546,7 @@ worktree 两个都没有——这是 FerroX 分叉的一部分（见 §6.5）。
    或至少在 README 里指明 WSL 环境以 lock 文件为准。
 2. **未 push**：分支 `codex/phase-competition-research` 仍无 upstream。
    本地提交已是备份，但推送到公开仓前需先决定两件事：
-   `reports/**` 中若干 JSON 的路径字段含 macOS 用户名 `jinfengzhang`；
+   `reports/**` 中若干 JSON 的路径字段含 macOS 用户名 `<mac-user>`；
    `locked_validation_selection_frame.csv` ×2 含 480 条论文标题+DOI。
 3. **主仓与 worktree 分支存在未调和的分叉**（见 §6.5）。主仓已提交保全
    （`cd1d9bb`），但两条 FerroX 实现与 `pipelines/62` 编号冲突仍未解决，

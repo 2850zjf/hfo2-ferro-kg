@@ -21,8 +21,8 @@
     "completion_tokens": 1309,
     "total_tokens": 5704
   },
-  "input_queue": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_observation_annotation_queue.csv",
-  "output_csv": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_llm_preannotation_pilot_20260824/phase_machine_preannotations.csv",
-  "output_jsonl": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_llm_preannotation_pilot_20260824/phase_machine_preannotations.jsonl",
+  "input_queue": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_observation_annotation_queue.csv",
+  "output_csv": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_llm_preannotation_pilot_20260824/phase_machine_preannotations.csv",
+  "output_jsonl": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_llm_preannotation_pilot_20260824/phase_machine_preannotations.jsonl",
   "interpretation_boundary": "Machine suggestions are uncalibrated review aids, not adjudicated labels, benchmark truth, model metrics, or scientific conclusions."
 }

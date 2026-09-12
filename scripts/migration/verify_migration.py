@@ -33,6 +33,12 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 WORKTREE_ROOT = SCRIPT_DIR.parents[1]
 CODEX_ROOT = SCRIPT_DIR.parents[2]
 
+# Detection pattern for "a macOS home path is still stored here". Deliberately
+# username-independent so it keeps working after the real source prefix was
+# redacted from this repository, and stricter than matching one account name:
+# it flags any /Users/<name>/... value.
+MAC_PATH_LIKE = "%/Users/%"
+
 REWRITTEN = [
     ("multimodal_asset_queue", "file_path"),
     ("pdf_visual_assets", "file_path"),
@@ -61,16 +67,20 @@ _MNT = re.compile(r"^/mnt/([a-z])(/.*)$")
 
 
 def resolve_local(value: str) -> str:
-    """Map a stored WSL path onto something os.path.exists can test here."""
+    """Map a stored WSL path onto something os.path.exists can test here.
+
+    Try the value as-is first. Under WSL a stored /mnt/d/... path is already
+    correct, and rewriting it to D:\\... would make every check fail. Only when
+    the value does not resolve do we attempt the Windows drive-letter form, which
+    is what makes this script usable from the Windows side too.
+    """
+    if os.path.exists(value):
+        return value
     m = _MNT.match(value)
     if not m:
         return value
     drive, rest = m.group(1).upper(), m.group(2)
-    candidate = "%s:%s" % (drive, rest)
-    if os.path.exists(candidate):
-        return candidate
-    # running on Windows: /mnt/d/foo -> D:\foo
-    return candidate.replace("/", os.sep)
+    return ("%s:%s" % (drive, rest)).replace("/", os.sep)
 
 
 def resolve_main_repo(explicit):
@@ -112,7 +122,7 @@ def main() -> int:
     residual = 0
     for t, c in REWRITTEN:
         mac = con.execute('SELECT COUNT(*) FROM "%s" WHERE CAST("%s" AS TEXT) LIKE ?' % (t, c),
-                          ("%jinfengzhang%",)).fetchone()[0]
+                          (MAC_PATH_LIKE,)).fetchone()[0]
         old = con.execute('SELECT COUNT(*) FROM "%s" WHERE CAST("%s" AS TEXT) LIKE ?' % (t, c),
                           ("D:\\KG agent%",)).fetchone()[0]
         wsl = con.execute('SELECT COUNT(*) FROM "%s" WHERE CAST("%s" AS TEXT) LIKE ?' % (t, c),
@@ -126,7 +136,7 @@ def main() -> int:
     print("\n2. PRESERVED COLUMNS - historical log intact (expect non-zero)")
     for t, c in PRESERVED:
         mac = con.execute('SELECT COUNT(*) FROM "%s" WHERE CAST("%s" AS TEXT) LIKE ?' % (t, c),
-                          ("%jinfengzhang%",)).fetchone()[0]
+                          (MAC_PATH_LIKE,)).fetchone()[0]
         rows = con.execute('SELECT COUNT(*) FROM "%s"' % t).fetchone()[0]
         print("  %-44s mac rows=%d of %d total (preserved)" % (t + "." + c, mac, rows))
         if mac == 0:

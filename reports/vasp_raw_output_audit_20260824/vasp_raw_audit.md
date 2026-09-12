@@ -1,7 +1,7 @@
 # VASP Raw Output Audit
 
 - status: `audited_with_publication_blockers`
-- source: `/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke`
+- source: `/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/computation/tefs_hfo2_phase_smoke_20260622/runs/hfo2_phase_smoke`
 - energy authority: `raw_vasprun.xml_and_OUTCAR_only`
 - publication_grade: `false`
 - database writes: none

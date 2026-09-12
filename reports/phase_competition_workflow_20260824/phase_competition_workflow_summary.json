@@ -1,7 +1,7 @@
 {
   "workflow_version": "phase-competition-workflow-v0.1",
   "status": "completed_waiting_for_human_annotation",
-  "database_path": "/Users/jinfengzhang/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/hfo2_ferrokg.sqlite3",
+  "database_path": "/Users/<mac-user>/Codex/Ferroelectric knowledgegraph/KG agent/hfo2-ferro-kg/data/hfo2_ferrokg.sqlite3",
   "database_access": "read_only_immutable_query_only",
   "api_credentials_used": false,
   "llm_invoked": false,
@@ -16,12 +16,12 @@
       "classification_counts": {
         "extraction_review_needed": 100
       },
-      "summary_path": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_contradiction_summary.json"
+      "summary_path": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_contradiction_summary.json"
     },
     "annotation_queue": {
       "status": "generated_pending_human_annotation",
       "rows": 1000,
-      "path": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_observation_annotation_queue.csv"
+      "path": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_observation_annotation_queue.csv"
     },
     "benchmark_readiness": {
       "status": "not_ready",
@@ -33,10 +33,10 @@
         "train_minimum_groups_per_phase",
         "validation_minimum_groups_per_phase"
       ],
-      "readiness_path": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/phase_benchmark_readiness.json"
+      "readiness_path": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/02_benchmark_readiness/phase_benchmark_readiness.json"
     }
   },
-  "annotations_input": "/Users/jinfengzhang/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_observation_annotation_queue.csv",
+  "annotations_input": "/Users/<mac-user>/Codex/hfo2-phase-competition-worktree/reports/phase_competition_workflow_20260824/01_candidate_analysis/phase_observation_annotation_queue.csv",
   "locked_validation_groups_provided": 0,
   "next_action": "Human-adjudicate the generated annotation queue, then rerun with --annotations and --locked-validation-groups.",
   "interpretation_boundary": "Automated workflow completion is not scientific adjudication and does not authorize model metrics or physical claims."
