@@ -377,6 +377,102 @@ reports/HfO2-FerroKG_论文级工作流与计算闭环汇报.pptx
 
 调和这些需要决定哪套架构胜出、`62` 怎么重编号，属设计决策而非机械合并，**未做**。
 
+### 6.6 主仓 pytest：三个危险、四个写入者、一个守卫
+
+主仓**不能直接跑 `pytest`**。三个已实测确认的危险：
+
+1. 它的 `backend/core/config.py` 是修复前版本，`db_path` 解析为
+   `PROJECT_ROOT/data/hfo2_ferrokg.sqlite3`，而在主仓那**就是 1 GB 生产库**；
+   `backend/db/session.py:connect()` 以读写方式打开并调用 `init_database()`。
+2. 它原本**没有 `tests/conftest.py`**，所以 worktree 那个污染治理守卫不存在。
+3. 它的 `.env` 设了 `HFO2_FERROKG_USE_LLM=true` 且带真实 `DASHSCOPE_API_KEY`，
+   而 `config.py` 会 `load_dotenv(PROJECT_ROOT/".env")` —— 任何触及 LLM 客户端的
+   测试都会**真实花钱**。
+
+因此新增 `scripts/migration/run_main_repo_pytest.sh`：重定向数据库到临时文件、
+强制 `USE_LLM=false`、清空两个 API key，并**以断言方式验证三者生效**（不是假定），
+再对生产库与 `data/` 做跑前跑后指纹。主仓路径从 worktree 的 `.git` 指针推导，
+故 Windows 与 WSL 两侧通用。
+
+#### 谁在写生产数据
+
+逐个测试文件单独跑并做指纹比对，实测**恰好 4 个**：
+
+| 测试文件 | 写入位置 |
+|---|---|
+| `test_llm_extractor.py` | `data/extraction_candidates/`、`data/ontology/hfo2-ferrokg-v2.3/` |
+| `test_multi_model_validator.py` | `data/exports/model_validation_*`（4 个文件） |
+| `test_computation_validation.py` | `data/computation/validation_jobs/` |
+| `test_computation_workflow.py` | `data/computation/simulation_runtime/runtime_status.json` |
+
+先前"`tmp_path` 引用数为 0 的就是元凶"的启发式**完全错误**：被怀疑的
+`test_hfo2_extractor.py` 和 `test_visual_asset_linker.py` 什么都没写，而大量使用
+`tmp_path` 的 `test_ontology_builder.py`（6 次）、`test_model_comparison.py`（10 次）、
+`test_simulation_runtime.py`（17 次）也什么都没写。
+
+根因在服务层：多个函数在**调用时**用 `PROJECT_ROOT / "data" / ...` 计算输出位置
+（`multi_model_validator.py:301`、`hfo2_extractor.py:609`、
+`ontology_builder.load_ontology_bundle:260`），测试没传覆盖参数就会落到生产路径。
+
+另发现 `test_llm_extractor.py` 与 `test_multi_model_validator.py` **单独跑会失败、
+在完整套件里却通过** —— 存在执行顺序依赖，是另一个隔离缺陷。
+
+#### 守卫的实现取舍（实测数据）
+
+`tests/conftest.py` 的 `PROTECTED_RUNTIME_DIRS` 已扩到含 `data/computation`，
+两个仓库的文件**逐字节相同**（SHA-256 一致）。实现上踩了两个坑，都用实测数字纠正：
+
+| 版本 | 主仓耗时 | 说明 |
+|---|---:|---|
+| SHA-256 全量哈希、3 个目录 | 23.73 s | 原始版，不含 `data/computation` |
+| SHA-256 全量哈希、4 个目录 | 164.84 s | `data/computation` 154 MB / 3447 文件，哈希两遍 |
+| 改用 `(size, mtime_ns)` | 93.57 s | 仍慢 |
+| 加 `tools/` 排除，但用 `rglob` 过滤 | 68.42 s | **过滤发生在遍历之后，遍历成本一点没省** |
+| 改用 `os.walk` 并在 `dirnames` 上剪枝 | **27.56 s** | 回到基线 |
+
+两个结论：
+
+- **不用内容哈希**。一是慢；二是测试把生产文件重写成**完全相同的字节**仍然是在写
+  生产树，内容哈希会放过它，`(size, mtime_ns)` 不会。改用后者后守卫从只报 2 个文件
+  变成报全 **10 个**。
+- **排除 `data/computation/tools/`**（2921 / 3447 文件，85%）。那是 vendored 的
+  FerroX/AMReX 工具链源码，不是本项目产出的研究产物，也不是任何服务的输出目标。
+  这是有意识的盲区，已写在 conftest 里。
+
+修好这 4 个测试并非每个一行：`check_simulation_runtime` 的
+`status_path=DEFAULT_STATUS_PATH` 是**定义时绑定**的默认参数，事后改模块常量无效；
+而 `PROJECT_ROOT` 有 48 处用在 `data/` 之外，其中 `llm_extractor.py:72` 是调用时读取
+`prompts/hfo2_extraction_prompt.md`，统一重定向会直接弄崩测试。详见 conftest 模块 docstring。
+
+#### 本次运行的实测结论
+
+```
+主仓    : 1 failed, 128 passed, 1 error   (error 即守卫触发，列出 10 个文件)
+worktree: 197 passed, 0 skipped
+生产库  : 0e1a0e04fa8b025b326d5e19cb651700e07ba98160c416fda03fa2d4fb912228  前后一致
+```
+
+主仓那 1 个失败是 `test_simulation_runtime.py::test_read_only_probe_preserves_matching_smoke_results`，
+断言 `refreshed["jax"]["smoke_status"] == "ok"` 实得 `"not_run"`。根因是 **JAX/ase 未安装**
+（本次有意排除的 FerroX 栈），探针如实返回
+`{"installed": false, "version": null, "jaxlib_version": null, "smoke_status": "not_run"}`。
+**不是代码缺陷**，但**是测试设计缺陷**：jax 缺失时它无条件断言而非 skip，
+而同项目的 `test_phase_strain_job_builder.py` 就有正确的 `pytest.skip(...)` 范式。
+
+#### 顺带清理：陈旧的 macOS `.pyc`
+
+两仓共 715 个项目 `.pyc`（主仓 342、worktree 373），其中主仓 107 个、worktree 112 个
+**内嵌 macOS 绝对路径**。因为 `cp -p` 保留了 mtime 且文件大小未变，Python 判定缓存有效
+并直接加载，导致 pytest 回溯显示 `/Users/jinfengzhang/Codex/...` 且源码行为 `???`。
+已全部删除（`__pycache__` 是纯派生缓存，已被 gitignore，会自动重建）。mac 的 `.venv`
+未受影响（其 10,720 个 `.pyc` 保留）。
+
+清理时 `find` 范围伸进了 `data/`，删除了 `data/literature_intake/.../Doped-HfO2/`
+（一个克隆的第三方仓库）内的 **13 个 `.pyc`**。已验证无损害：13 个 `.py` 源文件全部在、
+`git log` 正常、`git -c core.filemode=false diff --stat` **输出为空即零内容差异**。
+该仓库另有 134 个文件显示为 `100644 → 100755` 模式变化，源于 `/mnt/d` 9p 挂载合成
+模式位，是既有现象，与本次操作无关。
+
 ## 7. 尚未完成的迁移项
 
 按影响排序：
