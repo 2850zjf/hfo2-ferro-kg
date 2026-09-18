@@ -120,10 +120,12 @@ class BenchmarkEvidence(StrictModel):
 class FerroXExperimentSpec(StrictModel):
     schema_version: Literal["ferrox-experiment-v1"] = "ferrox-experiment-v1"
     name: str = Field(default="HZO MFM baseline", min_length=3, max_length=120)
-    preset: Literal["mfm_baseline", "phase_orientation_screen"] = "mfm_baseline"
+    preset: Literal["mfm_baseline", "phase_orientation_screen", "mfim_deadlayer_scan"] = "mfm_baseline"
     material_formula: Literal["Hf0.5Zr0.5O2"] = "Hf0.5Zr0.5O2"
-    stack: Literal["TiN/HZO/TiN"] = "TiN/HZO/TiN"
+    stack: Literal["TiN/HZO/TiN", "TiN/HZO/Al2O3/TiN"] = "TiN/HZO/TiN"
     thickness_nm: float = Field(default=10.0, ge=1.0, le=100.0)
+    deadlayer_nm: float = Field(default=0.0, ge=0.0, le=50.0)
+    dielectric_epsilon: float = Field(default=10.0, gt=0.0)
     material: HZOMaterialCoefficients = Field(default_factory=HZOMaterialCoefficients)
     voltage: VoltageProtocol = Field(default_factory=VoltageProtocol)
     microstructure: MicrostructureSpec = Field(default_factory=MicrostructureSpec)
@@ -144,6 +146,18 @@ class FerroXExperimentSpec(StrictModel):
         z_cells = self.thickness_nm / self.grid.cell_size_nm
         if abs(z_cells - round(z_cells)) > 1e-9:
             raise ValueError("thickness must be divisible by cell size")
+        if self.deadlayer_nm > 0.0:
+            if self.stack != "TiN/HZO/Al2O3/TiN":
+                raise ValueError("deadlayer requires TiN/HZO/Al2O3/TiN stack")
+            fe_nm = self.thickness_nm - self.deadlayer_nm
+            if fe_nm <= 0:
+                raise ValueError("deadlayer thicker than stack")
+            for length in (fe_nm, self.deadlayer_nm):
+                cells = length / self.grid.cell_size_nm
+                if abs(cells - round(cells)) > 1e-9:
+                    raise ValueError("deadlayer/FE thickness must be divisible by cell size")
+        elif self.stack == "TiN/HZO/Al2O3/TiN":
+            raise ValueError("TiN/HZO/Al2O3/TiN stack requires deadlayer_nm > 0")
         if self.quantitative_calibration:
             if self.benchmark is None or not self.benchmark.doi.strip():
                 raise ValueError("quantitative calibration requires evidence-complete DOI benchmark")

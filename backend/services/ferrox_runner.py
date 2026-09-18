@@ -167,6 +167,13 @@ def render_inputs(parameters: FerroXExperimentSpec | dict[str, Any]) -> str:
     half_x = spec.grid.lateral_x_nm / 2.0 * 1e-9
     half_y = spec.grid.lateral_y_nm / 2.0 * 1e-9
     height = spec.thickness_nm * 1e-9
+    fe_height = (spec.thickness_nm - spec.deadlayer_nm) * 1e-9
+    if spec.deadlayer_nm > 0.0:
+        de_lo = f"{-half_x:.12g} {-half_y:.12g} {fe_height:.12g}"
+        de_hi = f"{half_x:.12g} {half_y:.12g} {height:.12g}"
+    else:
+        de_lo = "-1.0 -1.0 -1.0"
+        de_hi = "-1.0 -1.0 -1.0"
     voltage_sweep = int(voltage.mode == "quasistatic_triangle")
     initial_voltage = voltage.voltage_min_v if voltage_sweep else 0.0
     total_steps = voltage.settle_steps * voltage.voltage_points
@@ -202,10 +209,10 @@ num_Vapp_max = {voltage.voltage_points}
 phi_tolerance = 1.0e-5
 SC_lo = -1.0 -1.0 -1.0
 SC_hi = -1.0 -1.0 -1.0
-DE_lo = -1.0 -1.0 -1.0
-DE_hi = -1.0 -1.0 -1.0
+DE_lo = {de_lo}
+DE_hi = {de_hi}
 FE_lo = {-half_x:.12g} {-half_y:.12g} 0.0
-FE_hi = {half_x:.12g} {half_y:.12g} {height:.12g}
+FE_hi = {half_x:.12g} {half_y:.12g} {fe_height:.12g}
 Coordinate_Transformation = 1
 use_Euler_angles = 1
 tphase_geom.tphase_geom_function(x,y,z) = "{_tile_expression(spec, 'tetragonal')}"
@@ -216,7 +223,7 @@ epsilon_0 = 8.85e-12
 epsilonX_fe = {material.epsilon_x:.12g}
 epsilonZ_fe = {material.epsilon_z:.12g}
 epsilonX_fe_tphase = 40.0
-epsilon_de = 10.0
+epsilon_de = {spec.dielectric_epsilon:.12g}
 epsilon_si = 11.7
 alpha = {material.alpha:.12g}
 beta = {material.beta:.12g}
